@@ -1,0 +1,15 @@
+THE NEST ANDROID APP 1.0.7 - VALIDATION REPORT
+
+- Applied the supplied nine-color natural brand palette throughout the React Native app.
+- Centralized exact palette colors and semantic accessibility shades in src/theme.js.
+- Replaced screen-level hardcoded highlight, placeholder, callout, error, success, unread, and overlay colors.
+- Updated status bar, splash background, Android navigation bar, notification color, and adaptive icon background.
+- Recolored the main icon, splash icon, and adaptive foreground artwork to Forest and Sunflower.
+- Verified readable contrast for primary, success, warning, error, muted, and placeholder text combinations.
+- Added and pinned expo-font 14.0.12 and @expo/vector-icons 15.0.3 to the Expo SDK 54-compatible dependency set.
+- Preserved all v1.0.5 shop layout, authentication, cart, checkout, and Metro fixes.
+- Package and Expo versions updated to 1.0.7; Android versionCode updated to 8.
+- Android Metro/Hermes production export completed successfully after all theme and dependency changes.
+- WordPress bridge 1.1.0 remains embedded and unchanged.
+- JSON configuration and package lock parse successfully.
+- No Stripe, Shippo, WordPress, or other private credentials are included.
