@@ -7,8 +7,8 @@ import { api } from '../lib/api';
 import { decodeHtml } from '../lib/format';
 import { colors, radii, spacing } from '../theme';
 
+// Only 3day/7day are supported by the nest-trust/v1 backend today.
 const TIERS = [
-  ['1day', '1 day', 'A quick lift to the top of the feed.'],
   ['3day', '3 days', 'Our most popular boost window.'],
   ['7day', '7 days', 'Maximum exposure for a full week.'],
 ];

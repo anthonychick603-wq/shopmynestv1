@@ -250,7 +250,16 @@ export const api = {
   updateOffer: (id, payload, token) => apiRequest('trust', `/offers/${id}`, {
     method: 'PUT', token, body: payload,
   }),
+  // Browser/session-based flow — used by the web shortcode checkout.
   startOfferCheckout: (offerToken, token) => apiRequest('trust', '/offers/checkout/start', {
+    method: 'POST', token, body: { token: offerToken },
+  }),
+  // Native-app-friendly flow — creates a real WooCommerce order directly at
+  // the negotiated offer price (no cart/session needed) and returns a
+  // checkout_url to open in-browser/WebView to pay. Use this instead of
+  // startOfferCheckout()+createPaymentIntent() when checking out an
+  // accepted offer from the app.
+  createOfferCheckoutOrder: (offerToken, token) => apiRequest('trust', '/offers/checkout/order', {
     method: 'POST', token, body: { token: offerToken },
   }),
   addToBundleBuilder: (productId, token) => apiRequest('trust', '/bundle-builder', {

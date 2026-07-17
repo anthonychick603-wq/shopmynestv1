@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 import { initStripe, useStripe } from '@stripe/stripe-react-native';
 import { Button, EmptyState, Field, Loading, Screen } from '../components/UI';
 import { APP_NAME, MERCHANT_IDENTIFIER } from '../config';
@@ -123,11 +123,40 @@ export default function CheckoutScreen({ navigation, route }) {
     return () => { active = false; };
   }, [token, user?.id]);
 
-  useEffect(() => {
-    if (!token || !offerToken) return;
-    // Flag the negotiated offer price server-side so the quote/intent apply it.
-    api.startOfferCheckout(offerToken, token).catch(() => {});
-  }, [offerToken, token]);
+  const [offerPaying, setOfferPaying] = useState(false);
+
+  // Accepted-offer checkouts CANNOT go through the native Stripe
+  // PaymentIntent flow below — that flow (quoteCheckout/createPaymentIntent)
+  // has no knowledge of negotiated offer pricing, and the WooCommerce
+  // cart/session flag used by startOfferCheckout() doesn't carry over to a
+  // stateless native API call. Instead, create a real order directly at the
+  // negotiated price server-side and open its checkout_url in the browser —
+  // the same pattern BoostScreen uses for boost purchases.
+  const payWithAcceptedOffer = useCallback(async () => {
+    if (!token || !offerToken || offerPaying) return;
+    setOfferPaying(true);
+    setError('');
+    try {
+      const result = await api.createOfferCheckoutOrder(offerToken, token);
+      const url = result?.checkout_url;
+      if (!url) throw new Error('No checkout link was returned for this offer.');
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) throw new Error('The offer checkout page could not be opened.');
+      await Linking.openURL(url);
+      clearCart();
+      Alert.alert(
+        'Finish your payment',
+        'Complete the payment in your browser at the negotiated offer price. Your order will appear in My Orders once payment is confirmed.',
+        [{ text: 'View my orders', onPress: () => navigation.replace('BuyerOrders') }]
+      );
+    } catch (err) {
+      const message = checkoutErrorMessage(err, 'Could not start checkout for this offer.');
+      setError(message);
+      Alert.alert('Could not start checkout', message);
+    } finally {
+      setOfferPaying(false);
+    }
+  }, [clearCart, navigation, offerPaying, offerToken, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -233,7 +262,9 @@ export default function CheckoutScreen({ navigation, route }) {
   }, [finishPendingPayment, pendingCheckout, pendingLoaded, token]);
 
   const loadQuote = useCallback(async () => {
-    if (!token || !checkoutItems.length || pendingCheckout || !checkoutSessionLoaded) return;
+    // Accepted-offer checkout uses payWithAcceptedOffer() / createOfferCheckoutOrder
+    // instead — skip the native quote/PaymentIntent path entirely.
+    if (offerToken || !token || !checkoutItems.length || pendingCheckout || !checkoutSessionLoaded) return;
     setLoadingQuote(true);
     try {
       const result = await api.quoteCheckout(checkoutItems, null, token, offerToken);
@@ -451,6 +482,26 @@ export default function CheckoutScreen({ navigation, route }) {
   }
 
   if (!checkoutSessionLoaded) return <Loading label="Preparing secure checkout…" />;
+
+  // Accepted-offer checkout: negotiated pricing is only known/enforced
+  // server-side by the offer's checkout token, so skip the native
+  // quote/PaymentIntent flow and pay via a WooCommerce checkout link instead.
+  if (offerToken) {
+    return (
+      <Screen scroll contentContainerStyle={styles.content}>
+        <Text style={styles.offerBanner}>Your accepted offer price will be applied to this order.</Text>
+        <Text style={styles.title}>Pay for your offer</Text>
+        <Text style={styles.subtitle}>You'll be taken to a secure MyNest checkout page in your browser to pay the negotiated price. Your order confirms once payment completes.</Text>
+        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        <Button
+          title={offerPaying ? 'Opening secure checkout…' : 'Continue to secure payment'}
+          icon="lock-closed-outline"
+          onPress={payWithAcceptedOffer}
+          loading={offerPaying}
+        />
+      </Screen>
+    );
+  }
 
   if (!items.length) {
     return (
