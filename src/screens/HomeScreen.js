@@ -3,18 +3,33 @@ import { Alert, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, 
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../components/AppHeader';
 import ProductCard from '../components/ProductCard';
-import { Avatar, EmptyState, Loading } from '../components/UI';
+import { Avatar, EmptyState, Loading, Pill } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../lib/api';
 import { dateLabel, decodeHtml } from '../lib/format';
 import { colors, radii, spacing } from '../theme';
 
+function normalizeTrustProduct(item) {
+  const image = item.image || item.images?.[0]?.src || item.thumbnail || null;
+  return {
+    type: 'product',
+    id: item.id,
+    title: item.title || item.name || 'Product',
+    image,
+    price: item.price ?? item.regular_price ?? 0,
+    author: item.author || item.seller || null,
+    stock_status: item.stock_status,
+    stock_quantity: item.stock_quantity,
+  };
+}
+
 export default function HomeScreen({ navigation }) {
   const { token } = useAuth();
   const { addItem, itemCount } = useCart();
   const [feed, setFeed] = useState([]);
   const [mode, setMode] = useState('discover');
+  const [personalized, setPersonalized] = useState(Boolean(token));
   const [currency, setCurrency] = useState('USD');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,16 +38,23 @@ export default function HomeScreen({ navigation }) {
   const load = useCallback(async () => {
     setError('');
     try {
-      const result = await api.getFeed({ page: 1, per_page: 30 }, token);
-      setFeed(result?.items || []);
-      setMode(result?.mode || 'discover');
+      if (personalized && token) {
+        const result = await api.getTrustFeed({ page: 1, per_page: 30 }, token);
+        const raw = Array.isArray(result) ? result : (result?.items || result?.products || []);
+        setFeed(raw.map(normalizeTrustProduct));
+        setMode('for_you');
+      } else {
+        const result = await api.getFeed({ page: 1, per_page: 30 }, token);
+        setFeed(result?.items || []);
+        setMode(result?.mode || 'discover');
+      }
     } catch (err) {
       setError(err.message || 'The feed could not be loaded.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [token]);
+  }, [personalized, token]);
 
   useEffect(() => {
     api.getConfig()
@@ -46,11 +68,17 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.screen}>
       <AppHeader
         title="The Nest"
-        subtitle={mode === 'following' ? 'New from shops you follow' : 'Handmade finds and maker stories'}
+        subtitle={mode === 'for_you' ? 'Picked for you' : mode === 'following' ? 'New from shops you follow' : 'Handmade finds and maker stories'}
         cartCount={itemCount}
         onCart={() => navigation.switchTab('Cart')}
         onProfile={() => navigation.switchTab('Account')}
       />
+      {token ? (
+        <View style={styles.feedToggle}>
+          <Pill label="For you" active={personalized} onPress={() => { if (!personalized) { setLoading(true); setPersonalized(true); } }} />
+          <Pill label="Discover" active={!personalized} onPress={() => { if (personalized) { setLoading(true); setPersonalized(false); } }} />
+        </View>
+      ) : null}
       {loading ? <Loading label="Building your feed…" /> : (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
@@ -118,6 +146,7 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
+  feedToggle: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   content: { paddingHorizontal: spacing.lg, paddingBottom: 36 },
   feedCardWrap: { marginBottom: spacing.lg },
   postCard: { backgroundColor: colors.surface, borderRadius: radii.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg },

@@ -95,6 +95,9 @@ export default function AccountScreen({ navigation }) {
 
           <View style={styles.menuCard}>
             <MenuItem icon="receipt-outline" title="My orders" subtitle="Purchase history and tracking" onPress={() => navigation.push('BuyerOrders')} />
+            <MenuItem icon="heart-outline" title="Favorites" subtitle="Items you've saved" onPress={() => navigation.push('Favorites')} />
+            <MenuItem icon="pricetags-outline" title="Offers & bundles" subtitle="Offers you've made or received" onPress={() => navigation.push('Offers')} />
+            <MenuItem icon="shield-checkmark-outline" title="Buyer protection" subtitle="Open and track disputes" onPress={() => navigation.push('Disputes')} />
             <MenuItem icon="chatbubbles-outline" title="Messages" subtitle="Conversations with buyers and sellers" onPress={() => navigation.push('Messages')} />
             <MenuItem icon="person-outline" title="Profile and addresses" subtitle="Update your account details" onPress={() => navigation.push('Profile')} />
           </View>

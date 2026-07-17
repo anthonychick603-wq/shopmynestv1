@@ -1,13 +1,22 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../components/AppHeader';
 import ProductCard from '../components/ProductCard';
-import { EmptyState, Loading, Pill } from '../components/UI';
+import { Button, EmptyState, Field, Loading, Pill } from '../components/UI';
 import { useCart } from '../context/CartContext';
 import { api } from '../lib/api';
 import { decodeHtml } from '../lib/format';
 import { colors, radii, spacing } from '../theme';
+
+// pa_condition is registered with fixed terms by the Trust Suite plugin.
+const CONDITION_TERMS = [
+  ['new-with-tags', 'New with tags'],
+  ['new-without-tags', 'New without tags'],
+  ['very-good', 'Very good'],
+  ['good', 'Good'],
+  ['satisfactory', 'Satisfactory'],
+];
 
 export default function ShopScreen({ navigation }) {
   const { addItem, itemCount } = useCart();
@@ -17,9 +26,17 @@ export default function ShopScreen({ navigation }) {
   const [search, setSearch] = useState('');
   const [submittedSearch, setSubmittedSearch] = useState('');
   const [sort, setSort] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [condition, setCondition] = useState('');
+  const [sizeInput, setSizeInput] = useState('');
+  const [brandInput, setBrandInput] = useState('');
+  const [size, setSize] = useState('');
+  const [brand, setBrand] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+
+  const activeFilterCount = [condition, size, brand].filter(Boolean).length;
 
   const loadProducts = useCallback(async () => {
     setError('');
@@ -29,6 +46,9 @@ export default function ShopScreen({ navigation }) {
         category: category || undefined,
         search: submittedSearch || undefined,
         sort: sort || undefined,
+        pa_condition: condition || undefined,
+        pa_size: size || undefined,
+        pa_brand: brand || undefined,
       });
       setProducts(result?.items || []);
     } catch (err) {
@@ -37,7 +57,20 @@ export default function ShopScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [category, sort, submittedSearch]);
+  }, [brand, category, condition, size, sort, submittedSearch]);
+
+  function applyFilters() {
+    setSize(sizeInput.trim());
+    setBrand(brandInput.trim());
+  }
+
+  function clearFilters() {
+    setCondition('');
+    setSizeInput('');
+    setBrandInput('');
+    setSize('');
+    setBrand('');
+  }
 
   useEffect(() => {
     api.getCategories()
@@ -125,7 +158,34 @@ export default function ShopScreen({ navigation }) {
               onPress={() => setSort(value)}
             />
           ))}
+          <Pill
+            label={activeFilterCount ? `Filters (${activeFilterCount})` : 'Filters'}
+            active={showFilters || activeFilterCount > 0}
+            onPress={() => setShowFilters((value) => !value)}
+          />
         </View>
+
+        {showFilters ? (
+          <View style={styles.filterPanel}>
+            <Text style={styles.filterLabel}>Condition</Text>
+            <View style={styles.filterPills}>
+              {CONDITION_TERMS.map(([value, label]) => (
+                <Pill
+                  key={value}
+                  label={label}
+                  active={condition === value}
+                  onPress={() => setCondition((current) => (current === value ? '' : value))}
+                />
+              ))}
+            </View>
+            <Field label="Size" value={sizeInput} onChangeText={setSizeInput} placeholder="e.g. M, 10, One size" autoCapitalize="none" containerStyle={styles.filterField} />
+            <Field label="Brand" value={brandInput} onChangeText={setBrandInput} placeholder="e.g. Levi's" autoCapitalize="none" containerStyle={styles.filterField} />
+            <View style={styles.filterActions}>
+              <Button title="Apply filters" onPress={applyFilters} style={styles.filterButton} />
+              <Button title="Clear" variant="outline" onPress={clearFilters} style={styles.filterButton} />
+            </View>
+          </View>
+        ) : null}
       </View>
 
       {error ? (
@@ -239,6 +299,20 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: spacing.md,
   },
+  filterPanel: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+  },
+  filterLabel: { color: colors.text, fontWeight: '800', marginBottom: spacing.sm },
+  filterPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: spacing.md },
+  filterField: { marginBottom: spacing.sm },
+  filterActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  filterButton: { flex: 1, minWidth: 0 },
   productList: {
     paddingHorizontal: spacing.lg,
     paddingBottom: 34,

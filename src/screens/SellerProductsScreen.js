@@ -49,7 +49,10 @@ export default function SellerProductsScreen({ navigation }) {
               <Text style={styles.price}>{money(item.price, item.currency)}</Text>
               <View style={styles.metaRow}><Pill label={item.status || 'draft'} active={item.status === 'publish'} /><Text style={styles.stock}>{item.stock_quantity ?? 0} in stock</Text></View>
             </View>
-            <Pressable onPress={() => confirmDelete(item)} hitSlop={8} style={styles.trash}><Ionicons name="trash-outline" size={20} color={colors.danger} /></Pressable>
+            <View style={styles.actions}>
+              <Pressable accessibilityLabel="Boost listing" onPress={() => navigation.push('Boost', { product: item })} hitSlop={8} style={styles.actionIcon}><Ionicons name="rocket-outline" size={20} color={colors.primary} /></Pressable>
+              <Pressable accessibilityLabel="Delete listing" onPress={() => confirmDelete(item)} hitSlop={8} style={styles.actionIcon}><Ionicons name="trash-outline" size={20} color={colors.danger} /></Pressable>
+            </View>
           </Pressable>
         )}
       />
@@ -70,5 +73,6 @@ const styles = StyleSheet.create({
   price: { color: colors.primary, fontWeight: '900', marginTop: 5 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: spacing.sm },
   stock: { color: colors.muted, fontSize: 12 },
-  trash: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  actions: { justifyContent: 'space-between', alignItems: 'center' },
+  actionIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 });

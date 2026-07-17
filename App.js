@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { AuthProvider } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
+import { FavoritesProvider } from './src/context/FavoritesContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 Notifications.setNotificationHandler({
@@ -23,9 +24,11 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style="dark" backgroundColor={colors.background} />
         <AuthProvider>
-          <CartProvider>
-            <AppNavigator />
-          </CartProvider>
+          <FavoritesProvider>
+            <CartProvider>
+              <AppNavigator />
+            </CartProvider>
+          </FavoritesProvider>
         </AuthProvider>
       </SafeAreaProvider>
     </ErrorBoundary>

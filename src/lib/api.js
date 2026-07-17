@@ -203,8 +203,8 @@ export const api = {
     return apiRequest('marketplace', '/account/photo/upload', { method: 'POST', token, formData, timeoutMs: 60000 });
   },
 
-  quoteCheckout: (items, shipping, token) => apiRequest('checkout', '/checkout/quote', {
-    method: 'POST', token, body: { items, shipping },
+  quoteCheckout: (items, shipping, token, offerToken) => apiRequest('checkout', '/checkout/quote', {
+    method: 'POST', token, body: { items, shipping, offer_token: offerToken || undefined },
   }),
   createPaymentIntent: (payload, token) => apiRequest('checkout', '/checkout/create-intent', {
     method: 'POST', token, body: payload, timeoutMs: 45000,
@@ -215,4 +215,50 @@ export const api = {
 
   getBuyerOrders: (params, token) => apiRequest('marketplace', '/orders', { query: params, token }),
   getBuyerOrder: (id, token) => apiRequest('marketplace', `/orders/${id}`, { token }),
+
+  // Trust & Growth Suite (nest-trust/v1)
+  getTrustFeed: (params = {}, token) => apiRequest('trust', '/feed', { query: params, token }),
+
+  getFavorites: (token) => apiRequest('trust', '/favorites', { token }),
+  toggleFavorite: (productId, token) => apiRequest('trust', '/favorites', {
+    method: 'POST', token, body: { product_id: productId },
+  }),
+  removeFavorite: (productId, token) => apiRequest('trust', `/favorites/${productId}`, {
+    method: 'DELETE', token,
+  }),
+  getFavoritesCount: (productId) => apiRequest('trust', `/products/${productId}/favorites-count`),
+
+  getSellerBadge: (sellerId) => apiRequest('trust', `/sellers/${sellerId}/badge`),
+  getSellerProStatus: (sellerId) => apiRequest('trust', `/sellers/${sellerId}/pro-status`),
+
+  createDispute: (payload, token) => apiRequest('trust', '/disputes', {
+    method: 'POST', token, body: payload,
+  }),
+  getDisputes: (params, token) => apiRequest('trust', '/disputes', { query: params, token }),
+  getDispute: (id, token) => apiRequest('trust', `/disputes/${id}`, { token }),
+  updateDispute: (id, payload, token) => apiRequest('trust', `/disputes/${id}`, {
+    method: 'PUT', token, body: payload,
+  }),
+  escalateDispute: (id, token) => apiRequest('trust', `/disputes/${id}/escalate`, {
+    method: 'POST', token, body: {},
+  }),
+
+  createOffer: (payload, token) => apiRequest('trust', '/offers', {
+    method: 'POST', token, body: payload,
+  }),
+  getOffers: (params, token) => apiRequest('trust', '/offers', { query: params, token }),
+  updateOffer: (id, payload, token) => apiRequest('trust', `/offers/${id}`, {
+    method: 'PUT', token, body: payload,
+  }),
+  startOfferCheckout: (offerToken, token) => apiRequest('trust', '/offers/checkout/start', {
+    method: 'POST', token, body: { token: offerToken },
+  }),
+  addToBundleBuilder: (productId, token) => apiRequest('trust', '/bundle-builder', {
+    method: 'POST', token, body: { product_id: productId },
+  }),
+  getBundleBuilder: (token) => apiRequest('trust', '/bundle-builder', { token }),
+
+  createBoost: (payload, token) => apiRequest('trust', '/boosts', {
+    method: 'POST', token, body: payload,
+  }),
 };

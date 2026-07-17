@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button, Field, Pill, Screen } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { money } from '../lib/format';
+import { humanize, money } from '../lib/format';
 import { colors, radii, spacing } from '../theme';
 
 function rateName(rate) {
@@ -30,6 +30,19 @@ export default function SellerOrderDetailScreen({ navigation, route }) {
   const [loadingRates, setLoadingRates] = useState(false);
   const [buyingLabel, setBuyingLabel] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [disputes, setDisputes] = useState([]);
+
+  const loadDisputes = useCallback(async () => {
+    try {
+      const result = await api.getDisputes({ order_id: order.id }, token);
+      const list = Array.isArray(result) ? result : (result?.disputes || result?.items || []);
+      setDisputes(list.filter((dispute) => String(dispute.order_id) === String(order.id) || dispute.order_number === order.number));
+    } catch {
+      // Disputes are optional; keep fulfillment usable if the endpoint is unavailable.
+    }
+  }, [order.id, order.number, token]);
+
+  useEffect(() => { void loadDisputes(); }, [loadDisputes]);
 
   const loadLabel = useCallback(async () => {
     setLoadingLabel(true);
@@ -238,6 +251,22 @@ export default function SellerOrderDetailScreen({ navigation, route }) {
         ) : null}
       </View>
 
+      {disputes.length ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Buyer protection</Text>
+          {disputes.map((dispute) => (
+            <Pressable key={dispute.id} accessibilityRole="button" style={styles.disputeRow} onPress={() => navigation.push('DisputeDetail', { disputeId: dispute.id, onUpdated: loadDisputes })}>
+              <Ionicons name="shield-outline" size={20} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.disputeReason}>{humanize(dispute.reason)}</Text>
+                <Text style={styles.help}>{humanize(dispute.status)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       <Text style={styles.label}>Manual fulfillment status</Text>
       <View style={styles.pills}>{['processing', 'shipped', 'completed', 'cancelled'].map((item) => <Pill key={item} label={item} active={status === item} onPress={() => setStatus(item)} />)}</View>
       <Field label="Tracking number" value={tracking} onChangeText={setTracking} autoCapitalize="characters" />
@@ -278,4 +307,6 @@ const styles = StyleSheet.create({
   rateBody: { flex: 1 },
   rateName: { color: colors.text, fontWeight: '900', marginBottom: 2 },
   ratePrice: { color: colors.primary, fontWeight: '900', fontSize: 16, marginLeft: spacing.sm },
+  disputeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  disputeReason: { color: colors.text, fontWeight: '800' },
 });

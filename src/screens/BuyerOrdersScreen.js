@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, Loading, Pill } from '../components/UI';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
@@ -33,6 +34,13 @@ export default function BuyerOrdersScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}>
+      {!error && orders.length ? (
+        <Pressable accessibilityRole="button" style={styles.protectionBanner} onPress={() => navigation.push('Disputes')}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.primary} />
+          <Text style={styles.protectionText}>Buyer protection & disputes</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+        </Pressable>
+      ) : null}
       {error ? <EmptyState icon="extension-puzzle-outline" title="Order history needs the bridge" message={error} /> : null}
       {!error && !orders.length ? <EmptyState icon="receipt-outline" title="No orders yet" message="Your completed purchases will appear here." action="Browse the shop" onAction={() => navigation.resetToTab('Shop')} /> : null}
       {orders.map((order) => (
@@ -44,6 +52,10 @@ export default function BuyerOrdersScreen({ navigation }) {
           {order.items?.map((item) => <Text key={item.item_id} style={styles.item}>{item.quantity} × {item.name}</Text>)}
           <View style={styles.totalRow}><Text style={styles.totalLabel}>Total</Text><Text style={styles.total}>{money(order.total, order.currency)}</Text></View>
           {order.tracking?.length ? <Text style={styles.tracking}>Tracking: {order.tracking.map((item) => item.number).join(', ')}</Text> : null}
+          <Pressable accessibilityRole="button" style={styles.disputeLink} onPress={() => navigation.push('NewDispute', { order, onCreated: load })}>
+            <Ionicons name="shield-outline" size={16} color={colors.muted} />
+            <Text style={styles.disputeText}>Open a dispute</Text>
+          </Pressable>
         </View>
       ))}
     </ScrollView>
@@ -62,4 +74,8 @@ const styles = StyleSheet.create({
   totalLabel: { color: colors.text, fontWeight: '800' },
   total: { color: colors.primary, fontWeight: '900', fontSize: 18 },
   tracking: { color: colors.success, fontWeight: '800', marginTop: spacing.md },
+  protectionBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.md },
+  protectionText: { color: colors.text, fontWeight: '800', flex: 1 },
+  disputeLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, alignSelf: 'flex-start' },
+  disputeText: { color: colors.muted, fontWeight: '700', fontSize: 13 },
 });

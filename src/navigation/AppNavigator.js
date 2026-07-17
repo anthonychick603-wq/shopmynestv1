@@ -27,6 +27,14 @@ import SellerOrderDetailScreen from '../screens/SellerOrderDetailScreen';
 import SellerEarningsScreen from '../screens/SellerEarningsScreen';
 import SellerProfileScreen from '../screens/SellerProfileScreen';
 import ShippingProfileScreen from '../screens/ShippingProfileScreen';
+import FavoritesScreen from '../screens/FavoritesScreen';
+import DisputesScreen from '../screens/DisputesScreen';
+import DisputeDetailScreen from '../screens/DisputeDetailScreen';
+import NewDisputeScreen from '../screens/NewDisputeScreen';
+import OffersScreen from '../screens/OffersScreen';
+import MakeOfferScreen from '../screens/MakeOfferScreen';
+import BundleBuilderScreen from '../screens/BundleBuilderScreen';
+import BoostScreen from '../screens/BoostScreen';
 import { colors, spacing } from '../theme';
 
 const tabConfig = {
@@ -55,6 +63,14 @@ const stackConfig = {
   SellerEarnings: { title: 'Earnings & payouts', component: SellerEarningsScreen },
   SellerProfile: { title: 'Shop profile', component: SellerProfileScreen },
   ShippingProfile: { title: 'Shipping settings', component: ShippingProfileScreen },
+  Favorites: { title: 'Favorites', component: FavoritesScreen },
+  Disputes: { title: 'Buyer protection', component: DisputesScreen },
+  DisputeDetail: { title: 'Dispute', component: DisputeDetailScreen },
+  NewDispute: { title: 'Open a dispute', component: NewDisputeScreen },
+  Offers: { title: 'Offers & bundles', component: OffersScreen },
+  MakeOffer: { title: 'Make an offer', component: MakeOfferScreen },
+  BundleBuilder: { title: 'Bundle builder', component: BundleBuilderScreen },
+  Boost: { title: 'Boost listing', component: BoostScreen },
 };
 
 export default function AppNavigator() {

@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radii, spacing } from '../theme';
 import { decodeHtml, money } from '../lib/format';
+import FavoriteButton from './FavoriteButton';
 
 function isProductUnavailable(product) {
   const stock = Number(product?.stock_quantity);
@@ -18,6 +19,7 @@ export default function ProductCard({ product, onPress, onAdd, compact = false }
       <View>
         <Image source={{ uri: product.image }} style={[styles.image, compact && styles.compactImage]} resizeMode="cover" />
         {outOfStock ? <View style={styles.soldOutBadge}><Text style={styles.soldOutText}>Sold out</Text></View> : null}
+        {product.id ? <FavoriteButton productId={product.id} style={styles.favorite} /> : null}
       </View>
       <View style={styles.body}>
         <Text numberOfLines={2} style={styles.name}>{productName}</Text>
@@ -40,6 +42,7 @@ const styles = StyleSheet.create({
   compactCard: { borderRadius: radii.md },
   image: { width: '100%', aspectRatio: 1, backgroundColor: colors.surfaceMuted },
   compactImage: { aspectRatio: 0.95 },
+  favorite: { position: 'absolute', right: 9, top: 9 },
   soldOutBadge: { position: 'absolute', left: 9, top: 9, backgroundColor: 'rgba(0, 0, 0, 0.82)', borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 5 },
   soldOutText: { color: colors.white, fontWeight: '900', fontSize: 11 },
   body: { padding: spacing.md },

@@ -40,6 +40,13 @@ export function dateLabel(value) {
   });
 }
 
+export function humanize(value = '') {
+  return String(value)
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+    .trim();
+}
+
 export function clampQuantity(value) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? Math.max(1, Math.min(99, parsed)) : 1;

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, Loading, SectionTitle } from '../components/UI';
+import SellerBadge from '../components/SellerBadge';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { money } from '../lib/format';
@@ -15,8 +16,9 @@ function Action({ title, subtitle, icon, onPress }) {
 }
 
 export default function SellerDashboardScreen({ navigation }) {
-  const { token, isSeller } = useAuth();
+  const { token, user, isSeller } = useAuth();
   const [data, setData] = useState(null);
+  const [proSeller, setProSeller] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -28,6 +30,13 @@ export default function SellerDashboardScreen({ navigation }) {
   }, [token]);
   useEffect(() => { if (isSeller) load(); else setLoading(false); }, [isSeller, load]);
 
+  useEffect(() => {
+    if (!isSeller || !user?.id) return;
+    api.getSellerProStatus(user.id)
+      .then((result) => setProSeller(Boolean(result?.pro_seller)))
+      .catch(() => {});
+  }, [isSeller, user?.id]);
+
   if (!isSeller) return <EmptyState icon="storefront-outline" title="Seller access required" message="Your seller application must be approved before opening this dashboard." action="Apply to sell" onAction={() => navigation.replace('SellerApplication')} />;
   if (loading) return <Loading label="Loading seller dashboard…" />;
   if (error) return <EmptyState icon="alert-circle-outline" title="Dashboard unavailable" message={error} action="Try again" onAction={load} />;
@@ -36,7 +45,16 @@ export default function SellerDashboardScreen({ navigation }) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}>
       <Text style={styles.kicker}>SELLER DASHBOARD</Text>
-      <Text style={styles.title}>{data?.profile?.store_name || 'Your Nest'}</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{data?.profile?.store_name || 'Your Nest'}</Text>
+        {proSeller ? (
+          <View style={styles.proChip}>
+            <Ionicons name="star" size={13} color={colors.onAccent} />
+            <Text style={styles.proChipText}>PRO</Text>
+          </View>
+        ) : null}
+      </View>
+      {user?.id ? <SellerBadge sellerId={user.id} style={styles.badge} /> : null}
       <View style={styles.statsRow}>
         <Stat icon="cube-outline" label="Products" value={data?.product_count || 0} />
         <Stat icon="receipt-outline" label="Recent orders" value={data?.recent_orders?.length || 0} />
@@ -45,6 +63,8 @@ export default function SellerDashboardScreen({ navigation }) {
       <View style={styles.actionCard}>
         <Action icon="pricetags-outline" title="Products" subtitle="Create and edit listings" onPress={() => navigation.push('SellerProducts')} />
         <Action icon="cube-outline" title="Orders" subtitle="Fulfill purchases and add tracking" onPress={() => navigation.push('SellerOrders')} />
+        <Action icon="pricetag-outline" title="Offers & bundles" subtitle="Review buyer offers and bundle deals" onPress={() => navigation.push('Offers')} />
+        <Action icon="shield-checkmark-outline" title="Buyer protection" subtitle="Respond to disputes on your orders" onPress={() => navigation.push('Disputes')} />
         <Action icon="cash-outline" title="Earnings and payouts" subtitle={`${data?.fee?.label || 'Marketplace fee'}: ${data?.fee?.percent || 0}%`} onPress={() => navigation.push('SellerEarnings')} />
         <Action icon="storefront-outline" title="Shop profile" subtitle="Store name, about, and payout details" onPress={() => navigation.push('SellerProfile')} />
         <Action icon="car-outline" title="Shipping settings" subtitle="Ship-from address, package defaults, and labels" onPress={() => navigation.push('ShippingProfile')} />
@@ -65,7 +85,11 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: 50 },
   kicker: { color: colors.accent, fontWeight: '900', letterSpacing: 1.4, fontSize: 12 },
-  title: { color: colors.text, fontSize: 30, fontWeight: '900', marginTop: 4, marginBottom: spacing.lg },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4, marginBottom: spacing.lg },
+  title: { color: colors.text, fontSize: 30, fontWeight: '900', flexShrink: 1 },
+  proChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 4 },
+  proChipText: { color: colors.onAccent, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  badge: { marginBottom: spacing.lg },
   statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
   stat: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radii.md, padding: spacing.md },
   statIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },

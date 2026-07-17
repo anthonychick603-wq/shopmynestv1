@@ -53,10 +53,11 @@ function checkoutErrorMessage(err, fallback = 'Checkout could not be completed.'
   return message || fallback;
 }
 
-export default function CheckoutScreen({ navigation }) {
+export default function CheckoutScreen({ navigation, route }) {
   const { token, user } = useAuth();
   const { items, clearCart } = useCart();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const offerToken = route?.offerToken || null;
   const [address, setAddress] = useState({ ...emptyAddress, email: user?.email || '' });
   const [quote, setQuote] = useState(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
@@ -121,6 +122,12 @@ export default function CheckoutScreen({ navigation }) {
       });
     return () => { active = false; };
   }, [token, user?.id]);
+
+  useEffect(() => {
+    if (!token || !offerToken) return;
+    // Flag the negotiated offer price server-side so the quote/intent apply it.
+    api.startOfferCheckout(offerToken, token).catch(() => {});
+  }, [offerToken, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -229,7 +236,7 @@ export default function CheckoutScreen({ navigation }) {
     if (!token || !checkoutItems.length || pendingCheckout || !checkoutSessionLoaded) return;
     setLoadingQuote(true);
     try {
-      const result = await api.quoteCheckout(checkoutItems, null, token);
+      const result = await api.quoteCheckout(checkoutItems, null, token, offerToken);
       setQuote(result);
       setError('');
     } catch (err) {
@@ -238,7 +245,7 @@ export default function CheckoutScreen({ navigation }) {
     } finally {
       setLoadingQuote(false);
     }
-  }, [checkoutItems, checkoutSessionLoaded, pendingCheckout, token]);
+  }, [checkoutItems, checkoutSessionLoaded, offerToken, pendingCheckout, token]);
 
   useEffect(() => {
     if (pendingLoaded) void loadQuote();
@@ -293,7 +300,7 @@ export default function CheckoutScreen({ navigation }) {
       // Refresh the quote with the completed shipping address immediately
       // before creating the order. This prevents an expired quote and gives the
       // website the best available address data for tax and shipping totals.
-      const freshQuote = await api.quoteCheckout(checkoutItems, normalizedAddress, token);
+      const freshQuote = await api.quoteCheckout(checkoutItems, normalizedAddress, token, offerToken);
       setQuote(freshQuote);
 
       const intent = await api.createPaymentIntent({
@@ -456,6 +463,7 @@ export default function CheckoutScreen({ navigation }) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Screen scroll contentContainerStyle={styles.content}>
+        {offerToken ? <Text style={styles.offerBanner}>Your accepted offer price is applied to this order.</Text> : null}
         <Text style={styles.title}>Shipping address</Text>
         <Text style={styles.subtitle}>Your card details stay inside Stripe’s secure native payment sheet.</Text>
         <View style={styles.nameRow}>
@@ -509,6 +517,7 @@ const styles = StyleSheet.create({
   totalRow: { borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.md, marginBottom: 0 },
   totalLabel: { color: colors.text, fontWeight: '900', fontSize: 18 },
   totalValue: { color: colors.primary, fontWeight: '900', fontSize: 23 },
+  offerBanner: { color: colors.success, backgroundColor: colors.successSoft, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.lg, fontWeight: '800', lineHeight: 20 },
   errorWrap: { marginBottom: spacing.md },
   error: { color: colors.danger, backgroundColor: colors.dangerSoft, borderRadius: radii.md, padding: spacing.md, marginBottom: spacing.sm, lineHeight: 20 },
 });

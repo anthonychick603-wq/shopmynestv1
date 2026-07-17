@@ -9,6 +9,7 @@ export const API_NAMESPACES = {
   checkout: '/wp-json/nest-native/v1',
   labels: '/wp-json/nest-labels/v1',
   shipping: '/wp-json/nest-shipping/v1',
+  trust: '/wp-json/nest-trust/v1',
 };
 
 export const APP_NAME = 'The Nest';

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Button, EmptyState, Loading, Screen } from '../components/UI';
+import FavoriteButton from '../components/FavoriteButton';
+import SellerBadge from '../components/SellerBadge';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../lib/api';
@@ -21,6 +23,7 @@ export default function ProductScreen({ navigation, route }) {
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [bundling, setBundling] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -55,6 +58,33 @@ export default function ProductScreen({ navigation, route }) {
     }
     if (goToCart) navigation.switchTab('Cart');
     else Alert.alert('Added to cart', `${decodeHtml(product.name)} is in your cart.`);
+  }
+
+  function openMakeOffer() {
+    if (!token) {
+      navigation.push('Auth', { mode: 'login' });
+      return;
+    }
+    navigation.push('MakeOffer', { product });
+  }
+
+  async function addToBundle() {
+    if (!token) {
+      navigation.push('Auth', { mode: 'login' });
+      return;
+    }
+    setBundling(true);
+    try {
+      await api.addToBundleBuilder(product.id, token);
+      Alert.alert('Added to bundle', `${decodeHtml(product.name)} is in your bundle builder.`, [
+        { text: 'Keep browsing', style: 'cancel' },
+        { text: 'View bundle', onPress: () => navigation.push('BundleBuilder') },
+      ]);
+    } catch (err) {
+      Alert.alert('Could not add to bundle', err.message || 'Please try again.');
+    } finally {
+      setBundling(false);
+    }
   }
 
   function report() {
@@ -98,15 +128,19 @@ export default function ProductScreen({ navigation, route }) {
           <Text style={styles.title}>{decodeHtml(product.name)}</Text>
           <Text style={styles.price}>{money(product.price, product.currency)}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Report listing" onPress={report} style={styles.reportButton}>
-          <Ionicons name="flag-outline" size={20} color={colors.muted} />
-        </Pressable>
+        <View style={styles.titleActions}>
+          <FavoriteButton productId={product.id} onRequireAuth={() => navigation.push('Auth', { mode: 'login' })} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Report listing" onPress={report} style={styles.reportButton}>
+            <Ionicons name="flag-outline" size={20} color={colors.muted} />
+          </Pressable>
+        </View>
       </View>
       <View style={styles.sellerCard}>
         <Avatar uri={product.seller?.avatar} name={product.seller?.store_name} size={48} />
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.sellerLabel}>Sold by</Text>
           <Text style={styles.sellerName}>{decodeHtml(product.seller?.store_name || 'MyNest seller')}</Text>
+          {product.seller?.id ? <SellerBadge sellerId={product.seller.id} compact style={{ marginTop: 6 }} /> : null}
         </View>
       </View>
       <Text style={styles.description}>{decodeHtml(product.description || product.short_description || 'No description provided.')}</Text>
@@ -146,6 +180,10 @@ export default function ProductScreen({ navigation, route }) {
       ) : null}
       <Button title="Add to cart" icon="bag-add-outline" onPress={() => addToCart(false)} disabled={!isAvailable} />
       <Button title="Buy now" variant="outline" onPress={() => addToCart(true)} disabled={!isAvailable} style={{ marginTop: 10 }} />
+      <View style={styles.offerRow}>
+        <Button title="Make an offer" variant="secondary" icon="pricetag-outline" onPress={openMakeOffer} style={styles.offerButton} />
+        <Button title="Add to bundle" variant="secondary" icon="albums-outline" onPress={addToBundle} loading={bundling} style={styles.offerButton} />
+      </View>
     </Screen>
   );
 }
@@ -157,6 +195,9 @@ const styles = StyleSheet.create({
   galleryImage: { width: 90, height: 90, borderRadius: radii.md, backgroundColor: colors.surfaceMuted },
   titleRow: { flexDirection: 'row', marginTop: spacing.xl, alignItems: 'flex-start' },
   titleWrap: { flex: 1, paddingRight: spacing.md },
+  titleActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  offerRow: { flexDirection: 'row', gap: spacing.sm, marginTop: 10 },
+  offerButton: { flex: 1, minWidth: 0 },
   title: { color: colors.text, fontSize: 28, lineHeight: 33, fontWeight: '900' },
   price: { color: colors.primary, fontSize: 23, fontWeight: '900', marginTop: spacing.sm },
   reportButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
