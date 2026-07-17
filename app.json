@@ -22,8 +22,8 @@
       "predictiveBackGestureEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
-        "INTERNET",
-        "POST_NOTIFICATIONS"
+        "android.permission.INTERNET",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -66,8 +66,20 @@
       ]
     ],
     "extra": {
-      "siteUrl": "https://shopmynest.com"
+      "siteUrl": "https://shopmynest.com",
+      "expo-navigation-bar": {
+        "backgroundColor": "#F6F3F0",
+        "barStyle": "dark",
+        "borderColor": "#B4C96F",
+        "visibility": "visible",
+        "behavior": "inset-swipe",
+        "position": "relative"
+      },
+      "eas": {
+        "projectId": "088331f1-979b-41fe-92b4-e04e182e8b5d"
+      }
     },
-    "backgroundColor": "#F6F3F0"
+    "backgroundColor": "#F6F3F0",
+    "owner": "achick22"
   }
 }
