@@ -2,8 +2,8 @@
 /**
  * Plugin Name: MyNest Mobile App Bridge
  * Plugin URI:  https://shopmynest.com/
- * Description: Adds mobile buyer endpoints, reliable bearer-token authentication, and safe Stripe Tax sandbox checkout compatibility for The Nest Android app.
- * Version:     1.1.0
+ * Description: Adds mobile buyer endpoints, moderated community posts for the home feed, reliable bearer-token authentication, and safe Stripe Tax sandbox checkout compatibility for The Nest Android app.
+ * Version:     1.2.0
  * Author:      MyNest
  * Text Domain: mynest-mobile-app-bridge
  * Requires at least: 6.5
@@ -16,8 +16,11 @@
 defined( 'ABSPATH' ) || exit;
 
 final class MyNest_Mobile_App_Bridge {
-    private const VERSION = '1.1.0';
-    private const NS      = 'the-nest/v1';
+    private const VERSION            = '1.2.0';
+    private const NS                 = 'the-nest/v1';
+    private const COMMUNITY_TYPE     = 'mynest_community_post';
+    private const COMMUNITY_MENU     = 'mynest-community-posts';
+    private const COMMUNITY_PER_PAGE = 20;
 
     private static bool $stripe_tax_sandbox_fallback_active = false;
 
@@ -31,7 +34,12 @@ final class MyNest_Mobile_App_Bridge {
         add_filter( 'rest_pre_dispatch', array( __CLASS__, 'authenticate_rest_request' ), 5, 3 );
 
         add_action( 'init', array( __CLASS__, 'register_report_type' ), 20 );
+        add_action( 'init', array( __CLASS__, 'register_community_post_type' ), 20 );
         add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ), 30 );
+
+        // Late priority so the MyNest Unified Marketplace parent menu exists.
+        add_action( 'admin_menu', array( __CLASS__, 'register_community_menu' ), 99 );
+        add_action( 'admin_post_mynest_community_moderate', array( __CLASS__, 'handle_community_moderation_action' ) );
 
         // The supplied site has Stripe Tax enabled in Sandbox mode. When that
         // sandbox connector fails, it blocks WooCommerce Store API checkout with
@@ -44,6 +52,7 @@ final class MyNest_Mobile_App_Bridge {
 
         add_action( 'admin_notices', array( __CLASS__, 'dependency_notice' ) );
         add_action( 'admin_notices', array( __CLASS__, 'stripe_tax_sandbox_notice' ) );
+        add_action( 'admin_notices', array( __CLASS__, 'community_pending_notice' ) );
     }
 
     public static function declare_woocommerce_compatibility(): void {
@@ -325,6 +334,49 @@ final class MyNest_Mobile_App_Bridge {
                 'permission_callback' => array( __CLASS__, 'logged_in' ),
             )
         );
+        register_rest_route(
+            self::NS,
+            '/community/posts',
+            array(
+                array(
+                    'methods'             => WP_REST_Server::READABLE,
+                    'callback'            => array( __CLASS__, 'community_posts' ),
+                    'permission_callback' => '__return_true',
+                ),
+                array(
+                    'methods'             => WP_REST_Server::CREATABLE,
+                    'callback'            => array( __CLASS__, 'create_community_post' ),
+                    'permission_callback' => array( __CLASS__, 'logged_in' ),
+                ),
+            )
+        );
+        register_rest_route(
+            self::NS,
+            '/community/moderation/posts',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( __CLASS__, 'community_moderation_posts' ),
+                'permission_callback' => array( __CLASS__, 'can_moderate_community' ),
+            )
+        );
+        register_rest_route(
+            self::NS,
+            '/community/moderation/posts/(?P<id>\d+)/approve',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( __CLASS__, 'approve_community_post' ),
+                'permission_callback' => array( __CLASS__, 'can_moderate_community' ),
+            )
+        );
+        register_rest_route(
+            self::NS,
+            '/community/moderation/posts/(?P<id>\d+)/reject',
+            array(
+                'methods'             => WP_REST_Server::CREATABLE,
+                'callback'            => array( __CLASS__, 'reject_community_post' ),
+                'permission_callback' => array( __CLASS__, 'can_moderate_community' ),
+            )
+        );
     }
 
     public static function mobile_health(): WP_REST_Response {
@@ -547,6 +599,467 @@ final class MyNest_Mobile_App_Bridge {
                 'submitted_at'   => get_post_time( DATE_ATOM, true, $application ),
             )
         );
+    }
+
+    /**
+     * Community posts are buyer or seller submissions for the app home feed.
+     * They stay in the pending status until an administrator approves them,
+     * so nothing user-submitted reaches the public feed unreviewed.
+     */
+    public static function register_community_post_type(): void {
+        register_post_type(
+            self::COMMUNITY_TYPE,
+            array(
+                'labels' => array(
+                    'name'          => 'Community Posts',
+                    'singular_name' => 'Community Post',
+                    'menu_name'     => 'Community Posts',
+                ),
+                'public'              => false,
+                'show_ui'             => false,
+                'show_in_menu'        => false,
+                'supports'            => array( 'title', 'editor', 'author', 'thumbnail' ),
+                'capability_type'     => 'post',
+                'map_meta_cap'        => true,
+                'exclude_from_search' => true,
+                'show_in_rest'        => false,
+            )
+        );
+    }
+
+    private static function community_capability(): string {
+        return (string) apply_filters( 'mynest_community_moderation_capability', 'manage_woocommerce' );
+    }
+
+    public static function can_moderate_community( WP_REST_Request $request ): bool|WP_Error {
+        if ( ! self::ensure_current_user( $request ) ) {
+            return new WP_Error( 'rest_login_required', 'Authentication is required.', array( 'status' => 401 ) );
+        }
+        if ( ! current_user_can( self::community_capability() ) ) {
+            return new WP_Error( 'rest_forbidden', 'Community moderation is limited to site administrators.', array( 'status' => 403 ) );
+        }
+        return true;
+    }
+
+    private static function community_pending_count(): int {
+        $counts = wp_count_posts( self::COMMUNITY_TYPE );
+        return isset( $counts->pending ) ? (int) $counts->pending : 0;
+    }
+
+    /**
+     * Public feed status names are kept stable for the app: WordPress
+     * pending/publish/trash map to pending/approved/rejected.
+     */
+    private static function community_status_slug( string $post_status ): string {
+        return match ( $post_status ) {
+            'publish' => 'approved',
+            'trash'   => 'rejected',
+            default   => 'pending',
+        };
+    }
+
+    private static function community_post_to_array( WP_Post $post ): array {
+        $image_id = (int) get_post_thumbnail_id( $post );
+
+        return array(
+            'id'            => (int) $post->ID,
+            'status'        => self::community_status_slug( (string) $post->post_status ),
+            'content'       => wp_kses_post( (string) $post->post_content ),
+            'image_id'      => $image_id,
+            'image_url'     => $image_id ? (string) wp_get_attachment_image_url( $image_id, 'large' ) : '',
+            'thumbnail_url' => $image_id ? (string) wp_get_attachment_image_url( $image_id, 'medium' ) : '',
+            'author_id'     => (int) $post->post_author,
+            'author_name'   => (string) get_the_author_meta( 'display_name', (int) $post->post_author ),
+            'author_avatar' => esc_url_raw( (string) get_user_meta( (int) $post->post_author, 'thenest_profile_photo_url', true ) ),
+            'date_created'  => (string) get_post_time( DATE_ATOM, true, $post ),
+        );
+    }
+
+    private static function community_query( string $post_status, int $page, int $per_page ): array {
+        $query = new WP_Query(
+            array(
+                'post_type'      => self::COMMUNITY_TYPE,
+                'post_status'    => $post_status,
+                'posts_per_page' => $per_page,
+                'paged'          => $page,
+                'orderby'        => 'date',
+                'order'          => 'DESC',
+            )
+        );
+
+        return array(
+            'posts'       => array_map( array( __CLASS__, 'community_post_to_array' ), $query->posts ),
+            'page'        => $page,
+            'total'       => (int) $query->found_posts,
+            'total_pages' => (int) $query->max_num_pages,
+        );
+    }
+
+    private static function community_paging( WP_REST_Request $request ): array {
+        return array(
+            max( 1, absint( $request->get_param( 'page' ) ?: 1 ) ),
+            max( 1, min( 50, absint( $request->get_param( 'per_page' ) ?: 20 ) ) ),
+        );
+    }
+
+    public static function community_posts( WP_REST_Request $request ): WP_REST_Response {
+        list( $page, $per_page ) = self::community_paging( $request );
+        return rest_ensure_response( self::community_query( 'publish', $page, $per_page ) );
+    }
+
+    public static function community_moderation_posts( WP_REST_Request $request ): WP_REST_Response {
+        list( $page, $per_page ) = self::community_paging( $request );
+
+        $requested = sanitize_key( (string) $request->get_param( 'status' ) ) ?: 'pending';
+        $statuses  = array(
+            'pending'  => 'pending',
+            'approved' => 'publish',
+            'rejected' => 'trash',
+        );
+        $post_status = $statuses[ $requested ] ?? 'pending';
+
+        $response                  = self::community_query( $post_status, $page, $per_page );
+        $response['status']        = array_search( $post_status, $statuses, true );
+        $response['pending_count'] = self::community_pending_count();
+
+        return rest_ensure_response( $response );
+    }
+
+    public static function create_community_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $raw     = (string) ( $request->get_param( 'content' ) ?? $request->get_param( 'caption' ) ?? '' );
+        $content = wp_kses_post( $raw );
+        if ( '' === trim( wp_strip_all_tags( $content ) ) ) {
+            return new WP_Error( 'community_content_required', 'Write something to share with the community.', array( 'status' => 422 ) );
+        }
+
+        $user_id = get_current_user_id();
+        $post_id = wp_insert_post(
+            array(
+                'post_type'    => self::COMMUNITY_TYPE,
+                'post_status'  => 'pending',
+                'post_author'  => $user_id,
+                'post_title'   => sprintf(
+                    'Community post by %s',
+                    (string) get_the_author_meta( 'display_name', $user_id )
+                ),
+                'post_content' => $content,
+            ),
+            true
+        );
+        if ( is_wp_error( $post_id ) ) {
+            return $post_id;
+        }
+
+        $field = '';
+        foreach ( array( 'image', 'photo', 'file' ) as $candidate ) {
+            if ( ! empty( $_FILES[ $candidate ] ) ) {
+                $field = $candidate;
+                break;
+            }
+        }
+
+        if ( $field ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            require_once ABSPATH . 'wp-admin/includes/media.php';
+            require_once ABSPATH . 'wp-admin/includes/image.php';
+
+            $attachment_id = media_handle_upload( $field, (int) $post_id );
+            if ( is_wp_error( $attachment_id ) ) {
+                wp_delete_post( (int) $post_id, true );
+                return $attachment_id;
+            }
+            if ( ! wp_attachment_is_image( $attachment_id ) ) {
+                wp_delete_attachment( $attachment_id, true );
+                wp_delete_post( (int) $post_id, true );
+                return new WP_Error( 'community_invalid_image', 'The uploaded file must be an image.', array( 'status' => 422 ) );
+            }
+
+            wp_update_post( array( 'ID' => $attachment_id, 'post_author' => $user_id ) );
+            set_post_thumbnail( (int) $post_id, (int) $attachment_id );
+        }
+
+        self::notify_admins_of_community_post( (int) $post_id );
+
+        $post = get_post( (int) $post_id );
+
+        return rest_ensure_response(
+            array(
+                'success' => true,
+                'pending' => true,
+                'post'    => $post instanceof WP_Post ? self::community_post_to_array( $post ) : array( 'id' => (int) $post_id ),
+            )
+        );
+    }
+
+    private static function notify_admins_of_community_post( int $post_id ): void {
+        if ( ! apply_filters( 'mynest_community_post_notify_email', true, $post_id ) ) {
+            return;
+        }
+
+        $post = get_post( $post_id );
+        if ( ! $post instanceof WP_Post ) {
+            return;
+        }
+
+        $admins = get_users(
+            array(
+                'role__in' => array( 'administrator', 'shop_manager' ),
+                'fields'   => array( 'user_email' ),
+            )
+        );
+        $message = sprintf(
+            "%s submitted a community post for review.\n\n%s\n\nReview it here: %s",
+            (string) get_the_author_meta( 'display_name', (int) $post->post_author ),
+            wp_strip_all_tags( (string) $post->post_content ),
+            admin_url( 'admin.php?page=' . self::COMMUNITY_MENU )
+        );
+
+        foreach ( $admins as $admin ) {
+            if ( is_email( $admin->user_email ) ) {
+                wp_mail( $admin->user_email, 'New MyNest community post awaiting approval', $message );
+            }
+        }
+    }
+
+    private static function set_community_status( int $post_id, string $post_status ): WP_Post|WP_Error {
+        $post = get_post( $post_id );
+        if ( ! $post instanceof WP_Post || self::COMMUNITY_TYPE !== $post->post_type ) {
+            return new WP_Error( 'community_post_not_found', 'Community post not found.', array( 'status' => 404 ) );
+        }
+
+        if ( 'trash' === $post_status ) {
+            // wp_trash_post keeps the submission recoverable instead of deleting it.
+            $result = wp_trash_post( $post_id );
+            if ( ! $result ) {
+                return new WP_Error( 'community_reject_failed', 'The community post could not be rejected.', array( 'status' => 500 ) );
+            }
+        } else {
+            if ( 'trash' === $post->post_status ) {
+                wp_untrash_post( $post_id );
+            }
+            $result = wp_update_post( array( 'ID' => $post_id, 'post_status' => $post_status ), true );
+            if ( is_wp_error( $result ) ) {
+                return $result;
+            }
+        }
+
+        $updated = get_post( $post_id );
+        return $updated instanceof WP_Post ? $updated : new WP_Error( 'community_post_not_found', 'Community post not found.', array( 'status' => 404 ) );
+    }
+
+    public static function approve_community_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $post = self::set_community_status( absint( $request['id'] ), 'publish' );
+        if ( is_wp_error( $post ) ) {
+            return $post;
+        }
+        return rest_ensure_response( array( 'success' => true, 'post' => self::community_post_to_array( $post ) ) );
+    }
+
+    public static function reject_community_post( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+        $post = self::set_community_status( absint( $request['id'] ), 'trash' );
+        if ( is_wp_error( $post ) ) {
+            return $post;
+        }
+        return rest_ensure_response( array( 'success' => true, 'post' => self::community_post_to_array( $post ) ) );
+    }
+
+    public static function register_community_menu(): void {
+        $capability = self::community_capability();
+        $pending    = self::community_pending_count();
+        $title      = 'Community Posts';
+        if ( $pending ) {
+            $title .= sprintf(
+                ' <span class="awaiting-mod"><span class="pending-count">%s</span></span>',
+                number_format_i18n( $pending )
+            );
+        }
+
+        $parent = class_exists( 'TNM_Admin' ) ? 'tnm-marketplace' : null;
+        if ( $parent ) {
+            add_submenu_page( $parent, 'Community Posts', $title, $capability, self::COMMUNITY_MENU, array( __CLASS__, 'render_community_screen' ) );
+            return;
+        }
+
+        add_menu_page( 'Community Posts', $title, $capability, self::COMMUNITY_MENU, array( __CLASS__, 'render_community_screen' ), 'dashicons-format-status', 26 );
+    }
+
+    public static function community_pending_notice(): void {
+        if ( ! current_user_can( self::community_capability() ) ) {
+            return;
+        }
+
+        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+        if ( $screen && ! in_array( $screen->id, array( 'dashboard', 'plugins' ), true ) ) {
+            return;
+        }
+
+        $pending = self::community_pending_count();
+        if ( ! $pending ) {
+            return;
+        }
+
+        printf(
+            '<div class="notice notice-info"><p><strong>MyNest community posts:</strong> %s <a href="%s">Review them now</a>.</p></div>',
+            esc_html( sprintf( _n( '%s post is waiting for approval.', '%s posts are waiting for approval.', $pending, 'mynest-mobile-app-bridge' ), number_format_i18n( $pending ) ) ),
+            esc_url( admin_url( 'admin.php?page=' . self::COMMUNITY_MENU ) )
+        );
+    }
+
+    private static function community_action_url( int $post_id, string $action, string $view, int $page ): string {
+        return wp_nonce_url(
+            add_query_arg(
+                array(
+                    'action' => 'mynest_community_moderate',
+                    'post'   => $post_id,
+                    'do'     => $action,
+                    'view'   => $view,
+                    'paged'  => $page,
+                ),
+                admin_url( 'admin-post.php' )
+            ),
+            'mynest_community_moderate_' . $post_id
+        );
+    }
+
+    public static function handle_community_moderation_action(): void {
+        $post_id = absint( $_GET['post'] ?? 0 );
+        if ( ! current_user_can( self::community_capability() ) ) {
+            wp_die( esc_html__( 'You are not allowed to moderate community posts.', 'mynest-mobile-app-bridge' ), '', array( 'response' => 403 ) );
+        }
+        check_admin_referer( 'mynest_community_moderate_' . $post_id );
+
+        $action  = sanitize_key( (string) ( $_GET['do'] ?? '' ) );
+        $view    = sanitize_key( (string) ( $_GET['view'] ?? 'pending' ) );
+        $page    = max( 1, absint( $_GET['paged'] ?? 1 ) );
+        $updated = 'approve' === $action ? 'approved' : 'rejected';
+
+        $result = self::set_community_status( $post_id, 'approve' === $action ? 'publish' : 'trash' );
+
+        wp_safe_redirect(
+            add_query_arg(
+                array(
+                    'page'    => self::COMMUNITY_MENU,
+                    'view'    => $view,
+                    'paged'   => $page,
+                    'updated' => is_wp_error( $result ) ? 'error' : $updated,
+                ),
+                admin_url( 'admin.php' )
+            )
+        );
+        exit;
+    }
+
+    public static function render_community_screen(): void {
+        if ( ! current_user_can( self::community_capability() ) ) {
+            wp_die( esc_html__( 'You are not allowed to moderate community posts.', 'mynest-mobile-app-bridge' ), '', array( 'response' => 403 ) );
+        }
+
+        $views = array(
+            'pending'  => array( 'Pending', 'pending' ),
+            'approved' => array( 'Approved', 'publish' ),
+            'rejected' => array( 'Rejected', 'trash' ),
+        );
+        $view = sanitize_key( (string) ( $_GET['view'] ?? 'pending' ) );
+        if ( ! isset( $views[ $view ] ) ) {
+            $view = 'pending';
+        }
+        $page   = max( 1, absint( $_GET['paged'] ?? 1 ) );
+        $counts = wp_count_posts( self::COMMUNITY_TYPE );
+        $result = self::community_query( $views[ $view ][1], $page, self::COMMUNITY_PER_PAGE );
+
+        echo '<div class="wrap"><h1>Community Posts</h1>';
+
+        $updated = sanitize_key( (string) ( $_GET['updated'] ?? '' ) );
+        if ( 'approved' === $updated ) {
+            echo '<div class="notice notice-success is-dismissible"><p>Community post approved and published to the home feed.</p></div>';
+        } elseif ( 'rejected' === $updated ) {
+            echo '<div class="notice notice-success is-dismissible"><p>Community post rejected.</p></div>';
+        } elseif ( 'error' === $updated ) {
+            echo '<div class="notice notice-error is-dismissible"><p>That community post could not be updated.</p></div>';
+        }
+
+        echo '<ul class="subsubsub">';
+        $links = array();
+        foreach ( $views as $slug => $definition ) {
+            $status = $definition[1];
+            $count  = isset( $counts->$status ) ? (int) $counts->$status : 0;
+            $links[] = sprintf(
+                '<li><a href="%s"%s>%s <span class="count">(%s)</span></a></li>',
+                esc_url( add_query_arg( array( 'page' => self::COMMUNITY_MENU, 'view' => $slug ), admin_url( 'admin.php' ) ) ),
+                $slug === $view ? ' class="current"' : '',
+                esc_html( $definition[0] ),
+                esc_html( number_format_i18n( $count ) )
+            );
+        }
+        echo implode( ' | ', $links ) . '</ul>';
+
+        if ( ! $result['posts'] ) {
+            echo '<p style="clear:both;padding-top:1em;">No community posts in this view.</p></div>';
+            return;
+        }
+
+        echo '<table class="wp-list-table widefat fixed striped" style="clear:both;margin-top:1em;"><thead><tr>';
+        echo '<th scope="col" style="width:140px;">Photo</th><th scope="col">Post</th><th scope="col" style="width:200px;">Author</th><th scope="col" style="width:160px;">Actions</th>';
+        echo '</tr></thead><tbody>';
+
+        foreach ( $result['posts'] as $item ) {
+            echo '<tr>';
+
+            echo '<td>';
+            if ( $item['thumbnail_url'] ) {
+                printf(
+                    '<a href="%s" target="_blank" rel="noreferrer noopener"><img src="%s" alt="" style="max-width:120px;height:auto;" /></a>',
+                    esc_url( $item['image_url'] ),
+                    esc_url( $item['thumbnail_url'] )
+                );
+            } else {
+                echo '<span aria-hidden="true">—</span>';
+            }
+            echo '</td>';
+
+            printf( '<td>%s</td>', wp_kses_post( wpautop( $item['content'] ) ) );
+
+            printf(
+                '<td>%s<br /><span class="description">%s</span></td>',
+                esc_html( $item['author_name'] ),
+                esc_html( mysql2date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $item['date_created'] ) )
+            );
+
+            echo '<td>';
+            if ( 'approved' !== $item['status'] ) {
+                printf(
+                    '<a class="button button-primary" href="%s">Approve</a> ',
+                    esc_url( self::community_action_url( $item['id'], 'approve', $view, $page ) )
+                );
+            }
+            if ( 'rejected' !== $item['status'] ) {
+                printf(
+                    '<a class="button" href="%s">Reject</a>',
+                    esc_url( self::community_action_url( $item['id'], 'reject', $view, $page ) )
+                );
+            }
+            echo '</td>';
+
+            echo '</tr>';
+        }
+
+        echo '</tbody></table>';
+
+        $pagination = paginate_links(
+            array(
+                'base'      => esc_url_raw( add_query_arg( array( 'page' => self::COMMUNITY_MENU, 'view' => $view, 'paged' => '%#%' ), admin_url( 'admin.php' ) ) ),
+                'format'    => '',
+                'current'   => $page,
+                'total'     => $result['total_pages'],
+                'prev_text' => '&laquo;',
+                'next_text' => '&raquo;',
+            )
+        );
+        if ( $pagination ) {
+            printf( '<div class="tablenav"><div class="tablenav-pages">%s</div></div>', wp_kses_post( $pagination ) );
+        }
+
+        echo '</div>';
     }
 }
 

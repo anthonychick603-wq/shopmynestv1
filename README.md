@@ -4,13 +4,13 @@ This is the native Expo/React Native Android project for **shopmynest.com**. The
 
 ## Required website plugin
 
-Keep **MyNest Mobile App Bridge 1.1.0** active in WordPress. A copy remains included at:
+Keep **MyNest Mobile App Bridge 1.2.0** active in WordPress. A copy remains included at:
 
 ```text
-wordpress-plugin/mynest-mobile-app-bridge-v1.1.0.zip
+wordpress-plugin/mynest-mobile-app-bridge-v1.2.0.zip
 ```
 
-You do not need to reinstall the bridge when version 1.1.0 is already active.
+Bridge 1.2.0 adds the moderated community posts feature for the home feed, so upload and activate it in place of 1.1.0.
 
 ## Changes in 1.0.7
 
@@ -99,7 +99,7 @@ Keep these plugins active:
 - WooCommerce
 - WooCommerce Stripe Gateway
 - MyNest Unified Marketplace
-- MyNest Mobile App Bridge 1.1.0
+- MyNest Mobile App Bridge 1.2.0
 
 Also verify:
 
