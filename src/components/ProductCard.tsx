@@ -1,0 +1,169 @@
+import React from "react";
+import { Image, ImageStyle, StyleProp, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { colors, radius, shadows, spacing } from "@/src/theme";
+import { decodeEntities } from "@/src/utils/html";
+import type { Product } from "@/src/types";
+
+type Layout = "full" | "grid";
+
+type Props = {
+  product: Product;
+  layout?: Layout;
+  onAddToCart?: () => void;
+  onToggleFavorite?: () => void;
+  isFavorite?: boolean;
+  testID?: string;
+};
+
+export function ProductCard({ product, layout = "full", onAddToCart, onToggleFavorite, isFavorite, testID }: Props) {
+  const router = useRouter();
+  const image =
+    product.images?.[product.featured_image_index ?? 0] ??
+    product.images?.[0] ??
+    "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80";
+  const price = product.sale_price ?? product.price;
+  const onSale = product.sale_price != null && product.sale_price < product.price;
+
+  const imgStyle: StyleProp<ImageStyle> = layout === "grid" ? styles.gridImg : styles.fullImg;
+
+  return (
+    <TouchableOpacity
+      testID={testID ?? `product-card-${product.id}`}
+      activeOpacity={0.9}
+      onPress={() => router.push(`/product/${product.id}`)}
+      style={[styles.card, layout === "grid" ? styles.gridCard : styles.fullCard]}
+    >
+      <View>
+        <Image source={{ uri: image }} style={imgStyle} resizeMode="cover" />
+        <TouchableOpacity
+          testID={`product-favorite-${product.id}`}
+          onPress={onToggleFavorite}
+          style={styles.favBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? colors.error : colors.onSurface} />
+        </TouchableOpacity>
+        {onSale ? (
+          <View style={styles.saleTag}>
+            <Text style={styles.saleTagText}>SALE</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.body}>
+        <Text style={styles.title} numberOfLines={2}>
+          {decodeEntities(product.title)}
+        </Text>
+        <View style={styles.sellerRow}>
+          {product.seller?.profile_photo ? (
+            <Image source={{ uri: product.seller.profile_photo }} style={styles.sellerAvatar} />
+          ) : (
+            <View style={[styles.sellerAvatar, styles.sellerAvatarFallback]}>
+              <Ionicons name="leaf" size={10} color={colors.brand} />
+            </View>
+          )}
+          <Text style={styles.sellerName} numberOfLines={1}>
+            {decodeEntities(product.seller?.name ?? "My Nest")}
+          </Text>
+        </View>
+        <View style={styles.priceRow}>
+          <View style={styles.priceInline}>
+            <Text style={styles.price}>${price.toFixed(2)}</Text>
+            {onSale ? <Text style={styles.priceOld}>${product.price.toFixed(2)}</Text> : null}
+          </View>
+          {product.in_stock ? (
+            onAddToCart ? (
+              <TouchableOpacity
+                testID={`product-add-cart-${product.id}`}
+                onPress={onAddToCart}
+                style={styles.addBtn}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              >
+                <Ionicons name="add" size={18} color={colors.onBrand} />
+              </TouchableOpacity>
+            ) : null
+          ) : (
+            <Text style={styles.oos}>Out of stock</Text>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    ...shadows.card,
+  },
+  fullCard: { marginBottom: spacing.lg },
+  gridCard: { flex: 1, marginBottom: spacing.lg },
+  fullImg: {
+    width: "100%",
+    aspectRatio: 4 / 3,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  gridImg: {
+    width: "100%",
+    aspectRatio: 1,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  favBtn: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saleTag: {
+    position: "absolute",
+    top: spacing.md,
+    left: spacing.md,
+    backgroundColor: colors.yellow,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  saleTagText: {
+    color: colors.onSurface,
+    fontWeight: "800",
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  body: { padding: spacing.md },
+  title: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.onSurface,
+    marginBottom: spacing.xs,
+    lineHeight: 20,
+  },
+  sellerRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.sm },
+  sellerAvatar: { width: 18, height: 18, borderRadius: 9, marginRight: 6 },
+  sellerAvatarFallback: {
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sellerName: { fontSize: 12, color: colors.onSurfaceMuted, flex: 1 },
+  priceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  priceInline: { flexDirection: "row", alignItems: "baseline" },
+  price: { fontSize: 17, fontWeight: "800", color: colors.onSurface },
+  priceOld: { fontSize: 12, color: colors.onSurfaceMuted, marginLeft: 6, textDecorationLine: "line-through" },
+  addBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  oos: { fontSize: 11, color: colors.error, fontWeight: "700" },
+});

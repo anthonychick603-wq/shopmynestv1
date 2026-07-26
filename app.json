@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "My Nest",
+    "slug": "my-nest",
+    "version": "1.0.26",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "thenest",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.thenest.marketplace",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Upload product photos to your shop"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFF8EF"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.thenest.marketplace",
+      "versionCode": 1,
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ],
+      "blockedPermissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFF8EF"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Upload product photos to your shop",
+          "cameraPermission": false
+        }
+      ],
+      "expo-web-browser",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.shopmynest.app",
+          "enableGooglePay": true
+        }
+      ]
+    ],
+    "extra": {
+      "_setupNote": "NOT YET CONFIGURED: run `eas init` to have the CLI add `eas.projectId` here, and `expo.owner` above. Until then EAS builds are unlinked and push notifications stay disabled (src/context/AuthContext.tsx returns early when extra.eas.projectId is missing). See EAS_SETUP.md."
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
