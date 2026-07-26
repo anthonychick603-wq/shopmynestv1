@@ -312,6 +312,10 @@ export const nest = {
     shipping_address?: NestWpAddress;
     shipping_method_id?: string;
     quote_token?: string;
+    // Idempotency key for one checkout attempt. The server looks up a pending
+    // order already stamped with this token and reuses it (and its PaymentIntent)
+    // instead of creating a duplicate.
+    checkout_token?: string;
   }) =>
     request<NestPaymentIntentRaw>("checkout", "/checkout/create-intent", { method: "POST", body: payload, timeoutMs: 45000 }),
   // Best-effort confirmation after PaymentSheet succeeds. The Stripe webhook is

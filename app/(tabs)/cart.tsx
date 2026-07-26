@@ -36,6 +36,11 @@ const SHIPPING_ADDRESS_KEY = "nest.checkout.shipping_address";
 // wins over this.
 const flatEstimate = (subtotal: number) => (subtotal >= 50 || subtotal === 0 ? 0 : 6.95);
 
+// Idempotency key for one checkout attempt. Only has to be unique per buyer, so
+// it deliberately avoids a crypto dependency (`uuid` is a resolutions-only pin
+// here and would need a getRandomValues polyfill at runtime).
+const newCheckoutToken = () => `nest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+
 export default function Cart() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -67,6 +72,31 @@ export default function Cart() {
     [cart],
   );
   const itemsSig = itemsForApi.map((i) => `${i.product_id}x${i.quantity}`).join(",");
+  // Whole object, not formatAddress(): recipient name is part of what gets
+  // written onto the order, and changing only the name must still count.
+  const addressSig = address ? JSON.stringify(address) : "";
+
+  // The idempotency key for the current checkout attempt, held per attempt so a
+  // double-tap, a network retry, or the shipping-mismatch abort below all resend
+  // the same token — the server then reuses its existing pending order instead
+  // of opening a second one.
+  //
+  // The signature covers the two things the server bakes into that order and
+  // does NOT recompute when it reuses it: the line items and the destination.
+  // Change either and this must be a genuinely new order. The picked shipping
+  // rate is deliberately excluded, because the abort path itself rewrites
+  // selectedRateId — including it would mint a fresh token on exactly the retry
+  // that needs to reuse. A manual rate change resets the attempt explicitly.
+  const attempt = React.useRef<{ sig: string; token: string } | null>(null);
+  const checkoutTokenFor = (sig: string): string => {
+    if (!attempt.current || attempt.current.sig !== sig) {
+      attempt.current = { sig, token: newCheckoutToken() };
+    }
+    return attempt.current.token;
+  };
+  const startNewCheckoutAttempt = () => {
+    attempt.current = null;
+  };
 
   // Load any previously saved destination address once.
   React.useEffect(() => {
@@ -195,6 +225,7 @@ export default function Cart() {
         shipping_address: address ?? undefined,
         shipping_method_id: selectedRateId ?? undefined,
         quote_token: quoteToken ?? undefined,
+        checkout_token: checkoutTokenFor(`${itemsSig}|${addressSig}`),
       });
 
       if (!intent.client_secret || !intent.publishable_key) {
@@ -215,7 +246,10 @@ export default function Cart() {
         if (serverShipping != null) setShippingOverride(serverShipping);
         if (intent.shipping_method_id) setSelectedRateId(intent.shipping_method_id);
         // Stop here rather than falling through to the payment sheet — otherwise
-        // the buyer is charged an amount that was never rendered to them.
+        // the buyer is charged an amount that was never rendered to them. The
+        // attempt token is intentionally left alone: the pending order the server
+        // just created (now carrying its corrected shipping) is reused by the
+        // retry rather than being orphaned alongside a duplicate.
         toast.show("Shipping cost changed. Review the new total and tap Checkout again.", "info");
         return;
       }
@@ -264,6 +298,8 @@ export default function Cart() {
         // Ignore — the Stripe webhook settles the order server-side regardless.
       }
 
+      // This attempt is spent: the next checkout must open a new order.
+      startNewCheckoutAttempt();
       await clear();
       toast.success("Payment successful! Your order is on its way.");
       router.push("/orders");
@@ -346,6 +382,9 @@ export default function Cart() {
                     onPress={() => {
                       setSelectedRateId(r.id);
                       setShippingOverride(null);
+                      // Picking a different rate by hand is a new order, not a
+                      // retry — the server won't re-price an order it reuses.
+                      startNewCheckoutAttempt();
                     }}
                     testID={`cart-rate-${r.id}`}
                     activeOpacity={0.8}

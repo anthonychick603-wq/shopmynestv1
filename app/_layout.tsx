@@ -5,6 +5,7 @@ import { LogBox, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
+import { useNotificationRouting } from "@/src/hooks/use-notification-routing";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
@@ -43,6 +44,8 @@ export default function RootLayout() {
                 <Stack.Screen name="(auth)" options={{ presentation: "modal" }} />
               </Stack>
               <ToastHost />
+              {/* Needs the auth + navigation contexts, so it mounts inside them. */}
+              <NotificationTapRouter />
             </View>
             </StripePaymentProvider>
           </FavoritesProvider>
@@ -50,6 +53,11 @@ export default function RootLayout() {
       </AuthProvider>
     </SafeAreaProvider>
   );
+}
+
+function NotificationTapRouter() {
+  useNotificationRouting();
+  return null;
 }
 
 const styles = StyleSheet.create({
