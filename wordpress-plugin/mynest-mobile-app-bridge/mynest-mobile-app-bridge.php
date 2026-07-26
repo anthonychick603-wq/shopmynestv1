@@ -2,8 +2,8 @@
 /**
  * Plugin Name: MyNest Mobile App Bridge
  * Plugin URI:  https://shopmynest.com/
- * Description: Adds mobile buyer endpoints, moderated community posts for the home feed, reliable bearer-token authentication, and safe Stripe Tax sandbox checkout compatibility for The Nest Android app.
- * Version:     1.2.0
+ * Description: Adds mobile buyer endpoints, moderated community posts for the home feed, an app permissions endpoint, reliable bearer-token authentication, and safe Stripe Tax sandbox checkout compatibility for The Nest Android app.
+ * Version:     1.2.1
  * Author:      MyNest
  * Text Domain: mynest-mobile-app-bridge
  * Requires at least: 6.5
@@ -16,7 +16,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class MyNest_Mobile_App_Bridge {
-    private const VERSION            = '1.2.0';
+    private const VERSION            = '1.2.1';
     private const NS                 = 'the-nest/v1';
     private const COMMUNITY_TYPE     = 'mynest_community_post';
     private const COMMUNITY_MENU     = 'mynest-community-posts';
@@ -377,6 +377,48 @@ final class MyNest_Mobile_App_Bridge {
                 'permission_callback' => array( __CLASS__, 'can_moderate_community' ),
             )
         );
+        register_rest_route(
+            self::NS,
+            '/auth/me/permissions',
+            array(
+                'methods'             => WP_REST_Server::READABLE,
+                'callback'            => array( __CLASS__, 'auth_me_permissions' ),
+                'permission_callback' => array( __CLASS__, 'logged_in' ),
+            )
+        );
+    }
+
+    /**
+     * Reports the current user's capability flags to the mobile app so it can
+     * hide admin-only surfaces (Blog moderation, seller review, etc.) from
+     * non-admin Makers. Kept in the bridge plugin so it does not depend on the
+     * main marketplace plugin's /auth/me implementation. Uses the existing
+     * community_capability() helper so both community moderation and the app's
+     * gate agree on who is an admin for Blog purposes.
+     */
+    public static function auth_me_permissions(): WP_REST_Response {
+        $user_id                = get_current_user_id();
+        $can_moderate_community = $user_id > 0 && current_user_can( self::community_capability() );
+        $is_admin               = $user_id > 0 && user_can( $user_id, 'manage_options' );
+
+        $permissions = array(
+            'user_id'                => $user_id,
+            'is_admin'               => $is_admin,
+            'can_moderate_community' => $can_moderate_community,
+            'can_manage_woocommerce' => $user_id > 0 && user_can( $user_id, 'manage_woocommerce' ),
+            'roles'                  => $user_id > 0 ? array_values( (array) wp_get_current_user()->roles ) : array(),
+        );
+
+        /**
+         * Filter the permissions payload returned to the mobile app.
+         *
+         * @param array $permissions Permission flags keyed by name.
+         * @param int   $user_id     Current user ID (0 if none — should not
+         *                           happen because the route requires auth).
+         */
+        $permissions = (array) apply_filters( 'mynest_mobile_auth_permissions', $permissions, $user_id );
+
+        return rest_ensure_response( $permissions );
     }
 
     public static function mobile_health(): WP_REST_Response {

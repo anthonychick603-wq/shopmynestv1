@@ -4,7 +4,7 @@ Tags: woocommerce, marketplace, mobile app, android
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 
 Mobile API additions and compatibility support for The Nest Android app.
@@ -16,6 +16,10 @@ This companion plugin works with WooCommerce and MyNest Unified Marketplace. It 
 The Stripe Tax fallback runs only while Stripe Tax is set to Sandbox/Test mode. It never bypasses Stripe Tax live-mode failures.
 
 == Changelog ==
+
+= 1.2.1 =
+* Added GET /auth/me/permissions so the mobile app can gate admin-only surfaces (Blog moderation, etc.) on the current user's capabilities without depending on the main marketplace plugin's /auth/me payload.
+* Added mynest_mobile_auth_permissions filter for extending the permissions payload.
 
 = 1.2.0 =
 * Added community posts: any logged in customer can submit a photo and caption to the app home feed.
