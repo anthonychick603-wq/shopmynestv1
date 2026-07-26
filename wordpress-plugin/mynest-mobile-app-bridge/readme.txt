@@ -4,18 +4,25 @@ Tags: woocommerce, marketplace, mobile app, android
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 8.0
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 
 Mobile API additions and compatibility support for The Nest Android app.
 
 == Description ==
 
-This companion plugin works with WooCommerce and MyNest Unified Marketplace. It provides buyer order history, product reporting, seller application status, buyer profile photo uploads, reliable mobile bearer-token authentication through reverse proxies, and a Stripe Tax Sandbox checkout fallback.
+This companion plugin works with WooCommerce and MyNest Unified Marketplace. It provides buyer order history, product reporting, moderated community posts for the app home feed, seller application status, buyer profile photo uploads, reliable mobile bearer-token authentication through reverse proxies, and a Stripe Tax Sandbox checkout fallback.
 
 The Stripe Tax fallback runs only while Stripe Tax is set to Sandbox/Test mode. It never bypasses Stripe Tax live-mode failures.
 
 == Changelog ==
+
+= 1.2.0 =
+* Added community posts: any logged in customer can submit a photo and caption to the app home feed.
+* Community posts are held in a pending state and never appear on the public feed until an administrator approves them.
+* Added a Community Posts moderation screen with Pending, Approved, and Rejected views and one-click Approve and Reject actions.
+* Added a pending-count badge on the Community Posts menu item, a dashboard notice, and an email to administrators and shop managers on new submissions.
+* Added REST routes for submitting posts, reading the approved feed, and moderating posts from the mobile app.
 
 = 1.1.0 =
 * Added X-MyNest-Token authentication fallback for hosts that strip Authorization headers.
