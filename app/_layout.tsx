@@ -35,22 +35,12 @@ export default function RootLayout() {
             <View style={styles.root}>
               <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
               <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }}>
+                {/* Only the entry redirect, the tab layout and the auth modal
+                    live at the root. Every other screen sits in the nested Stack
+                    at app/(tabs)/(more)/ so the tab bar stays visible on it. */}
                 <Stack.Screen name="index" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="(auth)" options={{ presentation: "modal" }} />
-                <Stack.Screen name="product/[id]" />
-                <Stack.Screen name="order/[id]" />
-                <Stack.Screen name="orders" />
-                <Stack.Screen name="favorites" />
-                <Stack.Screen name="seller/apply" />
-                <Stack.Screen name="seller/[id]" />
-                <Stack.Screen name="disputes/index" />
-                <Stack.Screen name="disputes/[id]" />
-                <Stack.Screen name="disputes/new" options={{ presentation: "modal" }} />
-                <Stack.Screen name="report/[id]" options={{ presentation: "modal" }} />
-                <Stack.Screen name="post/compose" options={{ presentation: "modal" }} />
-                <Stack.Screen name="blog/compose" options={{ presentation: "modal" }} />
-                <Stack.Screen name="blog/moderation" />
               </Stack>
               <ToastHost />
             </View>

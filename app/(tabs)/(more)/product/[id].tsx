@@ -162,7 +162,9 @@ export default function ProductDetail() {
         </View>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]}>
+      {/* No insets.bottom here: the tab bar sits below this screen and already
+          clears the home indicator. */}
+      <View style={[styles.bottomBar, { paddingBottom: spacing.md }]}>
         <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock} style={[styles.actionSecondary, (!product.in_stock || adding) && { opacity: 0.5 }]} testID="product-add-cart">
           <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
           <Text style={styles.actionSecondaryText}>Add to cart</Text>

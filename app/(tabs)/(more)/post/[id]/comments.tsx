@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestPostCommentRaw } from "@/src/api/nest";
@@ -42,7 +42,6 @@ function timeAgo(iso?: string): string {
 }
 
 export default function PostComments() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -113,7 +112,7 @@ export default function PostComments() {
         )}
 
         {user ? (
-          <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <View style={[styles.composer, { paddingBottom: spacing.sm }]}>
             <TextInput
               style={styles.input}
               value={draft}
@@ -134,7 +133,7 @@ export default function PostComments() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={[styles.signIn, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <View style={[styles.signIn, { paddingBottom: spacing.sm }]}>
             <Text style={styles.signInText}>Sign in to join the conversation.</Text>
             <TouchableOpacity style={styles.signInBtn} onPress={() => router.push("/(auth)/login")} testID="comments-signin">
               <Text style={styles.signInBtnText}>Sign in</Text>

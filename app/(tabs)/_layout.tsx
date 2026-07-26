@@ -162,6 +162,12 @@ export default function TabsLayout() {
           visible tabs split the full width evenly instead of leaving empty gaps. */}
       <Tabs.Screen name="alerts" options={{ title: "Alerts", tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
       <Tabs.Screen name="cart" options={{ title: "Cart", tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
+
+      {/* The nested Stack holding every pushed screen (product detail, seller
+          tools, orders, disputes, composers…). Hidden from the bar the same way,
+          but registered here so those screens render inside the Tabs layout and
+          keep the tab bar visible. */}
+      <Tabs.Screen name="(more)" options={{ tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
     </Tabs>
   );
 }
