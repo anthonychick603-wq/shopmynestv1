@@ -2,7 +2,7 @@
   "expo": {
     "name": "My Nest",
     "slug": "my-nest",
-    "version": "1.0.26",
+    "version": "1.0.27",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -67,10 +67,13 @@
       ]
     ],
     "extra": {
-      "_setupNote": "NOT YET CONFIGURED: run `eas init` to have the CLI add `eas.projectId` here, and `expo.owner` above. Until then EAS builds are unlinked and push notifications stay disabled (src/context/AuthContext.tsx returns early when extra.eas.projectId is missing). See EAS_SETUP.md."
+      "eas": {
+        "projectId": "088331f1-979b-41fe-92b4-e04e182e8b5d"
+      }
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "achick22"
   }
 }
