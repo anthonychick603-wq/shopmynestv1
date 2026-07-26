@@ -411,7 +411,8 @@ export type NestUserRaw = {
   // backend's seller permission gate. This is the only "can manage the store"
   // signal the API exposes to the app.
   is_approved_seller?: boolean;
-  seller_id?: number;
+  // null for non-sellers.
+  seller_id?: number | null;
   seller_status?: string;
   store_name?: string;
   photo_url?: string;

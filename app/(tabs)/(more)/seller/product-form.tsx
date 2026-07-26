@@ -85,10 +85,16 @@ export default function ProductForm() {
             if (ship.height_in) setHeightIn(ship.height_in);
           }
         }
+      } catch (e) {
+        // Without this the rejection was unhandled and the user was left on an
+        // "Edit listing" form with every field blank.
+        toast.error(e instanceof ApiError ? e.friendly : "Could not load this listing.");
+        router.back();
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable
   }, [id, isEdit]);
 
   // New listings require a connected Stripe payout account. Check on mount so we
@@ -109,18 +115,22 @@ export default function ProductForm() {
   }, [isEdit]);
 
   const pickImage = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      return toast.error("Photo permission is needed to add product images.");
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsEditing: true,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      setLocalImage(result.assets[0]);
-      setImageUrl(result.assets[0].uri);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        return toast.error("Photo permission is needed to add product images.");
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        allowsEditing: true,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        setLocalImage(result.assets[0]);
+        setImageUrl(result.assets[0].uri);
+      }
+    } catch {
+      toast.error("Could not open your photo library. Please try again.");
     }
   };
 

@@ -382,7 +382,9 @@ export default function Cart() {
         <Text style={styles.secure}>🔒 Checkout uses secure payments on {SITE.replace(/^https?:\/\//, "")}.</Text>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + spacing.md }]}>
+      {/* No insets.bottom: the tab bar sits below this bar and already clears
+          the home indicator. */}
+      <View style={[styles.bottomBar, { paddingBottom: spacing.md }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.bottomTotalLabel}>Total</Text>
           <Text style={styles.bottomTotal}>${displayTotal.toFixed(2)}</Text>

@@ -77,7 +77,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const now = Date.now();
       if (state === "active" && now - last > 15000) {
         last = now;
-        nest.me().then((raw) => setUser(toUser(raw))).catch(() => {});
+        nest
+          .me()
+          .then((raw) => setUser(toUser(raw)))
+          .catch(async (e) => {
+            // A session that lapsed while backgrounded must clear, or every
+            // screen keeps rendering as signed-in while all requests 401.
+            if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+              await setAuthToken(null);
+              setUser(null);
+            }
+          });
       }
     });
     return () => sub.remove();

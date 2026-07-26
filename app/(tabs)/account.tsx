@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 
+import { SITE } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
 import { Button } from "@/src/components/Button";
@@ -94,10 +95,10 @@ export default function Account() {
         </Section>
 
         <Section title="Legal">
-          <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync("https://shopmynest.com/privacy-policy")} testID="acc-privacy" />
-          <Row icon="document-text-outline" label="Terms of service" onPress={() => WebBrowser.openBrowserAsync("https://shopmynest.com/terms-of-service")} testID="acc-terms" />
-          <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync("https://shopmynest.com/refund-policy")} testID="acc-refund" />
-          <Row icon="briefcase-outline" label="Seller terms" onPress={() => WebBrowser.openBrowserAsync("https://shopmynest.com/seller-terms")} testID="acc-seller-terms" />
+          <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy-policy`)} testID="acc-privacy" />
+          <Row icon="document-text-outline" label="Terms of service" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms-of-service`)} testID="acc-terms" />
+          <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refund-policy`)} testID="acc-refund" />
+          <Row icon="briefcase-outline" label="Seller terms" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/seller-terms`)} testID="acc-seller-terms" />
         </Section>
 
         <View style={{ padding: spacing.lg }}>
