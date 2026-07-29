@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, AppState, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, AppState, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -56,26 +56,26 @@ export default function Connect() {
     setError(null);
     try {
       const { url } = await nest.getStripeConnectOnboardLink(RETURN_URL, REFRESH_URL);
-      // Use openBrowserAsync (regular Chrome Custom Tab) instead of
-      // openAuthSessionAsync. The auth-session variant force-closes when the
-      // launching activity is backgrounded (e.g. switching to Google
-      // Authenticator for a 2FA code), which breaks Stripe Connect onboarding
-      // that requires 2FA. openBrowserAsync survives app-switch cycles; the
-      // user manually dismisses when done (or Stripe redirects to our
-      // thenest:// deep link, handled by expo-linking).
-      await WebBrowser.openBrowserAsync(url, {
-        // Match app theme; also improves survival across app-switches.
-        dismissButtonStyle: "close",
-        showTitle: true,
-        enableBarCollapsing: false,
-        // Android-only: keep the tab alive across app switches.
-        showInRecents: Platform.OS === "android" ? true : undefined,
-      });
-      // When user returns (either by finishing onboarding or manually
-      // dismissing), refresh status. AppState listener below also refreshes
-      // when app foregrounds.
-      setLoading(true);
-      await load();
+      // Launch Stripe Connect onboarding in the SYSTEM browser (Chrome/etc.)
+      // via Linking.openURL. This creates a separate Android task with its
+      // own recents entry, which survives being backgrounded — critical for
+      // Stripe 2FA where the user must switch to Google Authenticator to
+      // fetch a code, then switch back.
+      //
+      // We tried WebBrowser.openAuthSessionAsync (v1.0.31) — auto-dismissed
+      // on background. We tried WebBrowser.openBrowserAsync / Chrome Custom
+      // Tab (v1.0.32) — Android still killed it on some OEMs because the
+      // Custom Tab is tied to the launching activity's task. Full system
+      // browser is the reliable path.
+      //
+      // When Stripe finishes onboarding it redirects to thenest://seller/connect,
+      // which Android hands back to our app via the deep-link intent filter.
+      // The AppState listener below refreshes status on foreground.
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        throw new Error("Cannot open browser on this device.");
+      }
+      await Linking.openURL(url);
     } catch (e) {
       setError(e instanceof ApiError ? e.friendly : "Could not start Stripe onboarding. Please try again.");
     } finally {
