@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, AppState, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -56,9 +56,24 @@ export default function Connect() {
     setError(null);
     try {
       const { url } = await nest.getStripeConnectOnboardLink(RETURN_URL, REFRESH_URL);
-      // Auto-dismisses when Stripe redirects back to our scheme.
-      await WebBrowser.openAuthSessionAsync(url, RETURN_URL);
-      // Re-check status regardless of how the browser closed.
+      // Use openBrowserAsync (regular Chrome Custom Tab) instead of
+      // openAuthSessionAsync. The auth-session variant force-closes when the
+      // launching activity is backgrounded (e.g. switching to Google
+      // Authenticator for a 2FA code), which breaks Stripe Connect onboarding
+      // that requires 2FA. openBrowserAsync survives app-switch cycles; the
+      // user manually dismisses when done (or Stripe redirects to our
+      // thenest:// deep link, handled by expo-linking).
+      await WebBrowser.openBrowserAsync(url, {
+        // Match app theme; also improves survival across app-switches.
+        dismissButtonStyle: "close",
+        showTitle: true,
+        enableBarCollapsing: false,
+        // Android-only: keep the tab alive across app switches.
+        showInRecents: Platform.OS === "android" ? true : undefined,
+      });
+      // When user returns (either by finishing onboarding or manually
+      // dismissing), refresh status. AppState listener below also refreshes
+      // when app foregrounds.
       setLoading(true);
       await load();
     } catch (e) {
@@ -67,6 +82,18 @@ export default function Connect() {
       setBusy(false);
     }
   };
+
+  // Refresh Connect status whenever the app returns to the foreground while
+  // this screen is mounted. Handles the case where user completed Stripe
+  // onboarding, closed the browser, and returned to the app manually.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active" && isSeller) {
+        load();
+      }
+    });
+    return () => sub.remove();
+  }, [isSeller, load]);
 
   const openDashboard = async () => {
     setBusy(true);
