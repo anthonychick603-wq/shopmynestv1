@@ -1,7 +1,6 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing } from "@/src/theme";
+import { Image, StyleSheet, Text, View } from "react-native";
+import { colors, spacing } from "@/src/theme";
 
 type Props = {
   title?: string;
@@ -9,12 +8,19 @@ type Props = {
   compact?: boolean;
 };
 
-export function NestLogo({ title = "My Nest", subtitle, compact }: Props) {
+// In-app brand lockup: the nest illustration + wordmark.
+// The image asset is a transparent PNG of the nest with hangtag, exported
+// from the master logo so it stays crisp at 60/120/180 densities.
+export function NestLogo({ title = "ShopMyNest", subtitle, compact }: Props) {
+  const iconSize = compact ? 30 : 44;
   return (
     <View style={styles.wrap}>
-      <View style={[styles.icon, compact && styles.iconCompact]}>
-        <Ionicons name="leaf" size={compact ? 16 : 22} color={colors.brand} />
-      </View>
+      <Image
+        source={require("../../assets/images/nest-mark.png")}
+        style={{ width: iconSize, height: iconSize, marginRight: spacing.sm }}
+        resizeMode="contain"
+        accessible={false}
+      />
       <View>
         <Text style={[styles.title, compact && styles.titleCompact]}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -25,23 +31,13 @@ export function NestLogo({ title = "My Nest", subtitle, compact }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { flexDirection: "row", alignItems: "center" },
-  icon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceTertiary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.sm,
-  },
-  iconCompact: { width: 30, height: 30 },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800",
     color: colors.onSurface,
     letterSpacing: 0.2,
   },
-  titleCompact: { fontSize: 16 },
+  titleCompact: { fontSize: 17 },
   subtitle: {
     fontSize: 11,
     color: colors.onSurfaceMuted,
