@@ -19,7 +19,7 @@
     "@stripe/stripe-react-native": "0.50.3",
     "date-fns": "4.1.0",
     "dayjs": "1.11.13",
-    "expo": "54.0.35",
+    "expo": "~54.0.36",
     "expo-blur": "15.0.8",
     "expo-constants": "18.0.13",
     "expo-device": "~8.0.10",
