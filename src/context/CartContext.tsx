@@ -1,6 +1,6 @@
 // Client-side cart. Persisted locally, unaware of the server until checkout.
 // Mirrors v1.0.7's CartContext but in TypeScript with the internal Product shape.
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { storage } from "@/src/utils/storage";
 import type { Product, Cart, CartItem } from "@/src/types";
 import { useAuth } from "./AuthContext";
@@ -90,51 +90,70 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [items, hydrated]);
 
   const cart = useMemo(() => toCart(items), [items]);
-  const itemCount = items.reduce((s, it) => s + it.quantity, 0);
+  const itemCount = useMemo(() => items.reduce((s, it) => s + it.quantity, 0), [items]);
 
-  const value: CartContextValue = {
-    cart,
-    refreshing: false,
-    async refresh() {
-      // client-side; nothing to fetch
-    },
-    async addItem(product_id, quantity, variation, product) {
-      if (!product) return;
-      value.addProduct(product, quantity);
-    },
-    addProduct(product, quantity = 1) {
-      const q = clamp(product, quantity);
-      if (q < 1) return false;
-      setItems((cur) => {
-        const idx = cur.findIndex((it) => it.product.id === product.id);
-        if (idx >= 0) {
-          const next = [...cur];
-          next[idx] = { ...next[idx], product, quantity: clamp(product, next[idx].quantity + q) };
-          return next;
-        }
-        return [...cur, { product, quantity: q }];
-      });
-      return true;
-    },
-    async updateItem(index, quantity) {
-      setItems((cur) =>
-        cur
-          .map((it, i) => (i === index ? { ...it, quantity: clamp(it.product, quantity) } : it))
-          .filter((it) => it.quantity > 0),
-      );
-    },
-    async removeItem(index) {
-      setItems((cur) => cur.filter((_, i) => i !== index));
-    },
-    async applyCoupon() {
-      // Coupons resolved at checkout by WooCommerce
-    },
-    async removeCoupon() {},
-    async clear() {
-      setItems([]);
-    },
-    itemCount,
-  };
+  const refresh = useCallback(async () => {
+    // client-side; nothing to fetch
+  }, []);
+
+  const addProduct = useCallback((product: Product, quantity: number = 1) => {
+    const q = clamp(product, quantity);
+    if (q < 1) return false;
+    setItems((cur) => {
+      const idx = cur.findIndex((it) => it.product.id === product.id);
+      if (idx >= 0) {
+        const next = [...cur];
+        next[idx] = { ...next[idx], product, quantity: clamp(product, next[idx].quantity + q) };
+        return next;
+      }
+      return [...cur, { product, quantity: q }];
+    });
+    return true;
+  }, []);
+
+  const addItem = useCallback<CartContextValue["addItem"]>(async (_product_id, quantity, _variation, product) => {
+    if (!product) return;
+    addProduct(product, quantity);
+  }, [addProduct]);
+
+  const updateItem = useCallback(async (index: number, quantity: number) => {
+    setItems((cur) =>
+      cur
+        .map((it, i) => (i === index ? { ...it, quantity: clamp(it.product, quantity) } : it))
+        .filter((it) => it.quantity > 0),
+    );
+  }, []);
+
+  const removeItem = useCallback(async (index: number) => {
+    setItems((cur) => cur.filter((_, i) => i !== index));
+  }, []);
+
+  const applyCoupon = useCallback<CartContextValue["applyCoupon"]>(async (_code) => {
+    // Coupons resolved at checkout by WooCommerce
+  }, []);
+
+  const removeCoupon = useCallback(async () => {}, []);
+
+  const clear = useCallback(async () => {
+    setItems([]);
+  }, []);
+
+  const value = useMemo<CartContextValue>(
+    () => ({
+      cart,
+      refreshing: false,
+      refresh,
+      addItem,
+      addProduct,
+      updateItem,
+      removeItem,
+      applyCoupon,
+      removeCoupon,
+      clear,
+      itemCount,
+    }),
+    [cart, refresh, addItem, addProduct, updateItem, removeItem, applyCoupon, removeCoupon, clear, itemCount],
+  );
 
   // Clear cart on logout
   useEffect(() => {

@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Touchable
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 
 import { colors, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
@@ -10,7 +11,7 @@ import { Input } from "@/src/components/Input";
 import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { toast } from "@/src/components/Toast";
-import { ApiError } from "@/src/api/nest";
+import { ApiError, SITE } from "@/src/api/nest";
 
 export default function Login() {
   const router = useRouter();
@@ -68,14 +69,14 @@ export default function Login() {
           <TouchableOpacity onPress={() => router.replace("/(auth)/register")} style={{ marginTop: spacing.lg }} testID="login-goto-register">
             <Text style={styles.link}>New here? Create an account</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => toast.show("Password reset instructions sent if the email exists.")} style={{ marginTop: spacing.sm }} testID="login-forgot">
+          <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(`${SITE}/wp-login.php?action=lostpassword`)} style={{ marginTop: spacing.sm }} testID="login-forgot" accessibilityLabel="Forgot password" accessibilityRole="button">
             <Text style={styles.linkMuted}>Forgot password?</Text>
           </TouchableOpacity>
 
           <View style={styles.demo}>
             <Text style={styles.demoTitle}>Connected to shopmynest.com</Text>
             <Text style={styles.demoLine}>Use your existing website account.</Text>
-            <Text style={styles.demoLine}>Forgot password → follow the link on the website.</Text>
+            <Text style={styles.demoLine}>Forgot password → tap the link above to reset via the website.</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

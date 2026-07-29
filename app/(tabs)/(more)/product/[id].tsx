@@ -141,9 +141,17 @@ export default function ProductDetail() {
           <View style={{ marginTop: spacing.lg }}>
             <Text style={styles.varLabel}>Quantity</Text>
             <View style={styles.qtyRow}>
-              <TouchableOpacity onPress={() => setQty((q) => Math.max(1, q - 1))} style={styles.qtyBtn} testID="qty-decrement"><Ionicons name="remove" size={18} color={colors.onSurface} /></TouchableOpacity>
-              <Text style={styles.qtyText}>{qty}</Text>
-              <TouchableOpacity onPress={() => setQty((q) => q + 1)} style={styles.qtyBtn} testID="qty-increment"><Ionicons name="add" size={18} color={colors.onSurface} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setQty((q) => Math.max(1, q - 1))} style={styles.qtyBtn} testID="qty-decrement" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Decrease quantity" accessibilityRole="button"><Ionicons name="remove" size={18} color={colors.onSurface} /></TouchableOpacity>
+              <Text style={styles.qtyText} accessibilityLabel={`Quantity ${qty}`}>{qty}</Text>
+              <TouchableOpacity onPress={() => setQty((q) => {
+                const stockNum = Number((product as any)?.stock);
+                const cap = Number.isFinite(stockNum) && stockNum > 0 ? Math.min(99, stockNum) : 99;
+                if (q + 1 > cap) {
+                  toast.show(`Only ${cap} available.`);
+                  return cap;
+                }
+                return q + 1;
+              })} style={styles.qtyBtn} testID="qty-increment" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Increase quantity" accessibilityRole="button"><Ionicons name="add" size={18} color={colors.onSurface} /></TouchableOpacity>
             </View>
           </View>
 

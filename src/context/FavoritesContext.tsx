@@ -1,7 +1,7 @@
 // Favorites — backed by nest-trust/v1 favorites endpoints, with optimistic UI.
 // Holds the current user's favorited product IDs in memory; toggling updates
 // state immediately and reverts if the server call fails.
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { nest, ApiError, type NestFavoritesRaw } from "@/src/api/nest";
 import { useAuth } from "./AuthContext";
 import { toast } from "@/src/components/Toast";
@@ -78,13 +78,12 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     [user, ids],
   );
 
-  const value: FavoritesContextValue = {
-    ids,
-    loading,
-    isFavorite: (productId) => ids.has(String(productId)),
-    toggle,
-    refresh,
-  };
+  const isFavorite = useCallback((productId: string | number) => ids.has(String(productId)), [ids]);
+
+  const value = useMemo<FavoritesContextValue>(
+    () => ({ ids, loading, isFavorite, toggle, refresh }),
+    [ids, loading, isFavorite, toggle, refresh],
+  );
 
   return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>;
 }

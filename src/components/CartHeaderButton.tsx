@@ -12,7 +12,7 @@ export function CartHeaderButton({ style, testID = "header-cart" }: { style?: St
   const router = useRouter();
   const { itemCount } = useCart();
   return (
-    <TouchableOpacity testID={testID} onPress={() => router.push("/(tabs)/cart")} style={[styles.iconBtn, style]}>
+    <TouchableOpacity testID={testID} onPress={() => router.push("/(tabs)/cart")} style={[styles.iconBtn, style]} accessibilityLabel={itemCount > 0 ? `Cart, ${itemCount} item${itemCount === 1 ? "" : "s"}` : "Cart"} accessibilityRole="button">
       <Ionicons name="bag-handle-outline" size={20} color={colors.onSurface} />
       {itemCount > 0 ? (
         <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{itemCount}</Text></View>

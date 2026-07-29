@@ -274,7 +274,7 @@ export default function Cart() {
         googlePay: {
           merchantCountryCode: "US",
           currencyCode: intent.currency?.toUpperCase() || "USD",
-          testEnv: true, // TODO: set to false for the production release.
+          testEnv: false,
         },
       });
       if (initError) {

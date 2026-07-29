@@ -42,6 +42,8 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
           onPress={onToggleFavorite}
           style={styles.favBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          accessibilityRole="button"
         >
           <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? colors.error : colors.onSurface} />
         </TouchableOpacity>
@@ -79,6 +81,8 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
                 onPress={onAddToCart}
                 style={styles.addBtn}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                accessibilityLabel={`Add ${product.name} to cart`}
+                accessibilityRole="button"
               >
                 <Ionicons name="add" size={18} color={colors.onBrand} />
               </TouchableOpacity>

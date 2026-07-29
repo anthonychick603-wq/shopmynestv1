@@ -13,7 +13,9 @@ import { StripePaymentProvider } from "@/src/context/StripePayment";
 import { ToastHost } from "@/src/components/Toast";
 import { colors } from "@/src/theme";
 
-LogBox.ignoreAllLogs(true);
+if (!__DEV__) {
+  LogBox.ignoreAllLogs(true);
+}
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
