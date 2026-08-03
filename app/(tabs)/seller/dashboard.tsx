@@ -1,5 +1,6 @@
-import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -32,40 +33,55 @@ export default function SellerDashboard() {
   const [proSeller, setProSeller] = useState(false);
   const [boostProduct, setBoostProduct] = useState<Product | null>(null);
 
+  const lastLoadAt = useRef(0);
   const load = useCallback(async () => {
     if (!user || (user.role !== "seller" && user.role !== "admin")) return;
     try {
-      const dashboard = await nest.getSellerDashboard().catch(() => null);
+      // Fire all requests in parallel. Trust the dashboard endpoint as primary
+      // and only fall back to list endpoints if dashboard is missing sections.
+      const trustPromises = user.seller_id
+        ? [
+            nest.trust.getSellerBadge(user.seller_id).catch(() => null),
+            nest.trust.getProStatus(user.seller_id).catch(() => null),
+          ]
+        : [Promise.resolve(null), Promise.resolve(null)];
+
+      const [dashboard, b, pro] = await Promise.all([
+        nest.getSellerDashboard().catch(() => null),
+        trustPromises[0],
+        trustPromises[1],
+      ]);
+
       if (dashboard) {
         setTotals(dashboard.totals || {});
         if (dashboard.products) setProducts(dashboard.products.map(toProduct));
         if (dashboard.recent_orders) {
           setOrders(dashboard.recent_orders.map((r) => ({ id: String(r.id), status: r.status, total: Number(r.total ?? 0) })));
         }
-      }
-      // Fall back / augment via list endpoints
-      const [p, o] = await Promise.all([
-        nest.getMyProducts({ per_page: 50 }).catch(() => ({ items: [], total: 0 })),
-        nest.getSellerOrders({ per_page: 20 }).catch(() => ({ orders: [], total: 0 })),
-      ]);
-      if (p.items?.length) setProducts(p.items.map(toProduct));
-      if (o.orders?.length) setOrders(o.orders.map((r) => ({ id: String(r.id), status: r.status, total: Number(r.gross ?? 0) })));
-
-      // Trust Suite: own performance badge + Pro seller status.
-      if (user.seller_id) {
-        const [b, pro] = await Promise.all([
-          nest.trust.getSellerBadge(user.seller_id).catch(() => null),
-          nest.trust.getProStatus(user.seller_id).catch(() => null),
+      } else {
+        // Only fetch list endpoints when the aggregate dashboard call failed.
+        const [p, o] = await Promise.all([
+          nest.getMyProducts({ per_page: 50 }).catch(() => ({ items: [], total: 0 })),
+          nest.getSellerOrders({ per_page: 20 }).catch(() => ({ orders: [], total: 0 })),
         ]);
-        setBadge(b as SellerBadgeType | null);
-        setProSeller(!!pro?.pro_seller);
+        if (p.items?.length) setProducts(p.items.map(toProduct));
+        if (o.orders?.length) setOrders(o.orders.map((r) => ({ id: String(r.id), status: r.status, total: Number(r.gross ?? 0) })));
       }
+
+      setBadge(b as SellerBadgeType | null);
+      setProSeller(!!(pro && (pro as { pro_seller?: boolean }).pro_seller));
+      lastLoadAt.current = Date.now();
     } finally {
       setLoading(false);
     }
   }, [user]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // Only reload on focus if data is older than 60s to eliminate stutter
+  // when quickly switching tabs.
+  useFocusEffect(useCallback(() => {
+    const stale = Date.now() - lastLoadAt.current > 60_000;
+    if (stale) load();
+  }, [load]));
 
   const confirmDelete = (p: Product) => {
     Alert.alert("Delete listing", `Remove "${p.title}"? This moves it to trash and hides it from buyers.`, [
@@ -160,7 +176,14 @@ export default function SellerDashboard() {
         ) : (
           products.map((p) => (
             <View key={p.id} style={styles.prodRow}>
-              <Image source={{ uri: p.images?.[0] }} style={styles.prodImg} />
+              <Image
+                source={p.images?.[0] ?? undefined}
+                style={styles.prodImg}
+                contentFit="cover"
+                transition={150}
+                cachePolicy="memory-disk"
+                recyclingKey={String(p.id)}
+              />
               <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
                 <Text style={styles.prodTitle} numberOfLines={1}>{p.title}</Text>
                 <Text style={styles.prodMeta}>Stock: {p.stock} · ${p.price.toFixed(2)}</Text>
