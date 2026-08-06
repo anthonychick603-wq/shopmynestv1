@@ -153,6 +153,11 @@ export default function SellerDashboard() {
           <Text style={styles.payoutsBtnText}>Payout account (Stripe)</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
+        <TouchableOpacity style={styles.payoutsBtn} onPress={() => router.push("/seller/import")} testID="dash-import">
+          <Ionicons name="cloud-upload-outline" size={18} color={colors.brand} />
+          <Text style={styles.payoutsBtnText}>Import products from CSV</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
+        </TouchableOpacity>
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent orders</Text></View>
         {orders.length === 0 ? (

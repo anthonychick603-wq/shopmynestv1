@@ -224,6 +224,37 @@ export const nest = {
   uploadMedia: (formData: FormData) =>
     request<NestMediaRaw>("marketplace", "/media", { method: "POST", formData, timeoutMs: 60000 }),
 
+  // -------------------------------------------------------------------------
+  // Bulk product import (WooCommerce CSV format). Three-step flow:
+  //   1. upload CSV -> get job_id + preview + validation report
+  //   2. run -> start async processing on the server
+  //   3. poll status until complete
+  // -------------------------------------------------------------------------
+  uploadImport: (formData: FormData) =>
+    request<{
+      job_id: number;
+      total_rows: number;
+      columns: string[];
+      unrecognized_columns: string[];
+      preview: Array<{ row: number; name: string; price: string; stock: string; sku: string; images_count: number }>;
+      validation_errors: Array<{ row: number; name: string; problems: string[] }>;
+      ready_to_run: boolean;
+    }>("marketplace", "/seller/import/upload", { method: "POST", formData, timeoutMs: 60000 }),
+  runImport: (jobId: number) =>
+    request<{ job_id: number; status: string }>("marketplace", `/seller/import/${jobId}/run`, { method: "POST" }),
+  getImportStatus: (jobId: number) =>
+    request<{
+      job_id: number;
+      status: "ready" | "running" | "complete" | string;
+      total: number;
+      processed: number;
+      created: number;
+      updated: number;
+      failed: number;
+      errors: Array<{ row: number; name: string; error: string }>;
+      updated_at: string;
+    }>("marketplace", `/seller/import/${jobId}`),
+
   // Seller order fulfillment — PUT the-nest/v1/seller/orders/{id}.
   updateSellerOrder: (id: number | string, payload: { status: string; tracking_number?: string }) =>
     request<NestSellerOrderRaw>("marketplace", `/seller/orders/${id}`, { method: "PUT", body: payload }),
