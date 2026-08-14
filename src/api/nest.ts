@@ -197,6 +197,18 @@ export const nest = {
   markNotificationsRead: (ids?: number[]) =>
     request<{ ok: boolean }>("marketplace", "/notifications/read", { method: "POST", body: { ids: ids || [] } }),
 
+  // -------------------------------------------------------------------------
+  // Direct messaging — the-nest/v1/messages
+  //   GET  /messages              → inbox: latest per conversation
+  //   GET  /messages/{user_id}    → thread with a specific counterpart (marks read)
+  //   POST /messages              → send { recipient_id, message, product_id? }
+  // -------------------------------------------------------------------------
+  getConversations: () => request<NestConversationRaw[]>("marketplace", "/messages"),
+  getConversation: (userId: number | string, limit = 100) =>
+    request<NestMessageRaw[]>("marketplace", `/messages/${userId}`, { query: { limit } }),
+  sendMessage: (payload: { recipient_id: number; message: string; product_id?: number }) =>
+    request<{ success: boolean; message_id: number }>("marketplace", "/messages", { method: "POST", body: payload }),
+
   // Seller
   submitSellerApplication: (payload: Record<string, unknown>) =>
     request<{ ok: boolean; application_id: number }>("marketplace", "/seller/application", { method: "POST", body: payload }),
@@ -576,6 +588,22 @@ export type NestOrderRaw = {
   items: NestOrderItemRaw[];
   tracking?: { seller_id: number; seller_name: string; number: string; status: string }[];
   customer_note?: string;
+};
+
+export type NestConversationRaw = {
+  user: { id: number; display_name: string; store_name: string; avatar: string };
+  last_message: string;
+  date: string;
+  unread: boolean;
+};
+
+export type NestMessageRaw = {
+  id: number;
+  sender_id: number;
+  recipient_id: number;
+  message: string;
+  is_read: boolean;
+  created_at: string;
 };
 
 export type NestNotificationRaw = {

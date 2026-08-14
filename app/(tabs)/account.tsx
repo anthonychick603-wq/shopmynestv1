@@ -73,6 +73,7 @@ export default function Account() {
 
         <Section title="Shopping">
           <Row icon="bag-check-outline" label="Orders" onPress={() => router.push("/orders")} testID="acc-orders" />
+          <Row icon="chatbubble-ellipses-outline" label="Messages" onPress={() => router.push("/messages")} testID="acc-messages" />
           <Row icon="heart-outline" label="Favorites" onPress={() => router.push("/favorites")} testID="acc-favorites" />
           <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => router.push("/disputes")} testID="acc-disputes" />
         </Section>

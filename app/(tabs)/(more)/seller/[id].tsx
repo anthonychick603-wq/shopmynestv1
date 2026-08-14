@@ -101,6 +101,19 @@ export default function SellerProfile() {
                 </View>
               </View>
 
+              {user && seller && Number(id) !== user.id ? (
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity
+                    style={styles.messageBtn}
+                    onPress={() => router.push({ pathname: "/messages/[userId]", params: { userId: String(id), name: storeName } })}
+                    testID="seller-message"
+                  >
+                    <Ionicons name="chatbubble-ellipses" size={16} color={colors.onBrand} />
+                    <Text style={styles.messageBtnText}>Message shop</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
               {badge ? <View style={{ marginTop: spacing.lg }}><SellerBadge badge={badge} proSeller={proSeller} /></View> : null}
 
               {posts.length > 0 ? (
@@ -134,4 +147,7 @@ const styles = StyleSheet.create({
   storeName: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
   bio: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 4 },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.onSurface, marginTop: spacing.xl, marginBottom: spacing.md },
+  actionsRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg, flexWrap: "wrap" },
+  messageBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, backgroundColor: colors.brand, borderRadius: radius.pill },
+  messageBtnText: { color: colors.onBrand, fontWeight: "700", fontSize: 13 },
 });

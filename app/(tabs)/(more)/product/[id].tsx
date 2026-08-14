@@ -138,6 +138,29 @@ export default function ProductDetail() {
             </TouchableOpacity>
           ) : null}
 
+          {product.seller && (!user || user.id !== product.seller.id) ? (
+            <TouchableOpacity
+              style={styles.askSellerBtn}
+              onPress={() => {
+                if (!user) return router.push("/(auth)/login");
+                router.push({
+                  pathname: "/messages/[userId]",
+                  params: {
+                    userId: String(product.seller!.id),
+                    name: product.seller!.name,
+                    productId: String(product.id),
+                    draft: `Hi! I have a question about "${product.name}".`,
+                  },
+                });
+              }}
+              testID="product-ask-seller"
+              activeOpacity={0.85}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.brand} />
+              <Text style={styles.askSellerText}>Ask the seller about this item</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={{ marginTop: spacing.lg }}>
             <Text style={styles.varLabel}>Quantity</Text>
             <View style={styles.qtyRow}>
@@ -187,6 +210,8 @@ export default function ProductDetail() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
+  askSellerBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginTop: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  askSellerText: { color: colors.brand, fontWeight: "700", fontSize: 14 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   errText: { color: colors.onSurfaceMuted },
   topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, flexDirection: "row", justifyContent: "space-between", padding: spacing.md, paddingTop: spacing.lg },
