@@ -97,7 +97,7 @@ export default function SellerProfile() {
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={styles.storeName}>{storeName}</Text>
-                  {seller?.bio ? <Text style={styles.bio} numberOfLines={3}>{decodeEntities(seller.bio)}</Text> : null}
+                  {seller?.tagline ? <Text style={styles.tagline} numberOfLines={2}>{decodeEntities(seller.tagline)}</Text> : null}
                 </View>
               </View>
 
@@ -115,6 +115,13 @@ export default function SellerProfile() {
               ) : null}
 
               {badge ? <View style={{ marginTop: spacing.lg }}><SellerBadge badge={badge} proSeller={proSeller} /></View> : null}
+
+              {seller?.about || seller?.bio ? (
+                <View style={styles.aboutCard}>
+                  <Text style={styles.aboutTitle}>About the shop</Text>
+                  <Text style={styles.aboutBody}>{decodeEntities((seller?.about || seller?.bio) as string)}</Text>
+                </View>
+              ) : null}
 
               {posts.length > 0 ? (
                 <>
@@ -145,7 +152,10 @@ const styles = StyleSheet.create({
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceTertiary },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
   storeName: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
-  bio: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 4 },
+  tagline: { fontSize: 14, fontStyle: "italic", color: colors.onSurface, marginTop: 4, lineHeight: 19 },
+  aboutCard: { marginTop: spacing.lg, padding: spacing.lg, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  aboutTitle: { fontSize: 15, fontWeight: "700", color: colors.onSurface, marginBottom: spacing.xs },
+  aboutBody: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: colors.onSurface, marginTop: spacing.xl, marginBottom: spacing.md },
   actionsRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg, flexWrap: "wrap" },
   messageBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, backgroundColor: colors.brand, borderRadius: radius.pill },

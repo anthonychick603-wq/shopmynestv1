@@ -469,9 +469,18 @@ export type NestSellerRaw = {
   id: number;
   store_name?: string;
   avatar?: string;
+  banner?: string;
   is_pro?: boolean;
   badge?: string;
+  /** Short one-line shop tagline (max 140 chars). */
+  tagline?: string;
+  /** Long-form 'About your shop' text. */
+  about?: string;
+  /** @deprecated The server field is `about`; keep for backwards compatibility. */
   bio?: string;
+  followers?: number;
+  rating?: number;
+  review_count?: number;
   // GET /sellers/{id} now also returns that seller's most recent posts.
   posts?: NestFeedItemRaw[];
 };
