@@ -150,6 +150,10 @@ export const nest = {
   // Catalog
   getCategories: () => request<NestCategoryRaw[]>("marketplace", "/categories", { auth: false }),
   getProducts: (query?: Record<string, unknown>) => request<NestPaginated<NestProductRaw>>("marketplace", "/products", { query, auth: false }),
+  // Home listings feed: recent products from shops the viewer follows, padded
+  // with recent products from anywhere. Returns items with from_followed:bool.
+  getHomeFeed: (query?: { per_page?: number }) =>
+    request<{ items: (NestProductRaw & { from_followed?: boolean })[]; followed_count: number; has_followed: boolean; is_authenticated: boolean }>("marketplace", "/home", { query, auth: false }),
   getProduct: (id: number | string) => request<NestProductRaw>("marketplace", `/products/${id}`, { auth: false }),
   getFeed: (query?: Record<string, unknown>) => request<NestPaginated<NestFeedItemRaw> & { mode: string }>("marketplace", "/feed", { query }),
   // Publishes a Nest social post (seller-only; 403 otherwise). Returns the created

@@ -5,10 +5,12 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
-import { toBlogPost } from "@/src/api/adapters";
+import { toBlogPost, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
-import type { BlogPost } from "@/src/types";
+import type { BlogPost, Product } from "@/src/types";
 import { BlogPostCard } from "@/src/components/BlogPostCard";
+import { ProductCard } from "@/src/components/ProductCard";
+import { ScrollView } from "react-native";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -29,10 +31,25 @@ export default function Blog() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [homeItems, setHomeItems] = useState<Product[]>([]);
+  const [hasFollowed, setHasFollowed] = useState(false);
+
+  const loadHomeFeed = useCallback(async () => {
+    try {
+      const res = await nest.getHomeFeed({ per_page: 12 });
+      setHomeItems((res.items || []).map(toProduct));
+      setHasFollowed(res.has_followed);
+    } catch {
+      // Non-fatal; home feed just stays empty.
+    }
+  }, []);
 
   const load = useCallback(async (nextPage = 1) => {
     setError(null);
     try {
+      if (nextPage === 1) {
+        await loadHomeFeed();
+      }
       const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
       const items = (res.items || []).map(toBlogPost);
       setPosts((prev) => (nextPage === 1 ? items : [...prev, ...items]));
@@ -45,7 +62,7 @@ export default function Blog() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [loadHomeFeed]);
 
   // Reload on focus so a newly approved post shows up without a manual pull.
   useFocusEffect(
@@ -92,6 +109,31 @@ export default function Blog() {
           }}
           ListHeaderComponent={
             <View>
+              {homeItems.length > 0 ? (
+                <View style={styles.homeFeedSection}>
+                  <View style={styles.homeFeedHeader}>
+                    <Text style={styles.homeFeedTitle}>
+                      {hasFollowed ? "Fresh from shops you follow" : "Fresh from the Nest"}
+                    </Text>
+                    <TouchableOpacity onPress={() => router.push("/(tabs)/browse")} testID="home-feed-see-all">
+                      <Text style={styles.homeFeedSeeAll}>See all</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.homeFeedRow}
+                    testID="home-feed-scroller"
+                  >
+                    {homeItems.map((item) => (
+                      <View key={item.id} style={styles.homeFeedItem}>
+                        <ProductCard product={item} layout="full" testID={`home-feed-card-${item.id}`} />
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
+
               <View style={styles.composeCard}>
                 <Text style={styles.composeTitle}>Share something with the Nest</Text>
                 <Text style={styles.composeBody}>Post a photo and a caption. An admin reviews every post before it goes live.</Text>
@@ -145,4 +187,10 @@ const styles = StyleSheet.create({
   becomeSellerCard: { padding: spacing.lg, backgroundColor: colors.surfaceTertiary, borderRadius: radius.lg, flexDirection: "row", alignItems: "center", marginBottom: spacing.lg },
   becomeSellerTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
   becomeSellerBody: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
+  homeFeedSection: { marginBottom: spacing.lg },
+  homeFeedHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  homeFeedTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
+  homeFeedSeeAll: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted },
+  homeFeedRow: { gap: spacing.md, paddingRight: spacing.md },
+  homeFeedItem: { width: 200 },
 });

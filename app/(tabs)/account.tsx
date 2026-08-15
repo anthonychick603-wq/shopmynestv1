@@ -83,6 +83,7 @@ export default function Account() {
             <>
               <Row icon="storefront-outline" label="My Nest" onPress={() => router.push("/seller/dashboard")} testID="acc-seller-dashboard" />
               <Row icon="cube-outline" label="Add new product" onPress={() => router.push("/seller/product-form")} testID="acc-add-product" />
+              <Row icon="cloud-upload-outline" label="Import products from CSV" onPress={() => router.push("/seller/import")} testID="acc-import-products" />
             </>
           ) : user.seller_application_status === "pending" ? (
             <Row icon="hourglass-outline" label="Application status: Pending" testID="acc-app-pending" />
