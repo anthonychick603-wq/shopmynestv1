@@ -92,15 +92,30 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
   }
   if (!formData && body !== undefined) headers["Content-Type"] = "application/json";
 
+  // v1.0.42 — pull-to-refresh on the Blog tab was still returning stale JSON
+  // after an admin approved a new post. React Native's fetch reuses the
+  // platform HTTP cache when the URL and headers are identical, so the
+  // server's Cache-Control: no-store didn't help. Force every GET to bypass
+  // the client cache; a request-time param also defeats any intermediate
+  // proxy that ignores the request headers.
+  const bypassCache = method === "GET";
+  if (bypassCache) {
+    headers["Cache-Control"] = "no-cache";
+    headers.Pragma = "no-cache";
+  }
+  const finalQuery = bypassCache ? { ...(query || {}), _: Date.now() } : query;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(makeUrl(ns, path, query), {
+    const res = await fetch(makeUrl(ns, path, finalQuery), {
       method,
       headers,
       body: formData || (body !== undefined ? JSON.stringify(body) : undefined),
       signal: controller.signal,
-    });
+      // React Native passes this through to the native HTTP layer.
+      cache: bypassCache ? "no-store" : "default",
+    } as RequestInit);
     clearTimeout(timer);
     const text = await res.text();
     let data: any = null;
