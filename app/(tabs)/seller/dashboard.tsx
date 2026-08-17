@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import { nest, ApiError } from "@/src/api/nest";
+import { nest, ApiError, type NestSellerReadiness } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product, SellerBadge as SellerBadgeType } from "@/src/types";
@@ -20,6 +20,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { SellerBadge } from "@/src/components/SellerBadge";
 import { BoostSheet } from "@/src/components/BoostSheet";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
 
 export default function SellerDashboard() {
   const insets = useSafeAreaInsets();
@@ -32,6 +33,7 @@ export default function SellerDashboard() {
   const [badge, setBadge] = useState<SellerBadgeType | null>(null);
   const [proSeller, setProSeller] = useState(false);
   const [boostProduct, setBoostProduct] = useState<Product | null>(null);
+  const [readiness, setReadiness] = useState<NestSellerReadiness | null>(null);
 
   const lastLoadAt = useRef(0);
   const load = useCallback(async () => {
@@ -46,11 +48,15 @@ export default function SellerDashboard() {
           ]
         : [Promise.resolve(null), Promise.resolve(null)];
 
-      const [dashboard, b, pro] = await Promise.all([
+      const [dashboard, b, pro, r] = await Promise.all([
         nest.getSellerDashboard().catch(() => null),
         trustPromises[0],
         trustPromises[1],
+        // v3.7.93 — the readiness endpoint is safe to call on every focus;
+        // if the plugin isn't upgraded yet we silently skip the card.
+        nest.getSellerReadiness().catch(() => null),
       ]);
+      setReadiness(r);
 
       if (dashboard) {
         setTotals(dashboard.totals || {});
@@ -147,6 +153,8 @@ export default function SellerDashboard() {
           <Stat label="Orders" value={String(orders.length || totals.orders || 0)} icon="bag-check-outline" />
           <Stat label="Earnings" value={`$${(totals.earnings ?? totals.revenue ?? 0).toFixed(0)}`} icon="cash-outline" />
         </View>
+
+        <SellerReadinessCard readiness={readiness} />
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Quick actions</Text></View>
         <Button title="+ Create a new listing" onPress={() => router.push("/seller/product-form")} testID="dash-new-product" />

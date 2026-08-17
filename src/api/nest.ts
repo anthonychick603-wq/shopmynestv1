@@ -264,6 +264,9 @@ export const nest = {
   getSellerApplicationStatus: () =>
     request<{ status: "none" | "pending" | "approved" | "rejected"; application_id?: number; submitted_at?: string }>("marketplace", "/seller/application/status"),
   getSellerDashboard: () => request<NestSellerDashboardRaw>("marketplace", "/seller/dashboard"),
+  // v3.7.93 — one-screen seller readiness checklist (Stripe Connect, ship-from,
+  // shop name, first product). See MNU_Seller_Readiness::build on the plugin.
+  getSellerReadiness: () => request<NestSellerReadiness>("marketplace", "/seller/readiness"),
   getMyProducts: (query?: Record<string, unknown>) =>
     request<NestPaginated<NestProductRaw>>("marketplace", "/seller/products", { query }),
   getSellerOrders: (query?: Record<string, unknown>) =>
@@ -924,6 +927,25 @@ export type NestSellerDashboardRaw = {
   totals?: { orders?: number; revenue?: number; earnings?: number; pending?: number };
   recent_orders?: NestOrderRaw[];
   products?: NestProductRaw[];
+};
+
+// v3.7.93 — seller readiness checklist. One entry per required setup step.
+export type NestSellerReadinessStep = {
+  key: string;
+  label: string;
+  description: string;
+  ok: boolean;
+  blocking: boolean;
+  action_url: string;
+  action_label: string;
+  detail: string;
+};
+export type NestSellerReadiness = {
+  seller_id: number;
+  ready_to_sell: boolean;
+  completed: number;
+  total: number;
+  steps: NestSellerReadinessStep[];
 };
 
 // ---------------------------------------------------------------------------

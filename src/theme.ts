@@ -16,6 +16,7 @@ export const colors = {
   divider: "#EEDDCC",
   error: "#D96C6C",
   success: "#7A9A6E",
+  warning: "#C56A55",
 } as const;
 
 export const spacing = {
