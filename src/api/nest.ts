@@ -327,6 +327,26 @@ export const nest = {
   getShippingLabel: (orderId: number | string) =>
     request<NestGetLabelRaw>("labels", `/seller/orders/${orderId}/label`),
 
+  // -------------------------------------------------------------------------
+  // Shippo Connect (nest-connect/v1) — sellers link their own Shippo account
+  // so postage is billed to them directly instead of the platform.
+  //   GET  /seller/status       → { connected, source, mode, account, oauth_ready }
+  //   POST /seller/manual       → { token } validates + stores token
+  //   POST /seller/disconnect   → clears the connection
+  //   GET  /oauth/start         → Shippo authorize URL (B1, dormant until platform creds set)
+  // -------------------------------------------------------------------------
+  getShippoStatus: () =>
+    request<NestShippoStatus>("connect", "/seller/status"),
+  connectShippoManual: (token: string) =>
+    request<{ ok: boolean; status: NestShippoStatus }>("connect", "/seller/manual", {
+      method: "POST",
+      body: { token },
+    }),
+  disconnectShippo: () =>
+    request<{ ok: boolean; status: NestShippoStatus }>("connect", "/seller/disconnect", { method: "POST" }),
+  startShippoOAuth: () =>
+    request<{ authorize_url: string; expires_in: number }>("connect", "/oauth/start"),
+
   // Earnings + payouts — the-nest/v1/seller/{earnings,payouts}.
   getSellerEarnings: (query?: Record<string, unknown>) =>
     request<NestSellerEarningsRaw>("marketplace", "/seller/earnings", { query }),
@@ -961,4 +981,14 @@ export type NestBuyLabelRaw = {
 export type NestGetLabelRaw = {
   seller_id: number;
   label: NestShippingLabel;
+};
+
+// Shape returned by GET /nest-connect/v1/seller/status
+export type NestShippoStatus = {
+  connected: boolean;
+  source: "manual" | "oauth" | null;
+  connected_at: string | null;
+  mode: "live" | "test" | null;
+  account: { email: string; name: string; company: string };
+  oauth_ready: boolean;
 };

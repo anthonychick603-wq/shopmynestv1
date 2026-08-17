@@ -148,6 +148,11 @@ export default function SellerDashboard() {
           <Text style={styles.payoutsBtnText}>Earnings & payouts</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
+        <TouchableOpacity style={styles.payoutsBtn} onPress={() => router.push("/seller/shippo")} testID="dash-shippo">
+          <Ionicons name="cube-outline" size={18} color={colors.brand} />
+          <Text style={styles.payoutsBtnText}>Shipping account (Shippo)</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.payoutsBtn} onPress={() => router.push("/seller/connect")} testID="dash-connect">
           <Ionicons name="business-outline" size={18} color={colors.brand} />
           <Text style={styles.payoutsBtnText}>Payout account (Stripe)</Text>
