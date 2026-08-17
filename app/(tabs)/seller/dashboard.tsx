@@ -148,10 +148,32 @@ export default function SellerDashboard() {
           </View>
         ) : null}
 
+        {/* v1.0.52 - stat cards are now real buttons. Tapping Products jumps
+            to the seller product list, Orders to the seller orders tab, and
+            Earnings to payouts. Previously they looked tappable but did
+            nothing, which sellers reported as broken. */}
         <View style={styles.statsRow}>
-          <Stat label="Products" value={String(products.length || totals.orders || 0)} icon="cube-outline" />
-          <Stat label="Orders" value={String(orders.length || totals.orders || 0)} icon="bag-check-outline" />
-          <Stat label="Earnings" value={`$${(totals.earnings ?? totals.revenue ?? 0).toFixed(0)}`} icon="cash-outline" />
+          <Stat
+            label="Products"
+            value={String(products.length || 0)}
+            icon="cube-outline"
+            onPress={() => router.push("/seller/listings")}
+            testID="dash-stat-products"
+          />
+          <Stat
+            label="Orders"
+            value={String(orders.length || totals.orders || 0)}
+            icon="bag-check-outline"
+            onPress={() => router.push("/orders")}
+            testID="dash-stat-orders"
+          />
+          <Stat
+            label="Earnings"
+            value={`$${(totals.earnings ?? totals.revenue ?? 0).toFixed(0)}`}
+            icon="cash-outline"
+            onPress={() => router.push("/seller/payouts")}
+            testID="dash-stat-earnings"
+          />
         </View>
 
         <SellerReadinessCard readiness={readiness} />
@@ -236,13 +258,31 @@ export default function SellerDashboard() {
   );
 }
 
-function Stat({ label, value, icon }: { label: string; value: string; icon: keyof typeof Ionicons.glyphMap }) {
+function Stat({
+  label,
+  value,
+  icon,
+  onPress,
+  testID,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress?: () => void;
+  testID?: string;
+}) {
   return (
-    <View style={styles.stat}>
+    <TouchableOpacity
+      style={styles.stat}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={0.7}
+      testID={testID}
+    >
       <Ionicons name={icon} size={20} color={colors.brand} />
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 

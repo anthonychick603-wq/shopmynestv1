@@ -113,14 +113,33 @@ export type Order = {
   tax: number;
   total: number;
   status: "awaiting_payment" | "paid" | "processing" | "shipped" | "delivered" | "failed" | "cancelled";
-  tracking?: { carrier: string; tracking_number: string };
+  // v1.0.51 - per-seller tracking rows (the old single-object shape lost
+  // visibility on multi-seller orders). See buyer order screen for how
+  // this is grouped with the items belonging to each seller.
+  tracking_rows: OrderTrackingRow[];
+  shipping_status: "awaiting" | "partial" | "shipped" | "delivered";
+  can_review: boolean;
+  reviewable_seller_ids: number[];
   shipping_label?: { carrier: string; tracking_number: string; label_data_uri: string };
   contact_email?: string;
   contact_phone?: string;
   created_at?: string;
   paid_at?: string;
   shipped_at?: string;
+  completed_at?: string;
   seller_fees?: { seller_id: string; gross: number; marketplace_fee: number; seller_net: number; fee_percent: number }[];
+};
+
+export type OrderTrackingRow = {
+  seller_id: number;
+  seller_name: string;
+  number: string;
+  carrier?: string;
+  service?: string;
+  tracking_url?: string;
+  label_source?: "shippo" | "manual" | "";
+  shipped_at?: string;
+  status?: string;
 };
 
 export type NotificationItem = {

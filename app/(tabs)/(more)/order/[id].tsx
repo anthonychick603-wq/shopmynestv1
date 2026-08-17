@@ -17,6 +17,8 @@ import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { RefundStatusCard } from "@/src/components/RefundStatusCard";
+import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
+import { OrderReviewCTA } from "@/src/components/OrderReviewCTA";
 
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -116,14 +118,18 @@ export default function OrderDetail() {
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Status</Text>
-          <Text style={styles.status}>{order.status.replace("_", " ").toUpperCase()}</Text>
-          {order.tracking ? (
-            <View style={styles.tracking}>
-              <Ionicons name="location-outline" size={18} color={colors.brand} />
-              <Text style={styles.trackingText}>{order.tracking.carrier} — {order.tracking.tracking_number}</Text>
-            </View>
+          <Text style={styles.status}>{buyerStatusLabel(order).toUpperCase()}</Text>
+          {order.shipping_status === "partial" ? (
+            <Text style={styles.statusHint}>Some sellers on this order have shipped, others are still preparing.</Text>
           ) : null}
         </View>
+        {order.tracking_rows.length > 0 ? (
+          <View style={{ marginBottom: spacing.sm }}>
+            {order.tracking_rows.map((row) => (
+              <BuyerTrackingCard key={row.seller_id} row={row} />
+            ))}
+          </View>
+        ) : null}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Items</Text>
           {order.items.map((it, i) => (
@@ -158,6 +164,7 @@ export default function OrderDetail() {
             onChange={setRefund}
           />
         ) : null}
+        <OrderReviewCTA order={order} />
         {isSeller && sellerOrder ? (
           <SellerFulfillment orderId={String(order.id)} data={sellerOrder} onUpdated={setSellerOrder} />
         ) : null}
@@ -494,6 +501,28 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
   );
 }
 
+function buyerStatusLabel(order: Order): string {
+  // v1.0.51 - map internal status to human copy the buyer expects on the
+  // order screen. "processing" is deliberately shown as "Preparing" because
+  // customers don't read "processing" as "the seller is picking + packing".
+  switch (order.status) {
+    case "awaiting_payment":
+      return "Payment pending";
+    case "processing":
+      return order.shipping_status === "partial" ? "Partially shipped" : "Preparing";
+    case "shipped":
+      return "Shipped";
+    case "delivered":
+      return "Delivered";
+    case "failed":
+      return "Payment failed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return String(order.status).replace("_", " ");
+  }
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -503,6 +532,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadows.card },
   cardLabel: { fontSize: 11, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
   status: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
+  statusHint: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 4, lineHeight: 17 },
   tracking: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, backgroundColor: colors.surfaceTertiary, padding: spacing.md, borderRadius: radius.md },
   trackingText: { color: colors.onSurface, fontWeight: "700" },
   itemRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.divider },

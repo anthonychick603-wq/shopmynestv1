@@ -217,6 +217,27 @@ export const nest = {
   requestOrderRefund: (id: number | string, payload: { reason: string; details?: string }) =>
     request<NestRefundStatus>("marketplace", `/orders/${id}/refund-request`, { method: "POST", body: payload }),
 
+  // Seller profile (v1.0.52 - shop settings screen for the "Add name"
+  // readiness step + future banner/about edits from the app).
+  getSellerProfileMe: () => request<NestSellerProfileMe>("marketplace", "/seller/profile"),
+  updateSellerProfile: (
+    payload: { store_name?: string; about?: string; tagline?: string }
+  ) =>
+    request<NestSellerProfileMe>("marketplace", "/seller/profile", {
+      method: "POST",
+      body: payload,
+    }),
+
+  // Reviews (v1.0.51 - buyer order screen review CTA)
+  submitSellerReview: (
+    sellerId: number | string,
+    payload: { rating: number; review: string; order_id: number | string }
+  ) =>
+    request<{ success: boolean; review_id: number }>("marketplace", `/sellers/${sellerId}/reviews`, {
+      method: "POST",
+      body: payload,
+    }),
+
   // Notifications
   getNotifications: (query?: Record<string, unknown>) =>
     request<{ items: NestNotificationRaw[]; total: number; unread?: number }>("marketplace", "/notifications", { query }),
@@ -681,9 +702,28 @@ export type NestOrderRaw = {
   billing: NestWpAddress;
   shipping: NestWpAddress;
   items: NestOrderItemRaw[];
-  tracking?: { seller_id: number; seller_name: string; number: string; status: string }[];
+  // v1.0.51 - per-seller tracking row now carries carrier / service /
+  // tap-through URL / shipped_at / label_source ("shippo" or "manual").
+  // The old shape had only { seller_id, seller_name, number, status }.
+  tracking?: NestOrderTrackingRow[];
+  shipping_status?: "awaiting" | "partial" | "shipped" | "delivered";
+  date_paid?: string;
+  date_completed?: string;
   customer_note?: string;
   refund?: NestRefundStatus;
+  reviewable?: { can_review: boolean; seller_ids: number[] };
+};
+
+export type NestOrderTrackingRow = {
+  seller_id: number;
+  seller_name: string;
+  number: string;
+  carrier?: string;
+  service?: string;
+  tracking_url?: string;
+  label_source?: "shippo" | "manual" | "";
+  shipped_at?: string;
+  status?: string;
 };
 
 export type NestRefundState = "none" | "requested" | "approved" | "processing" | "completed" | "denied";
@@ -930,6 +970,19 @@ export type NestSellerDashboardRaw = {
 };
 
 // v3.7.93 — seller readiness checklist. One entry per required setup step.
+export type NestSellerProfileMe = {
+  id: number;
+  store_name: string;
+  display_name: string;
+  about?: string;
+  tagline?: string;
+  avatar?: string;
+  banner?: string;
+  followers?: number;
+  rating?: number;
+  review_count?: number;
+};
+
 export type NestSellerReadinessStep = {
   key: string;
   label: string;

@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   },
   iconWrap: { width: 26, alignItems: "center" },
   rowLabel: { fontSize: 14, fontWeight: "700", color: colors.onSurface },
-  rowLabelOk: { color: colors.onSurfaceMuted, textDecorationLine: "line-through" },
+  rowLabelOk: { color: colors.onSurfaceMuted },
   rowDesc: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2, lineHeight: 16 },
   rowDetail: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
   action: { flexDirection: "row", alignItems: "center", gap: 2 },

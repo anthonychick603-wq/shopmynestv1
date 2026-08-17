@@ -132,15 +132,52 @@ export function toOrder(o: NestOrderRaw): Order {
     discount: o.discount_total,
     tax: o.tax_total,
     total: o.total,
-    status: (["paid", "processing", "shipped", "delivered", "failed", "cancelled"].includes(o.status)
-      ? (o.status as Order["status"])
-      : o.status === "completed"
-      ? "delivered"
-      : "processing"),
-    tracking: o.tracking && o.tracking[0] ? { carrier: o.tracking[0].seller_name, tracking_number: o.tracking[0].number } : undefined,
+    // v1.0.51 - buyer-visible status now derives from the aggregate
+    // shipping_status the plugin computes across all sellers on the order.
+    // The old logic ignored per-seller shipped state, so multi-seller
+    // orders stayed "processing" until Woo itself flipped to completed.
+    status: deriveBuyerStatus(o),
+    tracking_rows: (o.tracking || []).map((t) => ({
+      seller_id: t.seller_id,
+      seller_name: decodeEntities(t.seller_name || ""),
+      number: t.number || "",
+      carrier: t.carrier || "",
+      service: t.service || "",
+      tracking_url: t.tracking_url || "",
+      label_source: (t.label_source as any) || "",
+      shipped_at: t.shipped_at || "",
+      status: t.status || "",
+    })),
+    shipping_status: (o.shipping_status as Order["shipping_status"]) || deriveShippingStatus(o),
+    can_review: !!o.reviewable?.can_review,
+    reviewable_seller_ids: o.reviewable?.seller_ids || [],
     contact_email: (o.billing as any)?.email,
     created_at: o.date_created,
+    paid_at: o.date_paid,
+    completed_at: o.date_completed,
   };
+}
+
+function deriveBuyerStatus(o: NestOrderRaw): Order["status"] {
+  if (o.status === "failed") return "failed";
+  if (o.status === "cancelled") return "cancelled";
+  if (o.status === "completed") return "delivered";
+  const ship = o.shipping_status || deriveShippingStatus(o);
+  if (ship === "shipped") return "shipped";
+  if (ship === "delivered") return "delivered";
+  if (o.status === "processing") return "processing";
+  if (o.status === "pending" || o.status === "on-hold") return "awaiting_payment";
+  return "processing";
+}
+
+function deriveShippingStatus(o: NestOrderRaw): Order["shipping_status"] {
+  // Fallback for older bridges that don't emit shipping_status yet: use
+  // the presence of a tracking row as a proxy for "at least partially
+  // shipped", so buyers on outdated servers still get some parity.
+  const rows = o.tracking || [];
+  if (o.status === "completed") return "delivered";
+  if (rows.some((r) => r.status === "shipped" || r.status === "completed")) return "partial";
+  return "awaiting";
 }
 
 // Personalized-feed rows can arrive product-shaped (`name`) or feed-item-shaped
