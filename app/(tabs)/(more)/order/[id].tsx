@@ -30,32 +30,40 @@ export default function OrderDetail() {
 
   useEffect(() => {
     setLoadError(null);
-    nest
+    setLoading(true);
+    // v1.0.46 — Jo tapped her seller dashboard's #2943 row and hit the
+    // "you can't view this order" wall because getBuyerOrder 403s for a
+    // seller who is not the buyer. Fire both requests in parallel; if the
+    // buyer path fails but the seller path finds the order, keep the
+    // screen mounted so the seller-fulfillment view can render.
+    const buyerP = nest
       .getBuyerOrder(id!)
       .then((raw) => setOrder(toOrder(raw)))
       .catch((err) => {
-        // v1.0.44 — preserve the server’s reason for the failure so we can
-        // tell buyers whether the order really doesn’t exist, whether they
-        // lack permission (403 is common when a seller peeks at a buyer
-        // order), or whether the session expired (401).
         if (err instanceof ApiError) {
           setLoadError({ status: err.status, message: err.friendly || err.message });
         } else {
           setLoadError({ status: 0, message: "Couldn’t load this order." });
         }
         setOrder(null);
-      })
-      .finally(() => setLoading(false));
-  }, [id]);
-
-  useEffect(() => {
-    if (!isSeller || !id) return;
-    nest.getSellerOrders({ per_page: 100 })
-      .then((res) => setSellerOrder(res.orders?.find((o) => String(o.id) === String(id)) ?? null))
-      .catch(() => setSellerOrder(null));
+      });
+    const sellerP = isSeller
+      ? nest.getSellerOrders({ per_page: 100 })
+          .then((res) => setSellerOrder(res.orders?.find((o) => String(o.id) === String(id)) ?? null))
+          .catch(() => setSellerOrder(null))
+      : Promise.resolve();
+    Promise.all([buyerP, sellerP]).finally(() => setLoading(false));
   }, [id, isSeller]);
 
   if (loading) return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
+
+  // v1.0.46 — seller-only view: buyer fetch was refused (403) but this
+  // seller has a line item on the order. Render a purpose-built seller
+  // fulfillment screen instead of the "can't view this order" wall.
+  if (!order && sellerOrder) {
+    return <SellerOrderScreen data={sellerOrder} onUpdated={setSellerOrder} />;
+  }
+
   if (!order) {
     const status = loadError?.status ?? 0;
     const heading =
@@ -392,6 +400,67 @@ function Line({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
       <Text style={{ color: colors.onSurfaceMuted, fontWeight: bold ? "800" : "600" }}>{k}</Text>
       <Text style={{ color: colors.onSurface, fontWeight: bold ? "800" : "700", fontSize: bold ? 17 : 14 }}>{v}</Text>
     </View>
+  );
+}
+
+// v1.0.46 — seller-only order detail. Rendered when the buyer endpoint 403s
+// (i.e. the current seller is not the buyer of this order) but our own
+// /seller/orders list confirms this seller has line items on it. Uses only
+// NestSellerOrderRaw fields — no buyer PII beyond what the seller already
+// sees on the fulfillment card.
+function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUpdated: (o: NestSellerOrderRaw) => void }) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <View style={styles.top}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
+          <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+        </TouchableOpacity>
+        <Text style={styles.topTitle}>Order #{data.number || data.id}</Text>
+        <View style={{ width: 36 }} />
+      </View>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Your fulfillment status</Text>
+          <Text style={styles.status}>{(data.seller_status || "processing").toUpperCase()}</Text>
+          {data.tracking_number ? (
+            <View style={styles.tracking}>
+              <Ionicons name="location-outline" size={18} color={colors.brand} />
+              <Text style={styles.trackingText}>{data.tracking_number}</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Your items</Text>
+          {data.items.map((it, i) => (
+            <View key={i} style={styles.itemRow}>
+              <View style={{ flex: 1, paddingRight: spacing.md }}>
+                <Text style={styles.itemTitle} numberOfLines={2}>{it.name}</Text>
+                <Text style={styles.itemMeta}>Qty {it.quantity}</Text>
+              </View>
+              <Text style={styles.itemTotal}>${Number(it.gross ?? 0).toFixed(2)}</Text>
+            </View>
+          ))}
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Ship to</Text>
+          <Text style={styles.addr}>{data.customer?.name || "Customer"}</Text>
+          {data.customer?.address ? (
+            <Text style={styles.addr}>{data.customer.address}</Text>
+          ) : null}
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Your earnings</Text>
+          <Line k="Item subtotal" v={`$${Number(data.gross ?? 0).toFixed(2)}`} />
+          <Line k="Platform fee" v={`-$${Number(data.platform_fee ?? 0).toFixed(2)}`} />
+          <View style={styles.divider} />
+          <Line k="Net (before shipping)" v={`$${Number(data.net_before_shipping ?? 0).toFixed(2)}`} bold />
+        </View>
+        <SellerFulfillment orderId={String(data.id)} data={data} onUpdated={onUpdated} />
+        <Text style={styles.placedAt}>Placed {data.date_created ? format(new Date(data.date_created), "PPpp") : ""}</Text>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
