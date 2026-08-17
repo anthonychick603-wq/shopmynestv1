@@ -56,7 +56,14 @@ export default function SellerDashboard() {
         setTotals(dashboard.totals || {});
         if (dashboard.products) setProducts(dashboard.products.map(toProduct));
         if (dashboard.recent_orders) {
-          setOrders(dashboard.recent_orders.map((r) => ({ id: String(r.id), status: r.status, total: Number(r.total ?? 0) })));
+          // v1.0.46 — the seller-scoped order shape ships `gross`/`total`
+          // (v3.7.88+ adds `total`; older plugins only have `gross`). Read
+          // either so a seller who has an order never sees $0.00 next to it.
+          setOrders(dashboard.recent_orders.map((r) => ({
+            id: String(r.id),
+            status: r.status,
+            total: Number((r as { total?: number | string; gross?: number | string }).total ?? (r as { gross?: number | string }).gross ?? 0),
+          })));
         }
       } else {
         // Only fetch list endpoints when the aggregate dashboard call failed.
