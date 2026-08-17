@@ -1,13 +1,16 @@
-import React from "react";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import * as ImagePicker from "expo-image-picker";
 
-import { SITE } from "@/src/api/nest";
+import { ApiError, nest, SITE } from "@/src/api/nest";
+import { toast } from "@/src/components/Toast";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
+
 import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
@@ -15,7 +18,42 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 export default function Account() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // v1.0.53 — tap the avatar to change it. We pick from the OS photo
+  // library, upload to /account/photo/upload on the bridge, then
+  // refresh() the auth user so the new avatar renders everywhere.
+  const changeAvatar = async () => {
+    if (uploadingPhoto) return;
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        toast.error("Allow photo access to change your picture.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.85,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      setUploadingPhoto(true);
+      await nest.uploadAccountPhoto({
+        uri: asset.uri,
+        fileName: asset.fileName || "avatar.jpg",
+        mimeType: asset.mimeType || "image/jpeg",
+      });
+      await refresh();
+      toast.success("Profile photo updated");
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.friendly : "Couldn't update your photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -59,13 +97,29 @@ export default function Account() {
         </View>
 
         <View style={styles.profile}>
-          {user.profile_photo ? (
-            <Image source={{ uri: user.profile_photo }} style={styles.avatarLarge} />
-          ) : (
-            <View style={styles.avatarLarge}>
-              <Ionicons name="person" size={40} color={colors.brand} />
+          {/* v1.0.53 - tap the avatar to change it. */}
+          <TouchableOpacity
+            onPress={changeAvatar}
+            activeOpacity={0.85}
+            disabled={uploadingPhoto}
+            style={styles.avatarWrap}
+            testID="acc-change-avatar"
+          >
+            {user.profile_photo ? (
+              <Image source={{ uri: user.profile_photo }} style={styles.avatarLarge} />
+            ) : (
+              <View style={styles.avatarLarge}>
+                <Ionicons name="person" size={40} color={colors.brand} />
+              </View>
+            )}
+            <View style={styles.avatarEditBadge}>
+              {uploadingPhoto ? (
+                <ActivityIndicator size="small" color={colors.onBrand} />
+              ) : (
+                <Ionicons name="camera" size={14} color={colors.onBrand} />
+              )}
             </View>
-          )}
+          </TouchableOpacity>
           <Text style={styles.name}>{user.name}</Text>
           <Text style={styles.email}>{user.email}</Text>
           {isSeller ? <View style={styles.sellerBadge}><Text style={styles.sellerBadgeText}>MAKER</Text></View> : null}
@@ -158,6 +212,20 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
   profile: { alignItems: "center", padding: spacing.lg },
+  avatarWrap: { position: "relative", marginBottom: spacing.md },
+  avatarEditBadge: {
+    position: "absolute",
+    right: 2,
+    bottom: spacing.md + 2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.surface,
+  },
   avatarLarge: {
     width: 96,
     height: 96,
@@ -165,7 +233,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceTertiary,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.md,
   },
   name: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
   email: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2, textAlign: "center" },

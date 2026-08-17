@@ -15,6 +15,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,13 +84,13 @@ export default function ProductDetail() {
     return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
   }
   if (err || !product) {
-    return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.errText}>{err ?? "Product not found"}</Text><Button title="Back" onPress={() => router.back()} style={{ marginTop: spacing.md }} /></View></SafeAreaView>;
+    return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.errText}>{err ?? "Product not found"}</Text><Button title="Back" onPress={() => safeBack(router, "/(tabs)")} style={{ marginTop: spacing.md }} /></View></SafeAreaView>;
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="product-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="product-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <TouchableOpacity style={styles.topBtn} onPress={onFav} testID="product-favorite">
             <Ionicons name={isFavorite(product.id) ? "heart" : "heart-outline"} size={20} color={isFavorite(product.id) ? colors.error : colors.onSurface} />

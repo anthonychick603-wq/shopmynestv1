@@ -25,6 +25,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
+import { safeBack } from "@/src/utils/nav";
 
 // Format a MySQL UTC timestamp as a friendly time-of-day / date line above a
 // message bubble ("Today 3:14 PM", "Yesterday 11:02 AM", "Mar 4 3:14 PM").
@@ -354,7 +355,7 @@ export default function MessageThread() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="thread-back">
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="thread-back">
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle} numberOfLines={1}>{headerName}</Text>
@@ -371,7 +372,7 @@ export default function MessageThread() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="thread-back">
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="thread-back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <TouchableOpacity

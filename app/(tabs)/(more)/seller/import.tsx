@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 
 import { nest } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
+import { safeBack } from "@/src/utils/nav";
 
 type Phase = "idle" | "uploading" | "preview" | "running" | "done" | "error";
 
@@ -107,7 +108,7 @@ export default function ImportScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} accessibilityLabel="Back">
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/seller/dashboard")} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={26} color={colors.brand} />
         </TouchableOpacity>
         <Text style={styles.title}>Import products</Text>

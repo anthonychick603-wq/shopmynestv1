@@ -12,6 +12,7 @@ import { BlogPostCard } from "@/src/components/BlogPostCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
+import { safeBack } from "@/src/utils/nav";
 
 type Status = "pending" | "approved" | "rejected";
 const TABS: Status[] = ["pending", "approved", "rejected"];
@@ -67,7 +68,7 @@ export default function BlogModeration() {
   if (!user?.is_approved_seller) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)")} />
         <EmptyState
           icon="lock-closed-outline"
           title="Not available"
@@ -80,7 +81,7 @@ export default function BlogModeration() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)")} />
 
       <View style={styles.tabs}>
         {TABS.map((t) => (

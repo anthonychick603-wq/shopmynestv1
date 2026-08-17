@@ -13,6 +13,7 @@ import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
+import { safeBack } from "@/src/utils/nav";
 
 export default function PostComposer() {
   const insets = useSafeAreaInsets();
@@ -52,7 +53,7 @@ export default function PostComposer() {
       const image_id = await uploadIfNeeded();
       await nest.createPost({ title: title.trim(), content: content.trim(), ...(image_id ? { image_id } : {}) });
       toast.success("Posted");
-      router.back();
+      safeBack(router, "/(tabs)");
     } catch (e) {
       toast.error(e instanceof ApiError ? e.friendly : "Could not publish your post.");
     } finally {
@@ -62,7 +63,7 @@ export default function PostComposer() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)")} />
       {!isSeller ? (
         <EmptyState
           icon="storefront-outline"

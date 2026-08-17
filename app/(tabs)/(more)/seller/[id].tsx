@@ -18,6 +18,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 export default function SellerProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,7 +75,7 @@ export default function SellerProfile() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="seller-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/seller/dashboard")} style={styles.topBtn} testID="seller-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>{storeName}</Text>
         <CartHeaderButton />
       </View>

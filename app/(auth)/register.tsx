@@ -10,6 +10,7 @@ import { Input } from "@/src/components/Input";
 import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/api/nest";
+import { safeBack } from "@/src/utils/nav";
 
 export default function Register() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function Register() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
-            <TouchableOpacity onPress={() => router.back()} testID="register-back">
+            <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} testID="register-back">
               <Ionicons name="close" size={26} color={colors.onSurface} />
             </TouchableOpacity>
           </View>

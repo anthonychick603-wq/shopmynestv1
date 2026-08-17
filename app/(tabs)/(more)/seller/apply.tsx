@@ -14,6 +14,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 export default function ApplySeller() {
   const insets = useSafeAreaInsets();
@@ -68,7 +69,7 @@ export default function ApplySeller() {
   if (status === "pending") {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} title="Application" />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="Application" />
         <EmptyState icon="hourglass-outline" title="Under review" message="We'll notify you as soon as your application is reviewed." />
       </SafeAreaView>
     );
@@ -76,7 +77,7 @@ export default function ApplySeller() {
   if (status === "approved") {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} title="Application" />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="Application" />
         <EmptyState icon="checkmark-circle" title="You're approved!" message="Head to the seller dashboard to start listing." actionLabel="Open dashboard" onAction={() => router.replace("/seller/dashboard")} />
       </SafeAreaView>
     );
@@ -84,7 +85,7 @@ export default function ApplySeller() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} title="Build your Nest" />
+      <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="Build your Nest" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           <Text style={styles.intro}>Tell us about your shop. Approval usually takes 1–3 days.</Text>

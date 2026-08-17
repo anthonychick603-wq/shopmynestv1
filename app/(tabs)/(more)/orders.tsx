@@ -11,6 +11,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Order } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 // Every pill is a saturated fill so the white label stays legible.
 const STATUS_COLOR: Record<string, { backgroundColor: string; color: string }> = {
@@ -48,7 +49,7 @@ export default function Orders() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)/account")} />
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.brand} /></View>
       </SafeAreaView>
     );
@@ -56,7 +57,7 @@ export default function Orders() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)/account")} />
       <FlatList
         data={orders}
         keyExtractor={(o) => o.id}

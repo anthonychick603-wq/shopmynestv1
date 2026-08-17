@@ -14,6 +14,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 type PackageSize = "small" | "medium" | "large" | "custom";
 
@@ -89,7 +90,7 @@ export default function ProductForm() {
         // Without this the rejection was unhandled and the user was left on an
         // "Edit listing" form with every field blank.
         toast.error(e instanceof ApiError ? e.friendly : "Could not load this listing.");
-        router.back();
+        safeBack(router, "/(tabs)/seller/dashboard");
       } finally {
         setLoading(false);
       }
@@ -201,7 +202,7 @@ export default function ProductForm() {
         await nest.createProduct(payload);
         toast.success("Listing created");
       }
-      router.back();
+      safeBack(router, "/(tabs)/seller/dashboard");
     } catch (e) {
       toast.error(e instanceof ApiError ? e.friendly : "Could not save the listing.");
     } finally {
@@ -212,7 +213,7 @@ export default function ProductForm() {
   if (loading || gateChecking) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} title={isEdit ? "Edit listing" : "New listing"} />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title={isEdit ? "Edit listing" : "New listing"} />
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       </SafeAreaView>
     );
@@ -221,7 +222,7 @@ export default function ProductForm() {
   if (!isEdit && payoutsEnabled === false) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} title="New listing" />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="New listing" />
         <EmptyState
           icon="business-outline"
           title="Connect your bank account first"
@@ -236,7 +237,7 @@ export default function ProductForm() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} title={isEdit ? "Edit listing" : "New listing"} />
+      <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title={isEdit ? "Edit listing" : "New listing"} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.photo} onPress={pickImage} testID="pf-photo">

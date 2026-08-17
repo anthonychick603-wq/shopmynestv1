@@ -9,6 +9,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
+import { safeBack } from "@/src/utils/nav";
 
 const REASONS = [
   { id: "prohibited", label: "Prohibited item" },
@@ -32,7 +33,7 @@ export default function ReportItem() {
     try {
       await nest.reportProduct(id!, reason, details);
       toast.success("Thanks — our team will review.");
-      router.back();
+      safeBack(router, "/(tabs)");
     } catch (e) {
       toast.error(e instanceof ApiError ? e.friendly : "Could not submit");
     } finally {
@@ -44,7 +45,7 @@ export default function ReportItem() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
           <Text style={styles.topTitle}>Report item</Text>
           <View style={styles.topBtn} />
         </View>

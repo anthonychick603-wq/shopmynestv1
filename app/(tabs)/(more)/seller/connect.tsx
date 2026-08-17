@@ -11,6 +11,7 @@ import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 // Deep-link back into this same screen once Stripe-hosted onboarding finishes.
 // Scheme comes from app.json (`thenest`).
@@ -111,7 +112,7 @@ export default function Connect() {
   if (!isSeller) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
         <EmptyState icon="lock-closed-outline" title="Maker only" message="Only sellers can connect a payout account." />
       </SafeAreaView>
     );
@@ -120,7 +121,7 @@ export default function Connect() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       </SafeAreaView>
     );
@@ -130,7 +131,7 @@ export default function Connect() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
         <View style={[styles.statusCard, ui === "ready" ? styles.statusReady : styles.statusPending]}>
           <Ionicons

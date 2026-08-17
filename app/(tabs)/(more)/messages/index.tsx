@@ -9,6 +9,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
+import { safeBack } from "@/src/utils/nav";
 
 // Format an ISO/MySQL UTC timestamp as a relative label (e.g. "3m", "2h", "Yesterday", "Mar 4").
 function formatRelative(iso: string): string {
@@ -59,7 +60,7 @@ export default function MessagesInbox() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="messages-back">
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="messages-back">
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Messages</Text>
@@ -78,7 +79,7 @@ export default function MessagesInbox() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="messages-back">
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="messages-back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Messages</Text>

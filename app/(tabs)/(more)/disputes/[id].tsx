@@ -15,6 +15,7 @@ import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { statusStyle, statusLabel, isResolved } from "@/src/utils/disputeStatus";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 export default function DisputeDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -67,8 +68,8 @@ export default function DisputeDetail() {
     }
   };
 
-  if (loading) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => router.back()} /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
-  if (!dispute) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => router.back()} /><EmptyState icon="alert-circle-outline" title="Not found" message="This dispute could not be loaded." /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
+  if (!dispute) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><EmptyState icon="alert-circle-outline" title="Not found" message="This dispute could not be loaded." /></SafeAreaView>;
 
   const s = statusStyle(dispute.status);
   const isSeller = user?.role === "seller" || user?.role === "admin";
@@ -76,7 +77,7 @@ export default function DisputeDetail() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)/account")} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
         <View style={styles.statusCard}>
           <View style={[styles.statusDot, { backgroundColor: s.color }]} />

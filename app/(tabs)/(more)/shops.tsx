@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { nest, type NestSellerListItem } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { safeBack } from "@/src/utils/nav";
 
 export default function AllShops() {
   const insets = useSafeAreaInsets();
@@ -37,7 +38,7 @@ export default function AllShops() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>All shops</Text>

@@ -12,6 +12,7 @@ const NS = {
   shipping: "/wp-json/nest-shipping/v1",
   trust: "/wp-json/nest-trust/v1",
   connect: "/wp-json/nest-connect/v1",
+  bridge: "/wp-json/mobile-app-bridge/v1",
 } as const;
 
 export const AUTH_TOKEN_KEY = "nest.auth.token";
@@ -219,6 +220,23 @@ export const nest = {
 
   // Seller profile (v1.0.52 - shop settings screen for the "Add name"
   // readiness step + future banner/about edits from the app).
+  // v1.0.53 — account avatar upload. The mobile app bridge stores the file
+  // via WP media_handle_upload and writes thenest_profile_photo_id +
+  // thenest_profile_photo_url on the current user; tnm_user_avatar_url()
+  // reads those on the server side so the new photo shows up on the
+  // account screen, on messages, and on the seller profile page.
+  uploadAccountPhoto: (asset: { uri: string; fileName?: string | null; mimeType?: string | null }) => {
+    const form = new FormData();
+    const name = asset.fileName || "avatar.jpg";
+    const type = asset.mimeType || "image/jpeg";
+    // @ts-expect-error — RN FormData accepts { uri, name, type } file blobs.
+    form.append("file", { uri: asset.uri, name, type });
+    return request<{ ok: boolean; photo_id: number; photo_url: string }>("bridge", "/account/photo/upload", {
+      method: "POST",
+      formData: form,
+    });
+  },
+
   getSellerProfileMe: () => request<NestSellerProfileMe>("marketplace", "/seller/profile"),
   updateSellerProfile: (
     payload: { store_name?: string; about?: string; tagline?: string }

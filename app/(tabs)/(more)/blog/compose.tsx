@@ -12,6 +12,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
+import { safeBack } from "@/src/utils/nav";
 
 export default function BlogComposer() {
   const insets = useSafeAreaInsets();
@@ -54,7 +55,7 @@ export default function BlogComposer() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)")} />
         <EmptyState
           icon="log-in-outline"
           title="Sign in to post"
@@ -70,13 +71,13 @@ export default function BlogComposer() {
   if (submitted) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)")} />
         <EmptyState
           icon="hourglass-outline"
           title="Sent for review"
           message="Thanks for posting. An admin needs to approve it before it appears on the blog, so it isn't visible yet."
           actionLabel="Done"
-          onAction={() => router.back()}
+          onAction={() => safeBack(router, "/(tabs)")}
           testID="blog-compose-pending"
         />
       </SafeAreaView>
@@ -85,7 +86,7 @@ export default function BlogComposer() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)")} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           <Text style={styles.note}>Posts are reviewed by an admin before they appear on the blog.</Text>

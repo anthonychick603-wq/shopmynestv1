@@ -11,6 +11,7 @@ import type { Product } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { decodeEntities } from "@/src/utils/html";
+import { safeBack } from "@/src/utils/nav";
 
 const PER_PAGE = 50;
 
@@ -52,7 +53,7 @@ export default function SellerListings() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="listings-back">
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/seller/dashboard")} style={styles.topBtn} testID="listings-back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>Your listings</Text>

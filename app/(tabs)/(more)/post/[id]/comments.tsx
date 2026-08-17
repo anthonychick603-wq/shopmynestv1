@@ -21,6 +21,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
+import { safeBack } from "@/src/utils/nav";
 
 const MAX_LENGTH = 2000;
 
@@ -87,7 +88,7 @@ export default function PostComments() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)")} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         {loading ? (
           <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>

@@ -19,6 +19,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
 import { OrderReviewCTA } from "@/src/components/OrderReviewCTA";
+import { safeBack } from "@/src/utils/nav";
 
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -93,7 +94,7 @@ export default function OrderDetail() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn}>
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Order</Text>
@@ -111,7 +112,7 @@ export default function OrderDetail() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Order #{order.id}</Text>
         <CartHeaderButton />
       </View>
@@ -452,7 +453,7 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Order #{data.number || data.id}</Text>

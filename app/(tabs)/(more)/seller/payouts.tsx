@@ -12,6 +12,7 @@ import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 export default function Payouts() {
   const insets = useSafeAreaInsets();
@@ -70,7 +71,7 @@ export default function Payouts() {
   if (!isSeller) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
         <EmptyState icon="lock-closed-outline" title="Maker only" message="Only sellers can view payouts." />
       </SafeAreaView>
     );
@@ -79,7 +80,7 @@ export default function Payouts() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       </SafeAreaView>
     );
@@ -88,7 +89,7 @@ export default function Payouts() {
   const cur = balances?.currency || "USD";
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available to withdraw</Text>

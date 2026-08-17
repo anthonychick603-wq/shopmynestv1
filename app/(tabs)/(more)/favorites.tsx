@@ -15,6 +15,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 export default function Favorites() {
   const insets = useSafeAreaInsets();
@@ -61,7 +62,7 @@ export default function Favorites() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="favorites-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="favorites-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Your favorites</Text>
         <CartHeaderButton />
       </View>

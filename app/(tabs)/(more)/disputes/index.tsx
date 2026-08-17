@@ -12,6 +12,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { statusStyle, statusLabel } from "@/src/utils/disputeStatus";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { safeBack } from "@/src/utils/nav";
 
 export default function DisputesList() {
   const insets = useSafeAreaInsets();
@@ -38,7 +39,7 @@ export default function DisputesList() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => router.back()} />
+        <Top onBack={() => safeBack(router, "/(tabs)/account")} />
         <EmptyState icon="lock-closed-outline" title="Sign in" message="Sign in to see your disputes." actionLabel="Sign in" onAction={() => router.push("/(auth)/login")} />
       </SafeAreaView>
     );
@@ -46,7 +47,7 @@ export default function DisputesList() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => router.back()} />
+      <Top onBack={() => safeBack(router, "/(tabs)/account")} />
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       ) : (

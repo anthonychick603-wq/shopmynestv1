@@ -8,6 +8,7 @@ import { nest, ApiError } from "@/src/api/nest";
 import { colors, radius, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
+import { safeBack } from "@/src/utils/nav";
 
 const REASONS: { slug: string; label: string }[] = [
   { slug: "not_arrived", label: "Item never arrived" },
@@ -50,7 +51,7 @@ export default function NewDispute() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.topBtn} testID="new-dispute-close"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="new-dispute-close"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Open a dispute</Text>
         <View style={styles.topBtn} />
       </View>
