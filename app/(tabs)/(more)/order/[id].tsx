@@ -403,6 +403,24 @@ function Line({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
   );
 }
 
+// v1.0.47 — WooCommerce's get_formatted_shipping_address() returns HTML
+// with literal <br/> tags. React Native's <Text> renders those as visible
+// characters, so "45 Leonard Street" showed up as "<br/>45 Leonard
+// Street<br/>". Split on any <br> variant, strip other tags, and drop the
+// first line when it duplicates the name we already printed.
+function formatShipAddress(name?: string, address?: string): string[] {
+  const cleanName = (name || "").trim();
+  const raw = (address || "").replace(/<\s*br\s*\/?\s*>/gi, "\n");
+  const lines = raw
+    .split(/\n+/)
+    .map((l) => l.replace(/<[^>]+>/g, "").trim())
+    .filter(Boolean);
+  if (cleanName && lines[0] && lines[0].toLowerCase() === cleanName.toLowerCase()) {
+    lines.shift();
+  }
+  return cleanName ? [cleanName, ...lines] : lines.length ? lines : ["Customer"];
+}
+
 // v1.0.46 — seller-only order detail. Rendered when the buyer endpoint 403s
 // (i.e. the current seller is not the buyer of this order) but our own
 // /seller/orders list confirms this seller has line items on it. Uses only
@@ -445,10 +463,9 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
         </View>
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Ship to</Text>
-          <Text style={styles.addr}>{data.customer?.name || "Customer"}</Text>
-          {data.customer?.address ? (
-            <Text style={styles.addr}>{data.customer.address}</Text>
-          ) : null}
+          {formatShipAddress(data.customer?.name, data.customer?.address).map((line, i) => (
+            <Text key={i} style={styles.addr}>{line}</Text>
+          ))}
         </View>
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Your earnings</Text>
