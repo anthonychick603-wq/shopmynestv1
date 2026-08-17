@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import { nest, ApiError } from "@/src/api/nest";
+import { nest, ApiError, type NestSellerListItem } from "@/src/api/nest";
 import { toCategory, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Category, Product } from "@/src/types";
@@ -54,6 +54,10 @@ export default function Browse() {
   const [brand, setBrand] = useState("");
   const [appliedAttrs, setAppliedAttrs] = useState<{ condition?: string; size?: string; brand?: string }>({});
   const [categories, setCategories] = useState<Category[]>([]);
+  // v1.0.44 — Discover shops row. Active sellers (product_count > 0) first,
+  // then by product count descending. Fails silently — the row just doesn’t
+  // render if the endpoint 500s or the seller list is empty.
+  const [shops, setShops] = useState<NestSellerListItem[]>([]);
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -64,6 +68,13 @@ export default function Browse() {
 
   useEffect(() => {
     nest.getCategories().then((cs) => setCategories(cs.map(toCategory))).catch(() => {});
+    nest
+      .getSellers({ per_page: 20 })
+      .then((res) => {
+        const sorted = [...(res.items || [])].sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
+        setShops(sorted.filter((s) => (s.product_count ?? 0) > 0));
+      })
+      .catch(() => setShops([]));
   }, []);
 
   const load = useCallback(async () => {
@@ -165,6 +176,39 @@ export default function Browse() {
         ))}
       </ScrollView>
 
+      {shops.length > 0 ? (
+        <View style={styles.shopsBlock}>
+          <View style={styles.shopsHeader}>
+            <Text style={styles.shopsTitle}>Discover shops</Text>
+            <TouchableOpacity onPress={() => router.push("/(tabs)/(more)/shops")} testID="shops-see-all">
+              <Text style={styles.shopsSeeAll}>See all</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopsRow}>
+            {shops.map((s) => (
+              <TouchableOpacity
+                key={s.id}
+                style={styles.shopCard}
+                onPress={() => router.push(`/(tabs)/(more)/seller/${s.id}`)}
+                testID={`shop-${s.id}`}
+              >
+                {s.avatar ? (
+                  <Image source={{ uri: s.avatar }} style={styles.shopAvatar} />
+                ) : (
+                  <View style={[styles.shopAvatar, styles.shopAvatarPlaceholder]}>
+                    <Ionicons name="storefront-outline" size={22} color={colors.onSurfaceMuted} />
+                  </View>
+                )}
+                <Text style={styles.shopName} numberOfLines={1}>{s.store_name || s.display_name || "Shop"}</Text>
+                <Text style={styles.shopMeta} numberOfLines={1}>
+                  {(s.product_count ?? 0)} item{(s.product_count ?? 0) === 1 ? "" : "s"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       <View style={styles.controlsRow}>
         <Text style={styles.count}>{total} items</Text>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
@@ -179,7 +223,7 @@ export default function Browse() {
         </View>
       </View>
     </View>
-  ), [search, category, categories, total, activeFilters]);
+  ), [search, category, categories, total, activeFilters, shops]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -300,4 +344,15 @@ const styles = StyleSheet.create({
   sortRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.divider },
   filterLabel: { fontSize: 13, fontWeight: "700", color: colors.onSurface, marginBottom: spacing.sm },
   filterInput: { flex: 1, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.onSurface },
+  // v1.0.44 — Discover shops strip.
+  shopsBlock: { paddingTop: spacing.sm, paddingBottom: spacing.sm, borderTopWidth: 1, borderTopColor: colors.divider },
+  shopsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm },
+  shopsTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
+  shopsSeeAll: { fontSize: 13, fontWeight: "700", color: colors.brand },
+  shopsRow: { paddingHorizontal: spacing.lg, gap: spacing.md, paddingBottom: spacing.sm },
+  shopCard: { width: 92, alignItems: "center" },
+  shopAvatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+  shopAvatarPlaceholder: { alignItems: "center", justifyContent: "center" },
+  shopName: { fontSize: 12, fontWeight: "700", color: colors.onSurface, marginTop: spacing.xs, textAlign: "center" },
+  shopMeta: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2, textAlign: "center" },
 });

@@ -25,10 +25,27 @@ export default function OrderDetail() {
   const isSeller = !!user && (user.role === "seller" || user.role === "admin");
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<{ status: number; message: string } | null>(null);
   const [sellerOrder, setSellerOrder] = useState<NestSellerOrderRaw | null>(null);
 
   useEffect(() => {
-    nest.getBuyerOrder(id!).then((raw) => setOrder(toOrder(raw))).catch(() => setOrder(null)).finally(() => setLoading(false));
+    setLoadError(null);
+    nest
+      .getBuyerOrder(id!)
+      .then((raw) => setOrder(toOrder(raw)))
+      .catch((err) => {
+        // v1.0.44 — preserve the server’s reason for the failure so we can
+        // tell buyers whether the order really doesn’t exist, whether they
+        // lack permission (403 is common when a seller peeks at a buyer
+        // order), or whether the session expired (401).
+        if (err instanceof ApiError) {
+          setLoadError({ status: err.status, message: err.friendly || err.message });
+        } else {
+          setLoadError({ status: 0, message: "Couldn’t load this order." });
+        }
+        setOrder(null);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   useEffect(() => {
@@ -39,7 +56,41 @@ export default function OrderDetail() {
   }, [id, isSeller]);
 
   if (loading) return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
-  if (!order) return <SafeAreaView style={styles.safe}><View style={styles.center}><Text>Order not found</Text></View></SafeAreaView>;
+  if (!order) {
+    const status = loadError?.status ?? 0;
+    const heading =
+      status === 401
+        ? "Please sign in again"
+        : status === 403
+        ? "You can’t view this order"
+        : status === 404
+        ? "Order not found"
+        : "Couldn’t load this order";
+    const detail =
+      status === 401
+        ? "Your session has expired. Sign back in and try again."
+        : status === 403
+        ? "This order belongs to another buyer. If you placed it, sign in with that account."
+        : status === 404
+        ? "We couldn’t find an order with this number. If you just placed it, give it a few seconds and try again."
+        : (loadError?.message ?? "Something went wrong. Please try again.");
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.top}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.topBtn}>
+            <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+          </TouchableOpacity>
+          <Text style={styles.topTitle}>Order</Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={styles.center}>
+          <Ionicons name={status === 403 ? "lock-closed-outline" : status === 401 ? "log-in-outline" : "help-circle-outline"} size={40} color={colors.mutedText} />
+          <Text style={[styles.status, { marginTop: spacing.md }]}>{heading}</Text>
+          <Text style={{ color: colors.mutedText, textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.xl }}>{detail}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>

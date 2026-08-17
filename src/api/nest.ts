@@ -197,6 +197,9 @@ export const nest = {
   rejectBlogPost: (id: number | string) =>
     request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/reject`, { method: "POST" }),
 
+  // v1.0.44 — shop discovery row on the Browse tab.
+  getSellers: (query?: Record<string, unknown>) =>
+    request<NestPaginated<NestSellerListItem>>("marketplace", "/sellers", { query, auth: false }),
   getSeller: (id: number | string) => request<NestSellerRaw>("marketplace", `/sellers/${id}`),
   getSellerProducts: (id: number | string, query?: Record<string, unknown>) =>
     request<NestPaginated<NestProductRaw>>("marketplace", `/sellers/${id}/products`, { query, auth: false }),
@@ -522,6 +525,20 @@ export type NestSellerRaw = {
   review_count?: number;
   // GET /sellers/{id} now also returns that seller's most recent posts.
   posts?: NestFeedItemRaw[];
+};
+
+// v1.0.44 — lighter row shape returned by GET /sellers (list).
+export type NestSellerListItem = {
+  id: number;
+  store_name?: string;
+  display_name?: string;
+  avatar?: string;
+  tagline?: string;
+  about_snippet?: string;
+  follower_count?: number;
+  is_following?: boolean;
+  product_count?: number;
+  shop_url?: string;
 };
 
 export type NestCategoryRaw = { id: number; name: string; slug: string; count?: number; parent?: number; image?: string };
