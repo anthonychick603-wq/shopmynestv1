@@ -197,6 +197,18 @@ export const nest = {
     request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/approve`, { method: "POST" }),
   rejectBlogPost: (id: number | string) =>
     request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/reject`, { method: "POST" }),
+  // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
+  getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
+    request<{ comments: NestBlogCommentRaw[]; total: number; pages: number }>(
+      "marketplace",
+      `/blog/posts/${id}/comments`,
+      { query, auth: false },
+    ),
+  createBlogPostComment: (id: number | string, content: string) =>
+    request<NestBlogCommentRaw>("marketplace", `/blog/posts/${id}/comments`, {
+      method: "POST",
+      body: { content },
+    }),
 
   // v1.0.44 — shop discovery row on the Browse tab.
   getSellers: (query?: Record<string, unknown>) =>
@@ -658,6 +670,14 @@ export type NestBlogPostRaw = {
   thumbnail?: string | null;
   author: { id: number; name: string; avatar?: string };
   created_at?: string;
+  comments?: number;
+};
+
+export type NestBlogCommentRaw = {
+  id: number;
+  content: string;
+  created_at: string;
+  author: { id: number; name: string; avatar?: string };
 };
 
 export type NestBlogPostsRaw = {

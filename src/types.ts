@@ -51,6 +51,7 @@ export type Product = {
   status: "draft" | "published";
   featured?: boolean;
   seller?: { id: string; name: string; profile_photo?: string | null };
+  permalink?: string;
 };
 
 export type Category = { id: string; name: string; slug: string; icon?: string };
@@ -74,6 +75,7 @@ export type BlogPost = {
   image?: string | null;
   date?: string;
   author: { id: string; name: string; profile_photo?: string | null };
+  comment_count?: number;
 };
 
 export type CartItem = {

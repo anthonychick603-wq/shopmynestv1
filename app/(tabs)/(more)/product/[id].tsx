@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import { nest, ApiError } from "@/src/api/nest";
+import { nest, ApiError, SITE } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
@@ -75,8 +75,24 @@ export default function ProductDetail() {
 
   const doShare = async () => {
     if (!product) return;
+    // v1.0.54 - actually share the link. Previously the share sheet only
+    // carried a bare "Check out X on My Nest." message, so pasting into
+    // Messages/Whatsapp landed as plain text with no way to reach the
+    // listing. Prefer the WP permalink returned by the API; fall back to
+    // the canonical /?p=<id> URL for older responses that omit it.
+    const title = decodeEntities(product.title);
+    const url = product.permalink && /^https?:/i.test(product.permalink)
+      ? product.permalink
+      : `${SITE}/?p=${product.id}`;
     try {
-      await Share.share({ message: `Check out ${product.title} on My Nest.` });
+      await Share.share(
+        {
+          message: `${title} on My Nest\n${url}`,
+          url, // iOS reads this field for rich link previews.
+          title,
+        },
+        { dialogTitle: `Share ${title}` },
+      );
     } catch {}
   };
 
@@ -150,7 +166,12 @@ export default function ProductDetail() {
                     userId: String(product.seller!.id),
                     name: product.seller!.name,
                     productId: String(product.id),
-                    draft: `Hi! I have a question about "${product.name}".`,
+                    // v1.0.54 - Product.name doesn't exist on the mobile Product type
+                    // (the adapter only produces `title`), so the prefill was
+                    // literally rendering "about \"undefined\"." instead of the
+                    // listing name. Use title, and decode entities so buyers
+                    // don't see &#8217; in the draft.
+                    draft: `Hi! I have a question about "${decodeEntities(product.title)}".`,
                   },
                 });
               }}

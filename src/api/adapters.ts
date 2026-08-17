@@ -48,6 +48,7 @@ export function toProduct(p: NestProductRaw): Product {
           profile_photo: p.seller.avatar || null,
         }
       : undefined,
+    permalink: p.permalink,
   };
 }
 
@@ -226,6 +227,7 @@ export function toBlogPost(raw: NestBlogPostRaw): BlogPost {
       name: decodeEntities(raw.author?.name || ""),
       profile_photo: raw.author?.avatar || null,
     },
+    comment_count: Number(raw.comments ?? 0),
   };
 }
 

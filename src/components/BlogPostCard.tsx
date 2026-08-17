@@ -46,6 +46,22 @@ export function BlogPostCard({ post, footer }: { post: BlogPost; footer?: React.
 
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
       {post.image ? <Image source={{ uri: post.image }} style={styles.image} /> : null}
+      {/* v1.0.54 - surface the comment count so buyers can see there's a
+          conversation on this post. Tapping the card takes them to the
+          detail screen with the composer. */}
+      {post.status === "approved" ? (
+        <View style={styles.metaRow}>
+          <View style={styles.metaChip}>
+            <Ionicons name="chatbubble-outline" size={14} color={colors.onSurfaceMuted} />
+            <Text style={styles.metaText}>
+              {(post.comment_count ?? 0) === 1
+                ? "1 comment"
+                : `${post.comment_count ?? 0} comments`}
+            </Text>
+          </View>
+          <Text style={styles.metaCta}>View</Text>
+        </View>
+      ) : null}
       {footer}
     </View>
   );
@@ -68,4 +84,8 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 10, fontWeight: "800", color: colors.onBrand, letterSpacing: 0.5 },
   caption: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
   image: { width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, marginTop: spacing.md },
+  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  metaChip: { flexDirection: "row", alignItems: "center", gap: 6 },
+  metaText: { fontSize: 12, color: colors.onSurfaceMuted, fontWeight: "700" },
+  metaCta: { fontSize: 12, color: colors.brand, fontWeight: "800", letterSpacing: 0.2 },
 });

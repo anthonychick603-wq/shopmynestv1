@@ -16,6 +16,9 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { Button } from "@/src/components/Button";
 import { useAuth } from "@/src/context/AuthContext";
+import { useFavorites } from "@/src/context/FavoritesContext";
+import { useCart } from "@/src/context/CartContext";
+import { toast } from "@/src/components/Toast";
 
 const PER_PAGE = 20;
 
@@ -33,6 +36,29 @@ export default function Blog() {
   const [refreshing, setRefreshing] = useState(false);
   const [homeItems, setHomeItems] = useState<Product[]>([]);
   const [hasFollowed, setHasFollowed] = useState(false);
+  const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const { addProduct } = useCart();
+
+  // v1.0.53 - the Fresh from the Nest carousel previously rendered
+  // ProductCard with no callbacks, so tapping the heart or plus button did
+  // nothing (silent no-op). Mirror the browse-tab handlers here so the same
+  // heart-toggles-favorite / plus-adds-to-cart contract works on the home
+  // feed too.
+  const onFav = (p: Product) => {
+    if (!user) return router.push("/(auth)/login");
+    toggleFavorite(p.id);
+  };
+  const onAdd = async (p: Product) => {
+    if (!user) return router.push("/(auth)/login");
+    try {
+      const fresh = toProduct(await nest.getProduct(p.id));
+      if (!fresh.in_stock) return toast.error("Out of stock");
+      addProduct(fresh, 1);
+      toast.success("Added to cart");
+    } catch {
+      toast.error("Could not add to cart");
+    }
+  };
 
   const loadHomeFeed = useCallback(async () => {
     try {
@@ -97,7 +123,28 @@ export default function Blog() {
           testID="blog-list"
           data={posts}
           keyExtractor={(p) => p.id}
-          renderItem={({ item }) => <BlogPostCard post={item} />}
+          renderItem={({ item }) => (
+            // v1.0.54 - approved blog posts open the comments detail screen
+            // on tap. Pending/rejected posts stay non-interactive so authors
+            // and moderators still see their moderation status without a
+            // dead-end tap into a 404.
+            item.status === "approved" ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(tabs)/(more)/blog/[id]",
+                    params: { id: item.id, post: JSON.stringify(item) },
+                  })
+                }
+                testID={`blog-open-${item.id}`}
+              >
+                <BlogPostCard post={item} />
+              </TouchableOpacity>
+            ) : (
+              <BlogPostCard post={item} />
+            )
+          )}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 100 }}
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); load(1); }}
@@ -127,7 +174,14 @@ export default function Blog() {
                   >
                     {homeItems.map((item) => (
                       <View key={item.id} style={styles.homeFeedItem}>
-                        <ProductCard product={item} layout="full" testID={`home-feed-card-${item.id}`} />
+                        <ProductCard
+                          product={item}
+                          layout="full"
+                          onAddToCart={() => onAdd(item)}
+                          onToggleFavorite={() => onFav(item)}
+                          isFavorite={isFavorite(item.id)}
+                          testID={`home-feed-card-${item.id}`}
+                        />
                       </View>
                     ))}
                   </ScrollView>
