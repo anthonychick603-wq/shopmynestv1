@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
-import { nest, ApiError, type NestSellerOrderRaw, type NestLabelRate, type NestShippingLabel } from "@/src/api/nest";
+import { nest, ApiError, type NestSellerOrderRaw, type NestLabelRate, type NestShippingLabel, type NestRefundStatus } from "@/src/api/nest";
 import { toOrder } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Order } from "@/src/types";
@@ -16,6 +16,7 @@ import { Input } from "@/src/components/Input";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +28,8 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<{ status: number; message: string } | null>(null);
   const [sellerOrder, setSellerOrder] = useState<NestSellerOrderRaw | null>(null);
+  // v1.0.49 — refund lifecycle block returned by /orders/{id}.
+  const [refund, setRefund] = useState<NestRefundStatus | null>(null);
 
   useEffect(() => {
     setLoadError(null);
@@ -38,7 +41,10 @@ export default function OrderDetail() {
     // screen mounted so the seller-fulfillment view can render.
     const buyerP = nest
       .getBuyerOrder(id!)
-      .then((raw) => setOrder(toOrder(raw)))
+      .then((raw) => {
+        setOrder(toOrder(raw));
+        if (raw.refund) setRefund(raw.refund);
+      })
       .catch((err) => {
         if (err instanceof ApiError) {
           setLoadError({ status: err.status, message: err.friendly || err.message });
@@ -145,6 +151,13 @@ export default function OrderDetail() {
           <View style={styles.divider} />
           <Line k="Total" v={`$${order.total.toFixed(2)}`} bold />
         </View>
+        {refund ? (
+          <RefundStatusCard
+            orderId={order.id}
+            refund={refund}
+            onChange={setRefund}
+          />
+        ) : null}
         {isSeller && sellerOrder ? (
           <SellerFulfillment orderId={String(order.id)} data={sellerOrder} onUpdated={setSellerOrder} />
         ) : null}

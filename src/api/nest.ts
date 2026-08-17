@@ -212,6 +212,10 @@ export const nest = {
   getBuyerOrders: (query?: Record<string, unknown>) =>
     request<{ orders: NestOrderRaw[]; page: number; total: number; total_pages: number }>("marketplace", "/orders", { query }),
   getBuyerOrder: (id: number | string) => request<NestOrderRaw>("marketplace", `/orders/${id}`),
+  getOrderRefund: (id: number | string) =>
+    request<NestRefundStatus>("marketplace", `/orders/${id}/refund`),
+  requestOrderRefund: (id: number | string, payload: { reason: string; details?: string }) =>
+    request<NestRefundStatus>("marketplace", `/orders/${id}/refund-request`, { method: "POST", body: payload }),
 
   // Notifications
   getNotifications: (query?: Record<string, unknown>) =>
@@ -676,6 +680,34 @@ export type NestOrderRaw = {
   items: NestOrderItemRaw[];
   tracking?: { seller_id: number; seller_name: string; number: string; status: string }[];
   customer_note?: string;
+  refund?: NestRefundStatus;
+};
+
+export type NestRefundState = "none" | "requested" | "approved" | "processing" | "completed" | "denied";
+
+export type NestRefundTimelineEntry = {
+  at: string;
+  state: NestRefundState | string;
+  label: string;
+};
+
+export type NestRefundStatus = {
+  order_id: number;
+  currency: string;
+  order_total: number;
+  state: NestRefundState;
+  label: string;
+  requested_amount: number;
+  refunded_amount: number;
+  reason: string;
+  details: string;
+  denial_note: string;
+  timeline: NestRefundTimelineEntry[];
+  eligibility: {
+    can_request: boolean;
+    blockers: string[];
+    policy_days: number;
+  };
 };
 
 export type NestConversationRaw = {
