@@ -97,10 +97,16 @@ export default function Account() {
         </Section>
 
         <Section title="Legal">
-          <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy-policy`)} testID="acc-privacy" />
-          <Row icon="document-text-outline" label="Terms of service" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms-of-service`)} testID="acc-terms" />
-          <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refund-policy`)} testID="acc-refund" />
-          <Row icon="briefcase-outline" label="Seller terms" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/seller-terms`)} testID="acc-seller-terms" />
+          {/* v1.0.51 — canonical short slugs served by shopmynest-legal-pages.
+              The long-slug variants used to 301-loop against these short ones,
+              so hardcoding the long slugs meant every legal link opened a
+              broken redirect chain. */}
+          <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy/`)} testID="acc-privacy" />
+          <Row icon="document-text-outline" label="Terms of service" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms/`)} testID="acc-terms" />
+          <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refunds/`)} testID="acc-refund" />
+          <Row icon="cube-outline" label="Shipping policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/shipping/`)} testID="acc-shipping" />
+          <Row icon="briefcase-outline" label="Seller terms" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/seller-terms/`)} testID="acc-seller-terms" />
+          <Row icon="trash-outline" label="Delete my account" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/data-deletion/`)} testID="acc-data-deletion" />
         </Section>
 
         <View style={{ padding: spacing.lg }}>
