@@ -308,6 +308,15 @@ function ShippingLabelSection({ orderId }: { orderId: string }) {
             );
           })}
           {error ? <Text style={styles.labelError}>{error}</Text> : null}
+          {selectedRateId ? (() => {
+            const r = rates.find((x) => x.object_id === selectedRateId);
+            const amt = r ? parseFloat(r.amount).toFixed(2) : "0.00";
+            return (
+              <Text style={styles.labelDeductionNotice} testID="order-label-deduction-notice">
+                ${amt} in postage will be deducted from your next payout.
+              </Text>
+            );
+          })() : null}
           <Button title="Buy this label" onPress={buy} loading={buying} testID="order-label-buy" />
           <TouchableOpacity onPress={() => { setRates(null); setError(null); }} style={styles.labelCancel} testID="order-label-cancel">
             <Text style={styles.labelCancelText}>Cancel</Text>
@@ -373,6 +382,7 @@ const styles = StyleSheet.create({
   labelChecking: { paddingVertical: spacing.md, alignItems: "center" },
   labelPending: { color: colors.onSurfaceMuted, fontSize: 13, marginTop: spacing.sm, marginBottom: spacing.sm },
   labelError: { color: colors.error, fontSize: 13, marginTop: spacing.sm, marginBottom: spacing.sm },
+  labelDeductionNotice: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.sm, marginBottom: spacing.xs, textAlign: "center" },
   labelCancel: { alignItems: "center", paddingVertical: spacing.sm, marginTop: spacing.sm },
   labelCancelText: { color: colors.onSurfaceMuted, fontWeight: "700", fontSize: 13 },
   rateRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.sm },
