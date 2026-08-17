@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Dimensions,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -13,8 +17,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { Image as ExpoImage } from "expo-image";
 
-import { nest, type NestMessageRaw } from "@/src/api/nest";
+import { nest, type NestMessagePhoto, type NestMessageRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
@@ -62,6 +67,105 @@ function renderBody(body: string) {
   });
 }
 
+// Draft photo the user has picked but not yet sent. `uri` is the local Expo
+// file URI, `uploading` is true while the multipart upload is in flight, and
+// `attachmentId` is set once the server acknowledges the upload.
+type DraftPhoto = {
+  key: string;
+  uri: string;
+  uploading: boolean;
+  attachmentId?: number;
+  error?: string;
+};
+
+// Photo grid inside a bubble. Renders 1–5 tiles with a Messenger-like layout:
+// - 1: full-width up to 220px tall
+// - 2: side by side
+// - 3: one big + two stacked
+// - 4: 2x2 grid
+// - 5: one big + four in a 2x2
+function PhotoGrid({
+  photos,
+  bubbleMaxWidth,
+  onPress,
+  onLongPress,
+}: {
+  photos: NestMessagePhoto[];
+  bubbleMaxWidth: number;
+  onPress: (index: number) => void;
+  onLongPress: (photo: NestMessagePhoto) => void;
+}) {
+  const n = photos.length;
+  if (n === 0) return null;
+  const gap = 3;
+  const inner = bubbleMaxWidth;
+  const renderTile = (p: NestMessagePhoto, idx: number, w: number, h: number) => (
+    <Pressable
+      key={p.id}
+      onPress={() => onPress(idx)}
+      onLongPress={() => onLongPress(p)}
+      style={{ width: w, height: h, borderRadius: 10, overflow: "hidden", backgroundColor: colors.surfaceSecondary }}
+    >
+      {p.hidden ? (
+        <View style={styles.hiddenTile}>
+          <Ionicons name="eye-off-outline" size={20} color={colors.onSurfaceMuted} />
+          <Text style={styles.hiddenText}>Hidden</Text>
+        </View>
+      ) : (
+        <ExpoImage source={{ uri: p.url }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={120} />
+      )}
+    </Pressable>
+  );
+  if (n === 1) {
+    const p = photos[0];
+    const ratio = p.w && p.h ? p.w / p.h : 4 / 3;
+    const w = Math.min(inner, 260);
+    const h = Math.max(120, Math.min(320, w / ratio));
+    return <View>{renderTile(p, 0, w, h)}</View>;
+  }
+  if (n === 2) {
+    const w = (inner - gap) / 2;
+    return (
+      <View style={{ flexDirection: "row", gap }}>
+        {photos.map((p, i) => renderTile(p, i, w, w))}
+      </View>
+    );
+  }
+  if (n === 3) {
+    const big = Math.round(inner * 0.62);
+    const small = inner - big - gap;
+    const smallH = (big - gap) / 2;
+    return (
+      <View style={{ flexDirection: "row", gap }}>
+        {renderTile(photos[0], 0, big, big)}
+        <View style={{ gap }}>
+          {renderTile(photos[1], 1, small, smallH)}
+          {renderTile(photos[2], 2, small, smallH)}
+        </View>
+      </View>
+    );
+  }
+  if (n === 4) {
+    const w = (inner - gap) / 2;
+    return (
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap }}>
+        {photos.map((p, i) => renderTile(p, i, w, w))}
+      </View>
+    );
+  }
+  // 5
+  const big = inner;
+  const small = (inner - gap * 3) / 4;
+  return (
+    <View style={{ gap }}>
+      {renderTile(photos[0], 0, big, Math.min(220, big * 0.62))}
+      <View style={{ flexDirection: "row", gap }}>
+        {photos.slice(1).map((p, i) => renderTile(p, i + 1, small, small))}
+      </View>
+    </View>
+  );
+}
+
 export default function MessageThread() {
   const router = useRouter();
   const params = useLocalSearchParams<{ userId: string; name?: string; productId?: string; draft?: string }>();
@@ -74,7 +178,9 @@ export default function MessageThread() {
   const [messages, setMessages] = useState<NestMessageRaw[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<string>(typeof params.draft === "string" ? params.draft : "");
+  const [drafts, setDrafts] = useState<DraftPhoto[]>([]);
   const [sending, setSending] = useState(false);
+  const [viewer, setViewer] = useState<{ photos: NestMessagePhoto[]; index: number } | null>(null);
   const listRef = useRef<FlatList<NestMessageRaw>>(null);
 
   const load = useCallback(async () => {
@@ -98,12 +204,86 @@ export default function MessageThread() {
     }
   }, [loading, messages.length]);
 
+  // v3.7.86 — pick up to (5 - alreadyDrafted) photos, compress each locally, then
+  // upload them in parallel. Progress state lives in `drafts` so the composer can
+  // show a preview strip with per-tile spinners.
+  const pickAndUploadPhotos = useCallback(async () => {
+    if (!otherId || sending) return;
+    const remaining = 5 - drafts.length;
+    if (remaining <= 0) {
+      toast.info("You can attach up to 5 photos per message.");
+      return;
+    }
+    let ImagePicker: any;
+    let ImageManipulator: any;
+    try {
+      ImagePicker = await import("expo-image-picker");
+      ImageManipulator = await import("expo-image-manipulator");
+    } catch {
+      toast.error("Photo picker is unavailable.");
+      return;
+    }
+    const perms = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perms.granted) {
+      toast.error("Photo library access is required to send photos.");
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? "Images",
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.9,
+    });
+    if (res.canceled || !res.assets?.length) return;
+
+    const picks = res.assets.slice(0, remaining);
+    const newDrafts: DraftPhoto[] = picks.map((a: any) => ({
+      key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      uri: a.uri,
+      uploading: true,
+    }));
+    setDrafts((prev) => [...prev, ...newDrafts]);
+
+    // Upload each pick in parallel with per-item error handling so a single
+    // failure doesn't take the batch down.
+    await Promise.all(newDrafts.map(async (d, i) => {
+      try {
+        // Compress to max 2048px longer edge, JPEG q=0.82. Keeps most uploads
+        // well under the 8 MB server cap.
+        const manip = await ImageManipulator.manipulateAsync(d.uri, [{ resize: { width: 2048 } }], {
+          compress: 0.82,
+          format: ImageManipulator.SaveFormat.JPEG,
+        });
+        const fd = new FormData();
+        fd.append("recipient_id", String(otherId));
+        fd.append("file", {
+          uri: manip.uri,
+          name: `photo-${d.key}.jpg`,
+          type: "image/jpeg",
+        } as any);
+        const resp = await nest.uploadMessagePhoto(fd);
+        setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, attachmentId: resp.attachment_id } : p)));
+      } catch (e: any) {
+        setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, error: e?.friendly || "Upload failed" } : p)));
+        toast.error(e?.friendly || "One photo could not be uploaded.");
+      }
+    }));
+  }, [drafts.length, otherId, sending]);
+
+  const removeDraft = useCallback((key: string) => {
+    setDrafts((prev) => prev.filter((p) => p.key !== key));
+  }, []);
+
   const onSend = async () => {
     const body = draft.trim();
-    if (!body || sending || !otherId) return;
+    const readyIds = drafts.filter((d) => !d.uploading && !d.error && d.attachmentId).map((d) => d.attachmentId!) as number[];
+    if ((!body && readyIds.length === 0) || sending || !otherId) return;
+    // Block send while any photo is still uploading so we don't drop attachments.
+    if (drafts.some((d) => d.uploading)) {
+      toast.info("Wait for photos to finish uploading.");
+      return;
+    }
     setSending(true);
-    // Optimistic bubble so the thread feels instant. If the send fails we swap it
-    // for an error line so the user knows to retry.
     const tempId = -Date.now();
     const optimistic: NestMessageRaw = {
       id: tempId,
@@ -112,23 +292,63 @@ export default function MessageThread() {
       message: body,
       is_read: false,
       created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
+      photos: drafts
+        .filter((d) => d.attachmentId)
+        .map((d) => ({ id: d.attachmentId!, url: d.uri, w: 0, h: 0, mime: "image/jpeg", hidden: false })),
     };
     setMessages((prev) => [...prev, optimistic]);
     setDraft("");
+    setDrafts([]);
     try {
-      await nest.sendMessage({ recipient_id: otherId, message: body, product_id: productId || undefined });
-      // Reload to get the server-authoritative row (server may prepend product context).
+      await nest.sendMessage({ recipient_id: otherId, message: body, product_id: productId || undefined, photo_ids: readyIds });
+      // Reload to get server-authoritative rows (fresh signed URLs, etc.).
       await load();
     } catch (e: any) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       toast.error(e?.friendly || "Message could not be sent.");
       setDraft(body);
+      // Keep drafts in the composer so the user can retry send without re-picking.
+      setDrafts(optimistic.photos!.map((p) => ({
+        key: `retry-${p.id}`,
+        uri: p.url,
+        uploading: false,
+        attachmentId: p.id,
+      })));
     } finally {
       setSending(false);
     }
   };
 
-  const canSend = useMemo(() => !!draft.trim() && !sending, [draft, sending]);
+  const canSend = useMemo(() => {
+    if (sending) return false;
+    if (drafts.some((d) => d.uploading)) return false;
+    const readyPhotos = drafts.some((d) => d.attachmentId && !d.error);
+    return !!draft.trim() || readyPhotos;
+  }, [draft, drafts, sending]);
+
+  const onPhotoLongPress = useCallback((photo: NestMessagePhoto, messageId: number) => {
+    if (photo.hidden) return;
+    Alert.alert(
+      "Report photo",
+      "Report this photo? It will be hidden from this conversation and reviewed by our team.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Report",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await nest.reportMessagePhoto(messageId, photo.id, "user reported from chat");
+              toast.success("Photo reported and hidden.");
+              await load();
+            } catch (e: any) {
+              toast.error(e?.friendly || "Could not report photo.");
+            }
+          },
+        },
+      ]
+    );
+  }, [load]);
 
   if (!user) {
     return (
@@ -144,6 +364,9 @@ export default function MessageThread() {
       </SafeAreaView>
     );
   }
+
+  const winWidth = Dimensions.get("window").width;
+  const bubbleMaxWidth = Math.min(320, winWidth * 0.72);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
@@ -178,19 +401,32 @@ export default function MessageThread() {
             renderItem={({ item, index }) => {
               const mine = item.sender_id === user.id;
               const prev = index > 0 ? messages[index - 1] : null;
-              // Show a timestamp header every ~15 minutes or when speakers switch.
               const showTime =
                 !prev ||
                 Math.abs(new Date(item.created_at.replace(" ", "T") + "Z").getTime() -
                   new Date(prev.created_at.replace(" ", "T") + "Z").getTime()) > 15 * 60 * 1000;
+              const hasPhotos = (item.photos?.length || 0) > 0;
+              const hasText   = !!item.message?.trim();
               return (
                 <View>
                   {showTime ? <Text style={styles.timeLabel}>{formatBubbleTime(item.created_at)}</Text> : null}
-                  <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
-                    <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]} selectable>
-                      {renderBody(item.message)}
-                    </Text>
-                  </View>
+                  {hasPhotos ? (
+                    <View style={[styles.photoWrap, mine ? styles.photoWrapMine : styles.photoWrapTheirs]}>
+                      <PhotoGrid
+                        photos={item.photos!}
+                        bubbleMaxWidth={bubbleMaxWidth}
+                        onPress={(i) => setViewer({ photos: item.photos!, index: i })}
+                        onLongPress={(p) => onPhotoLongPress(p, item.id)}
+                      />
+                    </View>
+                  ) : null}
+                  {hasText ? (
+                    <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs, hasPhotos && { marginTop: 4 }]}>
+                      <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]} selectable>
+                        {renderBody(item.message)}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
               );
             }}
@@ -205,12 +441,44 @@ export default function MessageThread() {
           />
         )}
 
+        {drafts.length > 0 ? (
+          <View style={styles.draftStrip} testID="thread-draft-strip">
+            {drafts.map((d) => (
+              <View key={d.key} style={styles.draftTile}>
+                <ExpoImage source={{ uri: d.uri }} style={styles.draftImg} contentFit="cover" />
+                {d.uploading ? (
+                  <View style={styles.draftOverlay}>
+                    <ActivityIndicator color="#fff" />
+                  </View>
+                ) : null}
+                {d.error ? (
+                  <View style={[styles.draftOverlay, { backgroundColor: "rgba(200,40,40,0.7)" }]}>
+                    <Ionicons name="alert-circle" size={20} color="#fff" />
+                  </View>
+                ) : null}
+                <TouchableOpacity style={styles.draftRemove} onPress={() => removeDraft(d.key)} testID={`draft-remove-${d.key}`}>
+                  <Ionicons name="close" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <View style={styles.composer}>
+          <TouchableOpacity
+            style={styles.attachBtn}
+            onPress={pickAndUploadPhotos}
+            disabled={sending || drafts.length >= 5}
+            testID="thread-attach"
+            accessibilityLabel="Attach photos"
+          >
+            <Ionicons name="image-outline" size={22} color={drafts.length >= 5 ? colors.onSurfaceMuted : colors.onSurface} />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Write a message…"
+            placeholder={drafts.length ? "Add a caption…" : "Write a message…"}
             placeholderTextColor={colors.onSurfaceMuted}
             multiline
             maxLength={5000}
@@ -231,6 +499,51 @@ export default function MessageThread() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Full-screen photo viewer */}
+      <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={() => setViewer(null)}>
+        <Pressable style={styles.viewerRoot} onPress={() => setViewer(null)}>
+          {viewer ? (
+            <>
+              <ExpoImage
+                source={{ uri: viewer.photos[viewer.index]?.url || "" }}
+                style={styles.viewerImg}
+                contentFit="contain"
+                transition={120}
+              />
+              <View style={styles.viewerHeader}>
+                <TouchableOpacity onPress={() => setViewer(null)} style={styles.viewerBtn} testID="viewer-close">
+                  <Ionicons name="close" size={22} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.viewerCount}>{viewer.index + 1} / {viewer.photos.length}</Text>
+                <View style={styles.viewerBtn} />
+              </View>
+              {viewer.photos.length > 1 ? (
+                <>
+                  {viewer.index > 0 ? (
+                    <TouchableOpacity
+                      style={[styles.viewerNav, { left: 16 }]}
+                      onPress={() => setViewer({ ...viewer, index: viewer.index - 1 })}
+                      testID="viewer-prev"
+                    >
+                      <Ionicons name="chevron-back" size={26} color="#fff" />
+                    </TouchableOpacity>
+                  ) : null}
+                  {viewer.index < viewer.photos.length - 1 ? (
+                    <TouchableOpacity
+                      style={[styles.viewerNav, { right: 16 }]}
+                      onPress={() => setViewer({ ...viewer, index: viewer.index + 1 })}
+                      testID="viewer-next"
+                    >
+                      <Ionicons name="chevron-forward" size={26} color="#fff" />
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          ) : null}
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -250,7 +563,27 @@ const styles = StyleSheet.create({
   linkText: { textDecorationLine: "underline" },
   timeLabel: { fontSize: 11, color: colors.onSurfaceMuted, textAlign: "center", marginTop: spacing.sm, marginBottom: 2 },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md, borderTopWidth: 1, borderTopColor: colors.divider, backgroundColor: colors.surface },
+  attachBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary },
   input: { flex: 1, minHeight: 40, maxHeight: 140, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, color: colors.onSurface, fontSize: 15 },
   sendBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.brand },
   sendBtnDisabled: { opacity: 0.5 },
+  // v3.7.86 — bubble variants when the message is photo-only or photo+text.
+  photoWrap: { maxWidth: "82%", borderRadius: radius.md, overflow: "hidden" },
+  photoWrapMine: { alignSelf: "flex-end" },
+  photoWrapTheirs: { alignSelf: "flex-start" },
+  hiddenTile: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceSecondary, gap: 4 },
+  hiddenText: { fontSize: 11, color: colors.onSurfaceMuted },
+  // Draft strip above the composer while user has photos queued to send.
+  draftStrip: { flexDirection: "row", gap: 8, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.xs, backgroundColor: colors.surface },
+  draftTile: { width: 64, height: 64, borderRadius: 10, backgroundColor: colors.surfaceSecondary, position: "relative", overflow: "hidden" },
+  draftImg: { width: "100%", height: "100%" },
+  draftOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
+  draftRemove: { position: "absolute", top: 2, right: 2, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.55)" },
+  // Full-screen viewer
+  viewerRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", alignItems: "center", justifyContent: "center" },
+  viewerImg: { width: "100%", height: "100%" },
+  viewerHeader: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingTop: Platform.OS === "ios" ? 54 : 24, paddingBottom: 12 },
+  viewerBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: "rgba(255,255,255,0.12)" },
+  viewerCount: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  viewerNav: { position: "absolute", top: "50%", width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.18)" },
 });

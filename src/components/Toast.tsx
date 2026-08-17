@@ -12,6 +12,9 @@ export const toast = {
     const t: Toast = { id: `${++counter}`, message, type };
     listeners.forEach((l) => l(t));
   },
+  info(m: string) {
+    this.show(m, "info");
+  },
   success(m: string) {
     this.show(m, "success");
   },

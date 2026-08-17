@@ -228,8 +228,31 @@ export const nest = {
   getConversations: () => request<NestConversationRaw[]>("marketplace", "/messages"),
   getConversation: (userId: number | string, limit = 100) =>
     request<NestMessageRaw[]>("marketplace", `/messages/${userId}`, { query: { limit } }),
-  sendMessage: (payload: { recipient_id: number; message: string; product_id?: number }) =>
-    request<{ success: boolean; message_id: number }>("marketplace", "/messages", { method: "POST", body: payload }),
+  sendMessage: (payload: { recipient_id: number; message: string; product_id?: number; photo_ids?: number[] }) =>
+    request<{ success: boolean; message_id: number }>("marketplace", "/messages", {
+      method: "POST",
+      // photo_ids is serialized as a JSON string so it survives both
+      // JSON bodies and form-encoded transports on the WP side.
+      body: {
+        ...payload,
+        photo_ids: payload.photo_ids && payload.photo_ids.length ? JSON.stringify(payload.photo_ids) : undefined,
+      },
+    }),
+  // v3.7.86 — upload a single photo for a DM thread. FormData must carry
+  // `file` (blob) and `recipient_id` (string). Server returns an attachment
+  // id that the sender then passes into sendMessage({photo_ids}).
+  uploadMessagePhoto: (formData: FormData) =>
+    request<{ attachment_id: number; w: number; h: number; mime: string; preview_url: string }>(
+      "marketplace",
+      "/messages/photo_upload",
+      { method: "POST", formData, timeoutMs: 60000 }
+    ),
+  reportMessagePhoto: (messageId: number, attachmentId: number, reason: string) =>
+    request<{ ok: boolean; attachment_id: number; hidden: boolean }>(
+      "marketplace",
+      `/messages/${messageId}/report_photo`,
+      { method: "POST", body: { attachment_id: attachmentId, reason } }
+    ),
 
   // Seller
   submitSellerApplication: (payload: Record<string, unknown>) =>
@@ -662,6 +685,15 @@ export type NestConversationRaw = {
   unread: boolean;
 };
 
+export type NestMessagePhoto = {
+  id: number;
+  url: string;
+  w: number;
+  h: number;
+  mime: string;
+  hidden: boolean;
+};
+
 export type NestMessageRaw = {
   id: number;
   sender_id: number;
@@ -669,6 +701,8 @@ export type NestMessageRaw = {
   message: string;
   is_read: boolean;
   created_at: string;
+  // v3.7.86 — hydrated photo attachments (signed URLs, 24h expiry).
+  photos?: NestMessagePhoto[];
 };
 
 export type NestNotificationRaw = {
