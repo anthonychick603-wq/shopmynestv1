@@ -161,8 +161,17 @@ export default function Browse() {
       pushFromTab(router, "/(auth)/login");
       return;
     }
+    // v1.0.67 hotfix - if the user typed a search term but never hit
+    // return, treat the current input as the search term for the alert.
+    // Otherwise the pill was useless on Android where onSubmitEditing
+    // doesn't always fire when the user just moves on.
+    const effectiveSearch = (submitted || search).trim();
+    if (effectiveSearch && effectiveSearch !== submitted) {
+      setSubmitted(effectiveSearch);
+      addRecentSearch(effectiveSearch).then(loadRecentSearches).catch(() => {});
+    }
     const hasAnyCriteria =
-      !!submitted ||
+      !!effectiveSearch ||
       !!category ||
       !!appliedAttrs.condition ||
       !!appliedAttrs.size ||
@@ -176,7 +185,7 @@ export default function Browse() {
     setSavingAlert(true);
     try {
       await nest.saveSearch({
-        search: submitted || undefined,
+        search: effectiveSearch || undefined,
         category: category || undefined,
         sort: sort || undefined,
         min_price: minPrice || undefined,
@@ -193,8 +202,14 @@ export default function Browse() {
     }
   };
 
+  // v1.0.67 hotfix - show the pill as soon as the user has *any*
+  // discoverable criterion, including unsubmitted text they're typing.
+  // Previously we required `submitted`, which on Android meant the pill
+  // never surfaced for anyone who typed and tapped a filter without
+  // hitting the return key first.
   const hasAnyCriteria =
     !!submitted ||
+    !!search.trim() ||
     !!category ||
     !!appliedAttrs.condition ||
     !!appliedAttrs.size ||
@@ -302,9 +317,9 @@ export default function Browse() {
         <Text style={styles.count}>{total} items</Text>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           {hasAnyCriteria ? (
-            <TouchableOpacity style={styles.controlBtn} onPress={onSaveAlert} disabled={savingAlert} testID="btn-save-alert">
-              <Ionicons name={savingAlert ? "hourglass-outline" : "notifications-outline"} size={16} color={colors.onSurface} />
-              <Text style={styles.controlText}>{savingAlert ? "Saving…" : "Save alert"}</Text>
+            <TouchableOpacity style={[styles.controlBtn, styles.saveAlertBtn]} onPress={onSaveAlert} disabled={savingAlert} testID="btn-save-alert">
+              <Ionicons name={savingAlert ? "hourglass-outline" : "notifications-outline"} size={16} color={colors.onBrand} />
+              <Text style={[styles.controlText, { color: colors.onBrand }]}>{savingAlert ? "Saving…" : "Save alert"}</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity style={styles.controlBtn} onPress={() => setSortOpen(true)} testID="btn-sort">
@@ -428,6 +443,9 @@ const styles = StyleSheet.create({
   count: { color: colors.onSurfaceMuted, fontSize: 13, fontWeight: "700" },
   controlBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surfaceSecondary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, ...shadows.card },
   controlBtnActive: { backgroundColor: colors.brand },
+  // v1.0.67 hotfix - saved-search pill uses the brand color so it doesn't
+  // sit invisibly next to Sort/Filter.
+  saveAlertBtn: { backgroundColor: colors.brand },
   controlText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   sheet: { backgroundColor: colors.surface, padding: spacing.lg, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: spacing["2xl"], maxHeight: "80%" },

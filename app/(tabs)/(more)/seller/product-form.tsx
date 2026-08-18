@@ -257,7 +257,15 @@ export default function ProductForm() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title={isEdit ? "Edit listing" : "New listing"} />
+      <Top
+        onBack={() => safeBack(router, "/(tabs)/seller/dashboard")}
+        title={isEdit ? "Edit listing" : "New listing"}
+        // v1.0.66 hotfix (Build #3) - duplicate is a header action too now.
+        // Sellers weren't scrolling past Save to find the button at the
+        // bottom, so the copy affordance is right next to the title.
+        onDuplicate={isEdit ? onDuplicate : undefined}
+        duplicating={duplicating}
+      />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.photo} onPress={pickImage} testID="pf-photo">
@@ -344,12 +352,29 @@ function decode(s: string): string {
   return s.replace(/&amp;/g, "&").replace(/&#0?39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }
 
-function Top({ onBack, title }: { onBack: () => void; title: string }) {
+function Top({ onBack, title, onDuplicate, duplicating }: { onBack: () => void; title: string; onDuplicate?: () => void; duplicating?: boolean }) {
   return (
     <View style={styles.top}>
       <TouchableOpacity onPress={onBack} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
-      <Text style={styles.topTitle}>{title}</Text>
-      <CartHeaderButton />
+      <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+        {onDuplicate ? (
+          <TouchableOpacity
+            onPress={onDuplicate}
+            disabled={!!duplicating}
+            style={styles.topBtn}
+            testID="pf-duplicate-header"
+            accessibilityLabel="Duplicate this listing"
+          >
+            {duplicating ? (
+              <ActivityIndicator size="small" color={colors.brand} />
+            ) : (
+              <Ionicons name="copy-outline" size={20} color={colors.brand} />
+            )}
+          </TouchableOpacity>
+        ) : null}
+        <CartHeaderButton />
+      </View>
     </View>
   );
 }
