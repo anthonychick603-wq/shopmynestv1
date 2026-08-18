@@ -76,6 +76,10 @@ export type BlogPost = {
   date?: string;
   author: { id: string; name: string; profile_photo?: string | null };
   comment_count?: number;
+  // v1.0.55 — favorite state; count is authoritative from the server, the
+  // heart icon reads from FavoritesContext so it stays in sync across screens.
+  favorites_count?: number;
+  is_favorited?: boolean;
 };
 
 export type CartItem = {

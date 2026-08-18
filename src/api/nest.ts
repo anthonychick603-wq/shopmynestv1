@@ -209,6 +209,17 @@ export const nest = {
       method: "POST",
       body: { content },
     }),
+  // v1.0.55 — blog post favorites (added server-side in MNU 3.7.98). Mirrors
+  // the trust-suite product favorites shape so the mobile FavoritesContext
+  // can hold both sets in the same way.
+  listBlogFavorites: () =>
+    request<NestBlogFavoritesRaw>("marketplace", "/blog/favorites"),
+  toggleBlogFavorite: (post_id: number | string) =>
+    request<NestBlogFavoriteToggleRaw>("marketplace", `/blog/posts/${post_id}/favorite`, { method: "POST" }),
+  removeBlogFavorite: (post_id: number | string) =>
+    request<NestBlogFavoriteToggleRaw>("marketplace", `/blog/posts/${post_id}/favorite`, { method: "DELETE" }),
+  getBlogFavoritesCount: (post_id: number | string) =>
+    request<{ post_id: number; count: number }>("marketplace", `/blog/posts/${post_id}/favorites-count`, { auth: false }),
 
   // v1.0.44 — shop discovery row on the Browse tab.
   getSellers: (query?: Record<string, unknown>) =>
@@ -671,6 +682,20 @@ export type NestBlogPostRaw = {
   author: { id: number; name: string; avatar?: string };
   created_at?: string;
   comments?: number;
+  // v1.0.55 — optional favorite fields; the app falls back gracefully when
+  // the server hasn't been upgraded yet.
+  favorites_count?: number;
+  is_favorited?: boolean;
+};
+
+export type NestBlogFavoriteToggleRaw = {
+  post_id?: number;
+  favorited?: boolean;
+  favorites_count?: number;
+};
+
+export type NestBlogFavoritesRaw = {
+  favorites?: Array<{ post_id: number; created_at?: string; post?: NestBlogPostRaw }>;
 };
 
 export type NestBlogCommentRaw = {

@@ -22,6 +22,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
+import { useFavorites } from "@/src/context/FavoritesContext";
 import { safeBack } from "@/src/utils/nav";
 import { stripHtml } from "@/src/utils/html";
 import type { BlogPost } from "@/src/types";
@@ -53,6 +54,7 @@ export default function BlogPostDetail() {
   const router = useRouter();
   const { id, post: postJson } = useLocalSearchParams<{ id: string; post?: string }>();
   const { user } = useAuth();
+  const { isBlogFavorite, toggleBlog: toggleBlogFavorite } = useFavorites();
 
   // The Fresh from the Nest feed passes the full BlogPost JSON as a param so we
   // can render the post header instantly. If the deep-link comes from
@@ -158,10 +160,31 @@ export default function BlogPostDetail() {
                   {post.caption ? <Text style={styles.postCaption}>{stripHtml(post.caption)}</Text> : null}
                   {post.image ? <Image source={{ uri: post.image }} style={styles.postImage} /> : null}
                   <View style={styles.commentsHeader}>
-                    <Ionicons name="chatbubble-outline" size={16} color={colors.onSurfaceMuted} />
-                    <Text style={styles.commentsHeaderText}>
-                      {comments.length === 1 ? "1 comment" : `${comments.length} comments`}
-                    </Text>
+                    {/* v1.0.55 — heart on the blog detail screen mirrors the
+                        Fresh from the Nest card. Only rendered when the user
+                        is signed in — anonymous viewers get a sign-in prompt
+                        through the composer footer instead. */}
+                    {user ? (
+                      <TouchableOpacity
+                        onPress={() => toggleBlogFavorite(post.id)}
+                        hitSlop={8}
+                        style={styles.metaChip}
+                        testID={`blog-detail-favorite-${post.id}`}
+                      >
+                        <Ionicons
+                          name={isBlogFavorite(post.id) ? "heart" : "heart-outline"}
+                          size={18}
+                          color={isBlogFavorite(post.id) ? colors.brand : colors.onSurfaceMuted}
+                        />
+                        <Text style={styles.commentsHeaderText}>{post.favorites_count ?? 0}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <View style={styles.metaChip}>
+                      <Ionicons name="chatbubble-outline" size={16} color={colors.onSurfaceMuted} />
+                      <Text style={styles.commentsHeaderText}>
+                        {comments.length === 1 ? "1 comment" : `${comments.length} comments`}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               ) : null
@@ -246,7 +269,8 @@ const styles = StyleSheet.create({
   postDate: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 1 },
   postCaption: { fontSize: 15, color: colors.onSurface, lineHeight: 22 },
   postImage: { width: "100%", height: 240, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, marginTop: spacing.md },
-  commentsHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  commentsHeader: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  metaChip: { flexDirection: "row", alignItems: "center", gap: 6 },
   commentsHeaderText: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted },
   row: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg, paddingHorizontal: spacing.lg },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceTertiary },

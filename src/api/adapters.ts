@@ -228,6 +228,8 @@ export function toBlogPost(raw: NestBlogPostRaw): BlogPost {
       profile_photo: raw.author?.avatar || null,
     },
     comment_count: Number(raw.comments ?? 0),
+    favorites_count: Number(raw.favorites_count ?? 0),
+    is_favorited: Boolean(raw.is_favorited),
   };
 }
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -21,7 +21,17 @@ function timeAgo(iso?: string): string {
   return new Date(then).toLocaleDateString();
 }
 
-export function BlogPostCard({ post, footer }: { post: BlogPost; footer?: React.ReactNode }) {
+export function BlogPostCard({
+  post,
+  footer,
+  isFavorite,
+  onToggleFavorite,
+}: {
+  post: BlogPost;
+  footer?: React.ReactNode;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+}) {
   const caption = stripHtml(post.caption);
   return (
     <View style={styles.card} testID={`blog-card-${post.id}`}>
@@ -51,13 +61,32 @@ export function BlogPostCard({ post, footer }: { post: BlogPost; footer?: React.
           detail screen with the composer. */}
       {post.status === "approved" ? (
         <View style={styles.metaRow}>
-          <View style={styles.metaChip}>
-            <Ionicons name="chatbubble-outline" size={14} color={colors.onSurfaceMuted} />
-            <Text style={styles.metaText}>
-              {(post.comment_count ?? 0) === 1
-                ? "1 comment"
-                : `${post.comment_count ?? 0} comments`}
-            </Text>
+          <View style={styles.metaGroup}>
+            {/* v1.0.55 — heart on Fresh from the Nest cards. Stops propagation
+                so tapping the heart doesn't also open the detail screen. */}
+            {onToggleFavorite ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); onToggleFavorite(); }}
+                hitSlop={8}
+                style={styles.metaChip}
+                testID={`blog-card-favorite-${post.id}`}
+              >
+                <Ionicons
+                  name={isFavorite ? "heart" : "heart-outline"}
+                  size={16}
+                  color={isFavorite ? colors.brand : colors.onSurfaceMuted}
+                />
+                <Text style={styles.metaText}>{post.favorites_count ?? 0}</Text>
+              </TouchableOpacity>
+            ) : null}
+            <View style={styles.metaChip}>
+              <Ionicons name="chatbubble-outline" size={14} color={colors.onSurfaceMuted} />
+              <Text style={styles.metaText}>
+                {(post.comment_count ?? 0) === 1
+                  ? "1 comment"
+                  : `${post.comment_count ?? 0} comments`}
+              </Text>
+            </View>
           </View>
           <Text style={styles.metaCta}>View</Text>
         </View>
@@ -85,6 +114,7 @@ const styles = StyleSheet.create({
   caption: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
   image: { width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, marginTop: spacing.md },
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  metaGroup: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   metaChip: { flexDirection: "row", alignItems: "center", gap: 6 },
   metaText: { fontSize: 12, color: colors.onSurfaceMuted, fontWeight: "700" },
   metaCta: { fontSize: 12, color: colors.brand, fontWeight: "800", letterSpacing: 0.2 },

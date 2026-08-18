@@ -36,7 +36,7 @@ export default function Blog() {
   const [refreshing, setRefreshing] = useState(false);
   const [homeItems, setHomeItems] = useState<Product[]>([]);
   const [hasFollowed, setHasFollowed] = useState(false);
-  const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const { isFavorite, toggle: toggleFavorite, isBlogFavorite, toggleBlog: toggleBlogFavorite } = useFavorites();
   const { addProduct } = useCart();
 
   // v1.0.53 - the Fresh from the Nest carousel previously rendered
@@ -139,7 +139,11 @@ export default function Blog() {
                 }
                 testID={`blog-open-${item.id}`}
               >
-                <BlogPostCard post={item} />
+                <BlogPostCard
+                  post={item}
+                  isFavorite={isBlogFavorite(item.id)}
+                  onToggleFavorite={() => toggleBlogFavorite(item.id)}
+                />
               </TouchableOpacity>
             ) : (
               <BlogPostCard post={item} />
