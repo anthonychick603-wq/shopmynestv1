@@ -5,7 +5,6 @@ import type {
   NestDisputeRaw,
   NestFeedItemRaw,
   NestNotificationRaw,
-  NestOfferRaw,
   NestOrderRaw,
   NestProductRaw,
   NestUserRaw,
@@ -18,8 +17,6 @@ import type {
   DisputeStatus,
   NestUser,
   NotificationItem,
-  Offer,
-  OfferStatus,
   Order,
   Post,
   Product,
@@ -252,23 +249,6 @@ export function toDispute(d: NestDisputeRaw): Dispute {
     created_at: d.created_at,
     updated_at: d.updated_at,
     can_escalate: !!d.can_escalate,
-  };
-}
-
-export function toOffer(o: NestOfferRaw): Offer {
-  return {
-    id: String(o.id),
-    type: o.type === "bundle" ? "bundle" : "single",
-    status: (o.status as OfferStatus) || "pending",
-    product_ids: (o.product_ids || []).map(String),
-    products: (o.products || []).map(toProduct),
-    offer_price: Number(o.offer_price ?? 0),
-    counter_price: o.counter_price != null ? Number(o.counter_price) : null,
-    seller_id: o.seller_id != null ? String(o.seller_id) : undefined,
-    buyer_id: o.buyer_id != null ? String(o.buyer_id) : undefined,
-    checkout_token: o.checkout_token ?? null,
-    expires_at: o.expires_at ?? null,
-    created_at: o.created_at,
   };
 }
 

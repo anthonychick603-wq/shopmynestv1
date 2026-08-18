@@ -200,23 +200,6 @@ export type Dispute = {
   can_escalate: boolean;
 };
 
-export type OfferStatus = "pending" | "countered" | "accepted" | "declined" | "expired";
-
-export type Offer = {
-  id: string;
-  type: "single" | "bundle";
-  status: OfferStatus;
-  product_ids: string[];
-  products: Product[];
-  offer_price: number;
-  counter_price?: number | null;
-  seller_id?: string;
-  buyer_id?: string;
-  checkout_token?: string | null;
-  expires_at?: string | null;
-  created_at?: string;
-};
-
 export type SellerApplication = {
   id: string;
   shop_name: string;

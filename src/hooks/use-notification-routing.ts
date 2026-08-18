@@ -50,6 +50,12 @@ export function routeForPush(data: PushData): string | null {
     case "order_update":
       return orderId ? `/order/${orderId}` : "/orders";
 
+    // Post-purchase review nudge (v3.7.108). Server sends a single push per
+    // order 3-7 days after the first seller ships. Land on the buyer order
+    // detail screen where the OrderReviewCTA rows the buyer can tap.
+    case "review_prompt":
+      return orderId ? `/order/${orderId}` : "/orders";
+
     // Seller-facing. Deliberately NOT /order/{id}: that screen loads through
     // GET the-nest/v1/orders/{id}, which only authorises the buyer (or a
     // manage_woocommerce admin), so a vendor would land on "Order not found".

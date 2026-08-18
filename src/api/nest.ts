@@ -562,20 +562,6 @@ export const nest = {
     escalateDispute: (id: number | string) =>
       request<NestDisputeRaw>("trust", `/disputes/${id}/escalate`, { method: "POST" }),
 
-    // Bundles + Make an Offer
-    createOffer: (payload: { type: "single" | "bundle"; product_ids: number[]; offer_price: number }) =>
-      request<NestOfferRaw>("trust", "/offers", { method: "POST", body: payload }),
-    listOffers: (query?: { status?: string }) => request<NestOfferListRaw>("trust", "/offers", { query }),
-    updateOffer: (
-      id: number | string,
-      payload: { action: "accept" | "decline" | "counter"; counter_price?: number },
-    ) => request<NestOfferRaw>("trust", `/offers/${id}`, { method: "PUT", body: payload }),
-    // Native/API client accepted-offer checkout: creates a real WC_Order at the
-    // negotiated price and returns the native Stripe PaymentSheet payload
-    // (same shape as cart checkout) so payment happens in-app.
-    startOfferCheckoutOrder: (token: string) =>
-      request<NestPaymentIntentRaw>("trust", "/offers/checkout/order", { method: "POST", body: { token } }),
-
     // Boosts
     createBoost: (payload: { product_id: number; tier: string }) =>
       request<NestBoostRaw>("trust", "/boosts", { method: "POST", body: payload }),
@@ -1211,22 +1197,6 @@ export type NestDisputeRaw = {
   can_escalate?: boolean;
 };
 export type NestDisputeListRaw = NestDisputeRaw[] | { disputes: NestDisputeRaw[] };
-
-export type NestOfferRaw = {
-  id: number;
-  type: "single" | "bundle";
-  status: string;
-  product_ids: number[];
-  products?: NestProductRaw[];
-  offer_price: number;
-  counter_price?: number | null;
-  seller_id?: number;
-  buyer_id?: number;
-  checkout_token?: string | null;
-  expires_at?: string | null;
-  created_at?: string;
-};
-export type NestOfferListRaw = NestOfferRaw[] | { offers: NestOfferRaw[] };
 
 // Boost purchase returns the native Stripe PaymentSheet payload (same shape as
 // cart checkout) plus the created boost row id so the boost activates in-app.
