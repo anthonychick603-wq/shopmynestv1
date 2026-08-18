@@ -15,6 +15,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { Button } from "@/src/components/Button";
+import { pushFromTab } from "@/src/utils/nav";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { useCart } from "@/src/context/CartContext";
@@ -132,10 +133,7 @@ export default function Blog() {
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={() =>
-                  router.push({
-                    pathname: "/(tabs)/(more)/blog/[id]",
-                    params: { id: item.id, post: JSON.stringify(item) },
-                  })
+                  pushFromTab(router, "/(tabs)/(more)/blog/[id]", { id: item.id, post: JSON.stringify(item) })
                 }
                 testID={`blog-open-${item.id}`}
               >
@@ -197,7 +195,7 @@ export default function Blog() {
                 <Text style={styles.composeBody}>Post a photo and a caption. An admin reviews every post before it goes live.</Text>
                 <Button
                   title="New Post"
-                  onPress={() => (user ? router.push("/blog/compose") : router.push("/(auth)/login"))}
+                  onPress={() => (user ? pushFromTab(router, "/blog/compose") : router.push("/(auth)/login"))}
                   style={{ marginTop: spacing.md }}
                   testID="blog-new-post"
                 />
@@ -206,7 +204,7 @@ export default function Blog() {
               {showBecomeMaker ? (
                 <TouchableOpacity
                   testID="become-seller-cta"
-                  onPress={() => (user ? router.push("/seller/apply") : router.push("/(auth)/login"))}
+                  onPress={() => (user ? pushFromTab(router, "/seller/apply") : router.push("/(auth)/login"))}
                   style={styles.becomeSellerCard}
                   activeOpacity={0.85}
                 >

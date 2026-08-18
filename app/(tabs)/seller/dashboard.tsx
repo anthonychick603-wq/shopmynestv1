@@ -20,6 +20,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { SellerBadge } from "@/src/components/SellerBadge";
 import { BoostSheet } from "@/src/components/BoostSheet";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { pushFromTab } from "@/src/utils/nav";
 import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
 
 export default function SellerDashboard() {
@@ -118,7 +119,7 @@ export default function SellerDashboard() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top />
-        <EmptyState icon="lock-closed-outline" title="Maker only" message="Apply to become a seller first." actionLabel="Apply" onAction={() => router.push("/seller/apply")} />
+        <EmptyState icon="lock-closed-outline" title="Maker only" message="Apply to become a seller first." actionLabel="Apply" onAction={() => pushFromTab(router, "/seller/apply")} />
       </SafeAreaView>
     );
   }
@@ -157,21 +158,21 @@ export default function SellerDashboard() {
             label="Products"
             value={String(products.length || 0)}
             icon="cube-outline"
-            onPress={() => router.push("/seller/listings")}
+            onPress={() => pushFromTab(router, "/seller/listings")}
             testID="dash-stat-products"
           />
           <Stat
             label="Orders"
             value={String(orders.length || totals.orders || 0)}
             icon="bag-check-outline"
-            onPress={() => router.push("/orders")}
+            onPress={() => pushFromTab(router, "/orders")}
             testID="dash-stat-orders"
           />
           <Stat
             label="Earnings"
             value={`$${(totals.earnings ?? totals.revenue ?? 0).toFixed(0)}`}
             icon="cash-outline"
-            onPress={() => router.push("/seller/payouts")}
+            onPress={() => pushFromTab(router, "/seller/payouts")}
             testID="dash-stat-earnings"
           />
         </View>
@@ -179,23 +180,23 @@ export default function SellerDashboard() {
         <SellerReadinessCard readiness={readiness} />
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Quick actions</Text></View>
-        <Button title="+ Create a new listing" onPress={() => router.push("/seller/product-form")} testID="dash-new-product" />
-        <TouchableOpacity style={styles.payoutsBtn} onPress={() => router.push("/seller/payouts")} testID="dash-payouts">
+        <Button title="+ Create a new listing" onPress={() => pushFromTab(router, "/seller/product-form")} testID="dash-new-product" />
+        <TouchableOpacity style={styles.payoutsBtn} onPress={() => pushFromTab(router, "/seller/payouts")} testID="dash-payouts">
           <Ionicons name="cash-outline" size={18} color={colors.brand} />
           <Text style={styles.payoutsBtnText}>Earnings & payouts</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.payoutsBtn} onPress={() => router.push("/seller/shippo")} testID="dash-shippo">
+        <TouchableOpacity style={styles.payoutsBtn} onPress={() => pushFromTab(router, "/seller/shippo")} testID="dash-shippo">
           <Ionicons name="cube-outline" size={18} color={colors.brand} />
           <Text style={styles.payoutsBtnText}>Shipping account (Shippo)</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.payoutsBtn} onPress={() => router.push("/seller/connect")} testID="dash-connect">
+        <TouchableOpacity style={styles.payoutsBtn} onPress={() => pushFromTab(router, "/seller/connect")} testID="dash-connect">
           <Ionicons name="business-outline" size={18} color={colors.brand} />
           <Text style={styles.payoutsBtnText}>Payout account (Stripe)</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.payoutsBtn} onPress={() => router.push("/seller/import")} testID="dash-import">
+        <TouchableOpacity style={styles.payoutsBtn} onPress={() => pushFromTab(router, "/seller/import")} testID="dash-import">
           <Ionicons name="cloud-upload-outline" size={18} color={colors.brand} />
           <Text style={styles.payoutsBtnText}>Import products from CSV</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
@@ -206,7 +207,7 @@ export default function SellerDashboard() {
           <Text style={styles.empty}>No orders yet.</Text>
         ) : (
           orders.slice(0, 8).map((o) => (
-            <TouchableOpacity key={o.id} style={styles.orderRow} onPress={() => router.push(`/order/${o.id}`)} testID={`dash-order-${o.id}`}>
+            <TouchableOpacity key={o.id} style={styles.orderRow} onPress={() => pushFromTab(router, `/order/${o.id}`)} testID={`dash-order-${o.id}`}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.orderId}>#{o.id}</Text>
                 <Text style={styles.orderStatus}>{o.status.toUpperCase()}</Text>
@@ -236,7 +237,7 @@ export default function SellerDashboard() {
                 <Text style={styles.prodMeta}>Stock: {p.stock} · ${p.price.toFixed(2)}</Text>
               </View>
               <View style={styles.prodActions}>
-                <TouchableOpacity style={styles.iconBtn} onPress={() => router.push(`/seller/product-form?id=${p.id}`)} testID={`dash-edit-${p.id}`}>
+                <TouchableOpacity style={styles.iconBtn} onPress={() => pushFromTab(router, `/seller/product-form?id=${p.id}`)} testID={`dash-edit-${p.id}`}>
                   <Ionicons name="create-outline" size={18} color={colors.onSurface} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconBtn} onPress={() => setBoostProduct(p)} testID={`dash-boost-${p.id}`}>

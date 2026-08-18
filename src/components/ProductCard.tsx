@@ -1,10 +1,11 @@
 import React from "react";
 import { Image, ImageStyle, StyleProp, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
 import { shareProduct } from "@/src/utils/share";
+import { pushFromCard } from "@/src/utils/nav";
 import type { Product } from "@/src/types";
 
 type Layout = "full" | "grid";
@@ -20,6 +21,13 @@ type Props = {
 
 export function ProductCard({ product, layout = "full", onAddToCart, onToggleFavorite, isFavorite, testID }: Props) {
   const router = useRouter();
+  // v1.0.57 — detect whether this card is being rendered inside a (more)
+  // stack (product/seller/blog detail) vs at a tab root (browse feed, home
+  // feed, favorites list). Tab-root taps must reset the (more) stack so
+  // back returns to the tab; (more) taps stack normally so back returns to
+  // the previous flow screen (product → seller → product).
+  const segments = useSegments();
+  const insideMore = segments.includes("(more)" as never);
   const image =
     product.images?.[product.featured_image_index ?? 0] ??
     product.images?.[0] ??
@@ -33,7 +41,7 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
     <TouchableOpacity
       testID={testID ?? `product-card-${product.id}`}
       activeOpacity={0.9}
-      onPress={() => router.push(`/product/${product.id}`)}
+      onPress={() => pushFromCard(router, `/product/${product.id}`, insideMore)}
       style={[styles.card, layout === "grid" ? styles.gridCard : styles.fullCard]}
     >
       <View>

@@ -7,6 +7,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { nest, ApiError, type NestSellerListItem } from "@/src/api/nest";
 import { toCategory, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
+import { pushFromTab } from "@/src/utils/nav";
 import type { Category, Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -180,7 +181,7 @@ export default function Browse() {
         <View style={styles.shopsBlock}>
           <View style={styles.shopsHeader}>
             <Text style={styles.shopsTitle}>Discover shops</Text>
-            <TouchableOpacity onPress={() => router.push("/(tabs)/(more)/shops")} testID="shops-see-all">
+            <TouchableOpacity onPress={() => pushFromTab(router, "/(tabs)/(more)/shops")} testID="shops-see-all">
               <Text style={styles.shopsSeeAll}>See all</Text>
             </TouchableOpacity>
           </View>
@@ -189,7 +190,7 @@ export default function Browse() {
               <TouchableOpacity
                 key={s.id}
                 style={styles.shopCard}
-                onPress={() => router.push(`/(tabs)/(more)/seller/${s.id}`)}
+                onPress={() => pushFromTab(router, `/(tabs)/(more)/seller/${s.id}`)}
                 testID={`shop-${s.id}`}
               >
                 {s.avatar ? (

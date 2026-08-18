@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
+import { pushFromTab } from "@/src/utils/nav";
 
 const TAB_BAR_HEIGHT = 64;
 
@@ -51,7 +52,7 @@ function CreatePlusButton() {
 
   const go = (mode?: "blog") => {
     hide(() => {
-      if (mode === "blog") router.push("/blog/compose");
+      if (mode === "blog") pushFromTab(router, "/blog/compose");
       else router.push("/(tabs)/create");
     });
   };
@@ -63,7 +64,7 @@ function CreatePlusButton() {
     <>
       <Pressable
         style={styles.createBtnWrap}
-        onPress={() => (isMaker ? show() : router.push("/blog/compose"))}
+        onPress={() => (isMaker ? show() : pushFromTab(router, "/blog/compose"))}
         testID="tab-create"
       >
         <View style={styles.createBtn}>

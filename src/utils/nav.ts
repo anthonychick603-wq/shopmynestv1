@@ -1,4 +1,4 @@
-// v1.0.53 — safeBack
+// v1.0.57 — safeBack + pushFromTab
 //
 // A one-liner router.back() will silently no-op when the current screen was
 // opened as a router.replace() destination (no prior entry) or when the app
@@ -6,11 +6,17 @@
 // share-a-link on the web build). Sellers then see the back arrow do
 // nothing.
 //
-// safeBack(router, fallback) uses router.canGoBack() to decide between
-// popping the stack and pushing the caller-provided fallback (usually the
-// nearest logical parent screen — the tabs root, the seller dashboard, or
-// the account tab). This keeps navigation predictable no matter how the
-// user reached the current screen.
+// The other failure mode: every route pushed from a tab root lives on a
+// single shared Stack inside the (more) group, so the raw stack can hold
+// entries from a completely unrelated flow (e.g. seller listings from an
+// earlier session under the seller tab). Popping onto those unrelated
+// entries feels like "the back button jumps around":
+//   account → messages → back → listings (was previously visited)
+//
+// The clean fix is on the push side: when a tab root opens a (more)
+// screen, dismiss the (more) stack first so it becomes a fresh single
+// entry. Subsequent within-flow pushes (product → seller → product) still
+// stack correctly, and back always returns to the actual previous page.
 import type { Router } from "expo-router";
 
 export function safeBack(router: Router, fallback: string = "/(tabs)") {
@@ -20,4 +26,53 @@ export function safeBack(router: Router, fallback: string = "/(tabs)") {
   }
   // replace so the fallback becomes the new root instead of stacking on top.
   router.replace(fallback as any);
+}
+
+/**
+ * Navigate from a tab root (Account, Home, Browse, Seller dashboard...) to
+ * a screen inside the shared (more) Stack. Dismisses any leftover (more)
+ * entries first so the next back press returns to the tab, not to whatever
+ * the user was doing before in an unrelated flow.
+ *
+ * Use this for entries reached from a top-level menu row. Do NOT use it
+ * for within-flow pushes (product → seller → product), which want the
+ * default stacking behaviour.
+ */
+export function pushFromTab(router: Router, path: string, params?: Record<string, unknown>): void {
+  // dismissAll is a no-op when the stack has no dismissable entries; when
+  // there are stale entries it clears them so the new push lands on a
+  // clean single-entry stack.
+  try {
+    (router as unknown as { dismissAll?: () => void }).dismissAll?.();
+  } catch {}
+  if (params) {
+    router.push({ pathname: path as any, params: params as any });
+  } else {
+    router.push(path as any);
+  }
+}
+
+/**
+ * Reusable card / feed navigation. Cards live inside both tab roots and
+ * (more) screens; from a tab root the tap must reset the (more) stack so
+ * back returns to the tab, and from within (more) it must stack so back
+ * returns to the previous flow screen (e.g. seller → product → back →
+ * seller). Callers pass `insideMore` (from useSegments) so this helper
+ * can pick the right behaviour without importing hooks itself.
+ */
+export function pushFromCard(
+  router: Router,
+  path: string,
+  insideMore: boolean,
+  params?: Record<string, unknown>,
+): void {
+  if (!insideMore) {
+    pushFromTab(router, path, params);
+    return;
+  }
+  if (params) {
+    router.push({ pathname: path as any, params: params as any });
+  } else {
+    router.push(path as any);
+  }
 }

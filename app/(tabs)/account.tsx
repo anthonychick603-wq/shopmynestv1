@@ -14,6 +14,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { pushFromTab } from "@/src/utils/nav";
 
 export default function Account() {
   const insets = useSafeAreaInsets();
@@ -126,23 +127,23 @@ export default function Account() {
         </View>
 
         <Section title="Shopping">
-          <Row icon="bag-check-outline" label="Orders" onPress={() => router.push("/orders")} testID="acc-orders" />
-          <Row icon="chatbubble-ellipses-outline" label="Messages" onPress={() => router.push("/messages")} testID="acc-messages" />
-          <Row icon="heart-outline" label="Favorites" onPress={() => router.push("/favorites")} testID="acc-favorites" />
-          <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => router.push("/disputes")} testID="acc-disputes" />
+          <Row icon="bag-check-outline" label="Orders" onPress={() => pushFromTab(router, "/orders")} testID="acc-orders" />
+          <Row icon="chatbubble-ellipses-outline" label="Messages" onPress={() => pushFromTab(router, "/messages")} testID="acc-messages" />
+          <Row icon="heart-outline" label="Favorites" onPress={() => pushFromTab(router, "/favorites")} testID="acc-favorites" />
+          <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} testID="acc-disputes" />
         </Section>
 
         <Section title="Selling">
           {isSeller ? (
             <>
-              <Row icon="storefront-outline" label="My Nest" onPress={() => router.push("/seller/dashboard")} testID="acc-seller-dashboard" />
-              <Row icon="cube-outline" label="Add new product" onPress={() => router.push("/seller/product-form")} testID="acc-add-product" />
-              <Row icon="cloud-upload-outline" label="Import products from CSV" onPress={() => router.push("/seller/import")} testID="acc-import-products" />
+              <Row icon="storefront-outline" label="My Nest" onPress={() => pushFromTab(router, "/seller/dashboard")} testID="acc-seller-dashboard" />
+              <Row icon="cube-outline" label="Add new product" onPress={() => pushFromTab(router, "/seller/product-form")} testID="acc-add-product" />
+              <Row icon="cloud-upload-outline" label="Import products from CSV" onPress={() => pushFromTab(router, "/seller/import")} testID="acc-import-products" />
             </>
           ) : user.seller_application_status === "pending" ? (
             <Row icon="hourglass-outline" label="Application status: Pending" testID="acc-app-pending" />
           ) : (
-            <Row icon="storefront-outline" label="Build your Nest" onPress={() => router.push("/seller/apply")} testID="acc-become-seller" />
+            <Row icon="storefront-outline" label="Build your Nest" onPress={() => pushFromTab(router, "/seller/apply")} testID="acc-become-seller" />
           )}
         </Section>
 
