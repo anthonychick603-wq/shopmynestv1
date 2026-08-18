@@ -1,4 +1,4 @@
-// v1.0.57.1 — safeBack + pushFromTab + referring tab memory
+// v1.0.60 — safeBack + pushFromTab + referring tab memory
 //
 // A one-liner router.back() will silently no-op when the current screen was
 // opened as a router.replace() destination (no prior entry) or when the app
@@ -37,14 +37,17 @@ export function clearReferringTab(): void {
 }
 
 export function safeBack(router: Router, fallback: string = "/(tabs)") {
-  if (router.canGoBack()) {
-    router.back();
-    return;
-  }
-  // No history: prefer the tab the user launched from, then the caller's
-  // fallback, then the tabs root. This keeps back predictable across the
-  // full app: Account → Orders → back → Account (not seller dashboard),
-  // Seller dashboard → Orders → back → Seller dashboard (not account).
+  // We deliberately do NOT trust router.canGoBack() here. The (more)
+  // group is a single Stack shared across every tab, so canGoBack() will
+  // report true whenever another tab left an unrelated screen on that
+  // stack — popping it feels like the back button is jumping through the
+  // user's entire session history (Account → Messages → back → Listings
+  // → back → Payouts → back → Home → back → exits app). Detail screens
+  // reached from a menu row always want to return to the tab they were
+  // launched from, not to whatever else lives on the shared stack.
+  //
+  // Priority: the tab we recorded when the user last left a tab root,
+  // then the caller-provided fallback, then the tabs root.
   const target = referringTab ?? fallback;
   router.replace(target as any);
 }
@@ -69,22 +72,13 @@ export function setReferringTab(path: string | null): void {
 }
 
 export function pushFromTab(router: Router, path: string, params?: Record<string, unknown>): void {
-  // Clear any leftover entries in the shared (more) stack so back returns
-  // to the tab, not to whatever the user was doing in an earlier flow.
-  //
-  // canDismiss() must gate dismissAll(): calling dismissAll() when the
-  // stack has no dismissable entries dispatches a POP_TO_TOP action that
-  // no navigator claims, which surfaces as a red "action was not handled
-  // by any navigator" error banner in dev builds (v1.0.58 regression).
-  try {
-    const r = router as unknown as {
-      canDismiss?: () => boolean;
-      dismissAll?: () => void;
-    };
-    if (r.canDismiss?.() && r.dismissAll) {
-      r.dismissAll();
-    }
-  } catch {}
+  // The (more) group is a single Stack shared across every tab. We can't
+  // reliably clear it from outside (dismissAll/canDismiss only act on the
+  // currently focused navigator, and from a tab root that's the Tabs
+  // navigator, not the (more) Stack). So instead of trying to clear it,
+  // we push normally — but safeBack on the destination ignores the stack
+  // and returns to referringTab, which the tracker set the moment we
+  // left the tab.
   if (params) {
     router.push({ pathname: path as any, params: params as any });
   } else {

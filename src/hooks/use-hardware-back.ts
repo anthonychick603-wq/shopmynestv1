@@ -1,5 +1,5 @@
 /**
- * useHardwareBack — v1.0.57
+ * useHardwareBack — v1.0.60
  *
  * Bridges the Android hardware / gesture back button to the same navigation
  * semantics as the in-app chevron. Without this, hardware back always calls
@@ -34,15 +34,12 @@ export function useHardwareBack(): void {
       // Not in the (more) stack → let Android handle back (tab switch / exit).
       if (!inMore) return false;
 
-      // In (more) with history → pop normally.
-      if (router.canGoBack()) {
-        router.back();
-        return true;
-      }
-
-      // In (more) with no history (deep link, dismissed stack) → prefer the
-      // tab the user launched from, then a natural parent tab, so back
-      // never feels like it exits the app.
+      // In (more) → do NOT call router.back(). The (more) group is a
+      // single shared Stack across every tab, so canGoBack() reports true
+      // whenever another tab left an unrelated screen on the stack, and
+      // back would pop through the user's entire session history. Instead
+      // always route to a tab: the one they launched from, else a
+      // natural parent based on the current segment.
       const remembered = getReferringTab();
       if (remembered) {
         router.replace(remembered as never);
