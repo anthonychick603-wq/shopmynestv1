@@ -8,11 +8,17 @@ type Props = TextInputProps & {
   hint?: string;
 };
 
-export function Input({ label, error, hint, style, ...rest }: Props) {
+// v1.0.73 — forwardRef enables focus chaining between inputs so auth forms
+// can hop from email → password on "next" and submit on "done".
+export const Input = React.forwardRef<TextInput, Props>(function Input(
+  { label, error, hint, style, ...rest },
+  ref,
+) {
   return (
     <View style={styles.wrap}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
+        ref={ref}
         placeholderTextColor={colors.onSurfaceMuted}
         {...rest}
         style={[styles.input, error ? styles.inputErr : null, style]}
@@ -21,7 +27,7 @@ export function Input({ label, error, hint, style, ...rest }: Props) {
       {error ? <Text style={styles.err}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { marginBottom: spacing.md },

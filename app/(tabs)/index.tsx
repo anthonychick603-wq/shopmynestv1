@@ -106,10 +106,10 @@ export default function Blog() {
       <View style={styles.header}>
         <NestLogo subtitle="Handmade, with love" />
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <TouchableOpacity testID="header-search" onPress={() => router.push("/(tabs)/browse")} style={styles.iconBtn}>
+          <TouchableOpacity testID="header-search" accessibilityLabel="Search products" accessibilityRole="button" onPress={() => router.push("/(tabs)/browse")} style={styles.iconBtn}>
             <Ionicons name="search" size={20} color={colors.onSurface} />
           </TouchableOpacity>
-          <TouchableOpacity testID="header-alerts" onPress={() => router.push("/(tabs)/alerts")} style={styles.iconBtn}>
+          <TouchableOpacity testID="header-alerts" accessibilityLabel="Open notifications" accessibilityRole="button" onPress={() => router.push("/(tabs)/alerts")} style={styles.iconBtn}>
             <Ionicons name="notifications-outline" size={20} color={colors.onSurface} />
           </TouchableOpacity>
           <CartHeaderButton />
@@ -166,7 +166,7 @@ export default function Blog() {
                     <Text style={styles.homeFeedTitle}>
                       {hasFollowed ? "Fresh from shops you follow" : "Fresh from the Nest"}
                     </Text>
-                    <TouchableOpacity onPress={() => router.push("/(tabs)/browse")} testID="home-feed-see-all">
+                    <TouchableOpacity accessibilityLabel="See all products in browse" accessibilityRole="button" onPress={() => router.push("/(tabs)/browse")} testID="home-feed-see-all">
                       <Text style={styles.homeFeedSeeAll}>See all</Text>
                     </TouchableOpacity>
                   </View>

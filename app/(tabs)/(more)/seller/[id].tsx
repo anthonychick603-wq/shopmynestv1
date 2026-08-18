@@ -9,6 +9,7 @@ import { toPost, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Post, Product, SellerBadge as SellerBadgeType } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
+import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { PostCard } from "@/src/components/PostCard";
 import { SellerBadge } from "@/src/components/SellerBadge";
 import { RatingBadge } from "@/src/components/RatingBadge";
@@ -104,7 +105,7 @@ export default function SellerProfile() {
         </View>
       </View>
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+        <ProductGridSkeleton count={4} />
       ) : (
         <FlatList
           data={products}

@@ -26,6 +26,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { safeBack } from "@/src/utils/nav";
 import { shareBlogPost } from "@/src/utils/share";
+import { haptics } from "@/src/utils/haptics";
 import { stripHtml } from "@/src/utils/html";
 import type { BlogPost } from "@/src/types";
 
@@ -137,7 +138,7 @@ export default function BlogPostDetail() {
               hydrated so we can pass caption/author into the share sheet. */}
           {post ? (
             <TouchableOpacity
-              onPress={() => shareBlogPost(post)}
+              onPress={() => { haptics.tap(); shareBlogPost(post); }}
               style={styles.topBtn}
               testID="blog-detail-share"
             >
@@ -194,7 +195,7 @@ export default function BlogPostDetail() {
                         through the composer footer instead. */}
                     {user ? (
                       <TouchableOpacity
-                        onPress={() => toggleBlogFavorite(post.id)}
+                        onPress={() => { haptics.tap(); toggleBlogFavorite(post.id); }}
                         hitSlop={8}
                         style={styles.metaChip}
                         testID={`blog-detail-favorite-${post.id}`}
@@ -245,7 +246,7 @@ export default function BlogPostDetail() {
             />
             <TouchableOpacity
               style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
-              onPress={submit}
+              onPress={() => { haptics.press(); submit(); }}
               disabled={!draft.trim() || sending}
               testID="blog-comments-send"
             >

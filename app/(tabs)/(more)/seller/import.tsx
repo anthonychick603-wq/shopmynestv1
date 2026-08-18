@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { nest } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
+import { toast } from "@/src/components/Toast";
 
 type Phase = "idle" | "uploading" | "preview" | "running" | "done" | "error";
 
@@ -99,7 +100,10 @@ export default function ImportScreen() {
   }, []);
 
   const finish = useCallback(() => {
-    Alert.alert("Import finished", `${status?.created ?? 0} created, ${status?.updated ?? 0} updated, ${status?.failed ?? 0} failed.`);
+    toast.show(
+      `Import finished: ${status?.created ?? 0} created, ${status?.updated ?? 0} updated, ${status?.failed ?? 0} failed.`,
+      (status?.failed ?? 0) > 0 ? "error" : "success",
+    );
     router.replace("/(tabs)/seller/dashboard" as never);
   }, [status, router]);
 

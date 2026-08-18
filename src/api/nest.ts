@@ -132,9 +132,25 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
   } catch (e) {
     clearTimeout(timer);
     if (e instanceof ApiError) throw e;
-    if ((e as any)?.name === "AbortError") throw new ApiError("The website took too long to respond.", 0, "request_timeout");
-    throw new ApiError("Could not reach the website. Check your connection.", 0, "network_error");
+    if ((e as any)?.name === "AbortError") {
+      const err = new ApiError("The website took too long to respond.", 0, "request_timeout");
+      networkErrorListeners.forEach((fn) => fn(err));
+      throw err;
+    }
+    const err = new ApiError("Could not reach the website. Check your connection.", 0, "network_error");
+    networkErrorListeners.forEach((fn) => fn(err));
+    throw err;
   }
+}
+
+// v1.0.73 — module-level pub/sub so the NetworkContext can flip an offline
+// banner without every call-site having to opt in. Listeners fire on
+// network_error and request_timeout only — not on 4xx/5xx from the server.
+type NetworkErrorListener = (err: ApiError) => void;
+const networkErrorListeners = new Set<NetworkErrorListener>();
+export function onNetworkError(fn: NetworkErrorListener) {
+  networkErrorListeners.add(fn);
+  return () => { networkErrorListeners.delete(fn); };
 }
 
 // ---------------------------------------------------------------------------

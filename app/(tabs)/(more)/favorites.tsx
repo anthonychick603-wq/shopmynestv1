@@ -9,6 +9,7 @@ import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
+import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { BlogPostCard } from "@/src/components/BlogPostCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
@@ -17,6 +18,7 @@ import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 // v1.0.55 - tabs switch between favorited products and favorited blog posts,
 // both surfaced from the same "Favorites" entry point.
@@ -70,7 +72,7 @@ export default function Favorites() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="favorites-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity accessibilityLabel="Go back" accessibilityRole="button" onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="favorites-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Your favorites</Text>
         <CartHeaderButton />
       </View>
@@ -81,7 +83,7 @@ export default function Favorites() {
           <View style={styles.tabs}>
             <TouchableOpacity
               style={[styles.tab, tab === "items" && styles.tabActive]}
-              onPress={() => setTab("items")}
+              onPress={() => { haptics.tap(); setTab("items"); }}
               testID="favorites-tab-items"
             >
               <Text style={[styles.tabText, tab === "items" && styles.tabTextActive]}>
@@ -90,7 +92,7 @@ export default function Favorites() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tab, tab === "posts" && styles.tabActive]}
-              onPress={() => setTab("posts")}
+              onPress={() => { haptics.tap(); setTab("posts"); }}
               testID="favorites-tab-posts"
             >
               <Text style={[styles.tabText, tab === "posts" && styles.tabTextActive]}>
@@ -99,7 +101,7 @@ export default function Favorites() {
             </TouchableOpacity>
           </View>
           {loading ? (
-            <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+            tab === "items" ? <ProductGridSkeleton count={4} /> : <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
           ) : tab === "items" ? (
             <FlatList
               data={items}
@@ -140,12 +142,13 @@ export default function Favorites() {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   activeOpacity={0.85}
-                  onPress={() =>
+                  onPress={() => {
+                    haptics.tap();
                     router.push({
                       pathname: "/(tabs)/(more)/blog/[id]",
                       params: { id: item.id, post: JSON.stringify(item) },
-                    })
-                  }
+                    });
+                  }}
                   testID={`favorites-blog-open-${item.id}`}
                 >
                   <BlogPostCard

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -57,11 +57,7 @@ export default function DisputesList() {
           data={disputes}
           keyExtractor={(d) => d.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
-          onRefresh={() => {
-            setRefreshing(true);
-            load();
-          }}
-          refreshing={refreshing}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
           ListHeaderComponent={
             <View style={styles.infoCard}>
               <Ionicons name="shield-checkmark" size={20} color={colors.brand} />

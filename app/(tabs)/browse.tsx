@@ -18,6 +18,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { Button } from "@/src/components/Button";
+import { haptics } from "@/src/utils/haptics";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 
 // WooCommerce `pa_condition` global attribute — fixed terms registered by the
@@ -162,6 +163,7 @@ export default function Browse() {
       pushFromTab(router, "/(auth)/login");
       return;
     }
+    haptics.press();
     // v1.0.67 hotfix - if the user typed a search term but never hit
     // return, treat the current input as the search term for the alert.
     // Otherwise the pill was useless on Android where onSubmitEditing
@@ -269,13 +271,13 @@ export default function Browse() {
       ) : null}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-        <CategoryChip label="All" selected={!category} onPress={() => setCategory(undefined)} testID="cat-all" />
+        <CategoryChip label="All" selected={!category} onPress={() => { haptics.tap(); setCategory(undefined); }} testID="cat-all" />
         {categories.map((c) => (
           <CategoryChip
             key={c.id}
             label={c.name}
             selected={category === c.id}
-            onPress={() => setCategory(c.id === category ? undefined : c.id)}
+            onPress={() => { haptics.tap(); setCategory(c.id === category ? undefined : c.id); }}
             testID={`cat-${c.id}`}
           />
         ))}
@@ -323,11 +325,11 @@ export default function Browse() {
               <Text style={[styles.controlText, { color: colors.onBrand }]}>{savingAlert ? "Saving…" : "Save alert"}</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity style={styles.controlBtn} onPress={() => setSortOpen(true)} testID="btn-sort">
+          <TouchableOpacity accessibilityLabel="Sort results" accessibilityRole="button" style={styles.controlBtn} onPress={() => { haptics.tap(); setSortOpen(true); }} testID="btn-sort">
             <Ionicons name="swap-vertical" size={16} color={colors.onSurface} />
             <Text style={styles.controlText}>Sort</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.controlBtn, activeFilters > 0 && styles.controlBtnActive]} onPress={() => setFilterOpen(true)} testID="btn-filter">
+          <TouchableOpacity accessibilityLabel={activeFilters > 0 ? `Open filters, ${activeFilters} active` : "Open filters"} accessibilityRole="button" style={[styles.controlBtn, activeFilters > 0 && styles.controlBtnActive]} onPress={() => { haptics.tap(); setFilterOpen(true); }} testID="btn-filter">
             <Ionicons name="options" size={16} color={activeFilters > 0 ? colors.onBrand : colors.onSurface} />
             <Text style={[styles.controlText, activeFilters > 0 && { color: colors.onBrand }]}>{activeFilters > 0 ? `Filter (${activeFilters})` : "Filter"}</Text>
           </TouchableOpacity>
@@ -370,7 +372,7 @@ export default function Browse() {
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>Sort by</Text>
             {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
-              <TouchableOpacity key={k} onPress={() => { setSort(k); setSortOpen(false); }} style={styles.sortRow} testID={`sort-${k || 'newest'}`}>
+              <TouchableOpacity key={k} onPress={() => { haptics.tap(); setSort(k); setSortOpen(false); }} style={styles.sortRow} testID={`sort-${k || 'newest'}`}>
                 <Text style={{ color: colors.onSurface, fontSize: 15 }}>{SORT_LABEL[k]}</Text>
                 {sort === k ? <Ionicons name="checkmark" size={20} color={colors.brand} /> : null}
               </TouchableOpacity>
@@ -391,7 +393,7 @@ export default function Browse() {
                 return (
                   <TouchableOpacity
                     key={t.slug}
-                    onPress={() => setCondition(selected ? undefined : t.slug)}
+                    onPress={() => { haptics.tap(); setCondition(selected ? undefined : t.slug); }}
                     style={[styles.attrChip, selected && styles.attrChipSelected]}
                     testID={`filter-condition-${t.slug}`}
                   >

@@ -15,6 +15,7 @@ import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { pushFromTab } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 export default function Account() {
   const insets = useSafeAreaInsets();
@@ -170,6 +171,7 @@ export default function Account() {
             title="Log out"
             variant="outline"
             onPress={async () => {
+              haptics.warning();
               await logout();
               router.replace("/(tabs)");
             }}
@@ -202,7 +204,14 @@ function Row({
   testID?: string;
 }) {
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress} disabled={!onPress} testID={testID}>
+    <TouchableOpacity
+      style={styles.row}
+      onPress={() => { if (onPress) { haptics.tap(); onPress(); } }}
+      disabled={!onPress}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <Ionicons name={icon} size={20} color={colors.brand} />
       <Text style={styles.rowLabel}>{label}</Text>
       {onPress ? <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} /> : null}

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useRef, useState } from "react";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +21,9 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const usernameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const submit = async () => {
     setErr(null);
@@ -52,10 +55,56 @@ export default function Register() {
           <Text style={styles.title}>Create your Nest account</Text>
           <Text style={styles.body}>Join our community of makers and shoppers.</Text>
 
-          <Input label="Full name" value={name} onChangeText={setName} testID="register-name" />
-          <Input label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" autoCorrect={false} testID="register-username" />
-          <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" testID="register-email" />
-          <Input label="Password" value={password} onChangeText={setPassword} secureTextEntry hint="At least 8 characters" testID="register-password" />
+          <Input
+            label="Full name"
+            value={name}
+            onChangeText={setName}
+            autoComplete="name"
+            textContentType="name"
+            returnKeyType="next"
+            onSubmitEditing={() => usernameRef.current?.focus()}
+            testID="register-name"
+          />
+          <Input
+            ref={usernameRef}
+            label="Username"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="username-new"
+            textContentType="username"
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
+            testID="register-username"
+          />
+          <Input
+            ref={emailRef}
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            testID="register-email"
+          />
+          <Input
+            ref={passwordRef}
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoComplete="password-new"
+            textContentType="newPassword"
+            returnKeyType="go"
+            onSubmitEditing={submit}
+            hint="At least 8 characters"
+            testID="register-password"
+          />
           {err ? <Text style={styles.err}>{err}</Text> : null}
 
           <Button title="Create account" onPress={submit} loading={loading} testID="register-submit" style={{ marginTop: spacing.md }} />

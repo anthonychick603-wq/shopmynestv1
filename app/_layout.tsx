@@ -13,7 +13,10 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
 import { StripePaymentProvider } from "@/src/context/StripePayment";
+import { NetworkProvider } from "@/src/context/NetworkContext";
 import { ToastHost } from "@/src/components/Toast";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { colors } from "@/src/theme";
 
 if (!__DEV__) {
@@ -34,6 +37,10 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      {/* v1.0.73 — ErrorBoundary at the very top so a mid-tree render throw
+          shows a recovery screen instead of the white default. */}
+      <ErrorBoundary>
+      <NetworkProvider>
       <AuthProvider>
         <CartProvider>
           <FavoritesProvider>
@@ -49,6 +56,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(auth)" options={{ presentation: "modal" }} />
               </Stack>
               <ToastHost />
+              <OfflineBanner />
               {/* Needs the auth + navigation contexts, so they mount inside them. */}
               <NotificationTapRouter />
               <DeepLinkRouter />
@@ -59,6 +67,8 @@ export default function RootLayout() {
           </FavoritesProvider>
         </CartProvider>
       </AuthProvider>
+      </NetworkProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

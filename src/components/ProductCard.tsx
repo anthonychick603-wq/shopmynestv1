@@ -1,5 +1,6 @@
 import React from "react";
-import { Image, ImageStyle, StyleProp, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ImageStyle, StyleProp, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AppImage } from "@/src/components/AppImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -47,7 +48,7 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
       style={[styles.card, layout === "grid" ? styles.gridCard : styles.fullCard]}
     >
       <View>
-        <Image source={{ uri: image }} style={imgStyle} resizeMode="cover" />
+        <AppImage source={{ uri: image }} style={imgStyle} contentFit="cover" fallbackIcon="pricetag-outline" />
         <TouchableOpacity
           testID={`product-favorite-${product.id}`}
           onPress={() => {
@@ -90,7 +91,7 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
         </Text>
         <View style={styles.sellerRow}>
           {product.seller?.profile_photo ? (
-            <Image source={{ uri: product.seller.profile_photo }} style={styles.sellerAvatar} />
+            <AppImage source={{ uri: product.seller.profile_photo }} style={styles.sellerAvatar} fallbackIcon="person-outline" />
           ) : (
             <View style={[styles.sellerAvatar, styles.sellerAvatarFallback]}>
               <Ionicons name="leaf" size={10} color={colors.brand} />
