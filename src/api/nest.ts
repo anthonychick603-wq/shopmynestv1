@@ -278,6 +278,10 @@ export const nest = {
       method: "POST",
       body: payload,
     }),
+  // v1.0.64 - buyer review browsing on the seller profile screen. GET is
+  // public so anonymous shoppers can read reviews before creating an account.
+  getSellerReviews: (sellerId: number | string, query?: { page?: number; per_page?: number }) =>
+    request<NestSellerReviewsPage>("marketplace", `/sellers/${sellerId}/reviews`, { query, auth: false }),
 
   // Notifications
   getNotifications: (query?: Record<string, unknown>) =>
@@ -649,7 +653,32 @@ export type NestSellerListItem = {
   follower_count?: number;
   is_following?: boolean;
   product_count?: number;
+  // v3.7.103 - server now returns cached aggregates on every seller list row.
+  rating?: number;
+  review_count?: number;
   shop_url?: string;
+};
+
+// v3.7.103 - /sellers/{id}/reviews response shape.
+export type NestSellerReviewRaw = {
+  id: number;
+  reviewer_id: number;
+  seller_id: number;
+  order_id: number;
+  rating: number;
+  review: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  reviewer: { display_name: string; avatar: string };
+};
+
+export type NestSellerReviewsPage = {
+  items: NestSellerReviewRaw[];
+  total: number;
+  average: number;
+  page: number;
+  total_pages: number;
 };
 
 export type NestCategoryRaw = { id: number; name: string; slug: string; count?: number; parent?: number; image?: string };

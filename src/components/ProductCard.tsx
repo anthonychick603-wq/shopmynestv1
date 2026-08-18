@@ -6,6 +6,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
 import { shareProduct } from "@/src/utils/share";
 import { pushFromCard } from "@/src/utils/nav";
+import { RatingBadge } from "@/src/components/RatingBadge";
 import type { Product } from "@/src/types";
 
 type Layout = "full" | "grid";
@@ -89,6 +90,8 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
           <Text style={styles.sellerName} numberOfLines={1}>
             {decodeEntities(product.seller?.name ?? "My Nest")}
           </Text>
+          {/* v1.0.64 - Build #4: inline star badge when the seller has reviews. */}
+          <RatingBadge rating={product.seller?.rating} reviewCount={product.seller?.review_count} size="sm" />
         </View>
         <View style={styles.priceRow}>
           <View style={styles.priceInline}>

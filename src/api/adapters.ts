@@ -46,6 +46,8 @@ export function toProduct(p: NestProductRaw): Product {
           id: String(p.seller.id),
           name: decodeEntities(p.seller.store_name || ""),
           profile_photo: p.seller.avatar || null,
+          rating: typeof p.seller.rating === "number" ? p.seller.rating : undefined,
+          review_count: typeof p.seller.review_count === "number" ? p.seller.review_count : undefined,
         }
       : undefined,
     permalink: p.permalink,

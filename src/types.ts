@@ -50,7 +50,7 @@ export type Product = {
   variations: ProductVariation[];
   status: "draft" | "published";
   featured?: boolean;
-  seller?: { id: string; name: string; profile_photo?: string | null };
+  seller?: { id: string; name: string; profile_photo?: string | null; rating?: number; review_count?: number };
   permalink?: string;
 };
 

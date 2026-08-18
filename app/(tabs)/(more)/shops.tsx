@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { nest, type NestSellerListItem } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
 import { shareSeller } from "@/src/utils/share";
 
@@ -81,6 +82,9 @@ export default function AllShops() {
               )}
               <Text style={styles.name} numberOfLines={1}>{item.store_name || item.display_name || "Shop"}</Text>
               {item.tagline ? <Text style={styles.tag} numberOfLines={2}>{item.tagline}</Text> : null}
+              <View style={{ marginTop: 4 }}>
+                <RatingBadge rating={item.rating} reviewCount={item.review_count} size="sm" />
+              </View>
               <Text style={styles.meta}>{item.product_count ?? 0} item{(item.product_count ?? 0) === 1 ? "" : "s"}</Text>
             </TouchableOpacity>
           )}
