@@ -87,6 +87,16 @@ export function routeForPush(data: PushData): string | null {
     case "payout_failed":
       return "/seller/payouts";
 
+    // Saved-search alert. Single-hit pushes carry object_type='product' so
+    // we deep-link straight into the product detail screen. The roll-up
+    // (">10 new matches") uses object_type='saved_search' and lands on the
+    // saved-searches list where the buyer can tap the search to see them.
+    case "saved_search_hit":
+      if (data.object_type === "product" && objectId) {
+        return `/product/${objectId}`;
+      }
+      return "/saved-searches";
+
     // Anything else routes to the in-app alerts list so nothing is dead-ended.
     default:
       return "/alerts";

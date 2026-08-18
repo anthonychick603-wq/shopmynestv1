@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerListItem } from "@/src/api/nest";
+import { addRecentSearch, loadRecentSearches, clearRecentSearches } from "@/src/utils/recent-searches";
 import { toCategory, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
@@ -66,6 +67,9 @@ export default function Browse() {
   const [error, setError] = useState<string | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  // v1.0.63 — recent searches (client-side) and saving-alert affordance.
+  const [recent, setRecent] = useState<string[]>([]);
+  const [savingAlert, setSavingAlert] = useState(false);
 
   useEffect(() => {
     nest.getCategories().then((cs) => setCategories(cs.map(toCategory))).catch(() => {});
@@ -76,6 +80,15 @@ export default function Browse() {
         setShops(sorted.filter((s) => (s.product_count ?? 0) > 0));
       })
       .catch(() => setShops([]));
+    loadRecentSearches().then(setRecent);
+  }, []);
+
+  const commitSearch = useCallback((q: string) => {
+    const trimmed = q.trim();
+    setSubmitted(trimmed);
+    if (trimmed) {
+      addRecentSearch(trimmed).then(setRecent);
+    }
   }, []);
 
   const load = useCallback(async () => {
@@ -140,6 +153,55 @@ export default function Browse() {
     setFilterOpen(false);
   };
 
+  // v1.0.63 — "Save alert" persists the current search + filters as a
+  // saved search on the server. The backend cron pushes a notification
+  // when new listings match. Requires login.
+  const onSaveAlert = async () => {
+    if (!user) {
+      pushFromTab(router, "/(auth)/login");
+      return;
+    }
+    const hasAnyCriteria =
+      !!submitted ||
+      !!category ||
+      !!appliedAttrs.condition ||
+      !!appliedAttrs.size ||
+      !!appliedAttrs.brand ||
+      !!minPrice ||
+      !!maxPrice;
+    if (!hasAnyCriteria) {
+      toast.error("Add a search term or filter first");
+      return;
+    }
+    setSavingAlert(true);
+    try {
+      await nest.saveSearch({
+        search: submitted || undefined,
+        category: category || undefined,
+        sort: sort || undefined,
+        min_price: minPrice || undefined,
+        max_price: maxPrice || undefined,
+        pa_condition: appliedAttrs.condition || undefined,
+        pa_size: appliedAttrs.size || undefined,
+        pa_brand: appliedAttrs.brand || undefined,
+      });
+      toast.success("Alert saved — we'll notify you of new matches");
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.friendly : "Could not save alert");
+    } finally {
+      setSavingAlert(false);
+    }
+  };
+
+  const hasAnyCriteria =
+    !!submitted ||
+    !!category ||
+    !!appliedAttrs.condition ||
+    !!appliedAttrs.size ||
+    !!appliedAttrs.brand ||
+    !!minPrice ||
+    !!maxPrice;
+
   const StickyHeader = useMemo(() => (
     <View style={styles.stickyHeader}>
       <View style={styles.topRow}>
@@ -148,7 +210,7 @@ export default function Browse() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            onSubmitEditing={() => setSubmitted(search.trim())}
+            onSubmitEditing={() => commitSearch(search)}
             returnKeyType="search"
             placeholder="Search handmade goods…"
             placeholderTextColor={colors.onSurfaceMuted}
@@ -163,6 +225,32 @@ export default function Browse() {
         </View>
         <CartHeaderButton />
       </View>
+
+      {/* v1.0.63 — recent searches strip. Shown only when the input is empty
+          so it doesn't compete with an active search's category row. */}
+      {!search && !submitted && recent.length > 0 ? (
+        <View style={styles.recentBlock}>
+          <View style={styles.recentHeader}>
+            <Text style={styles.recentTitle}>Recent searches</Text>
+            <TouchableOpacity onPress={() => { clearRecentSearches().then(() => setRecent([])); }} testID="recent-clear">
+              <Text style={styles.recentClear}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentRow}>
+            {recent.map((q) => (
+              <TouchableOpacity
+                key={q}
+                style={styles.recentChip}
+                onPress={() => { setSearch(q); commitSearch(q); }}
+                testID={`recent-${q}`}
+              >
+                <Ionicons name="time-outline" size={14} color={colors.onSurfaceMuted} />
+                <Text style={styles.recentChipText} numberOfLines={1}>{q}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         <CategoryChip label="All" selected={!category} onPress={() => setCategory(undefined)} testID="cat-all" />
@@ -213,6 +301,12 @@ export default function Browse() {
       <View style={styles.controlsRow}>
         <Text style={styles.count}>{total} items</Text>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          {hasAnyCriteria ? (
+            <TouchableOpacity style={styles.controlBtn} onPress={onSaveAlert} disabled={savingAlert} testID="btn-save-alert">
+              <Ionicons name={savingAlert ? "hourglass-outline" : "notifications-outline"} size={16} color={colors.onSurface} />
+              <Text style={styles.controlText}>{savingAlert ? "Saving…" : "Save alert"}</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity style={styles.controlBtn} onPress={() => setSortOpen(true)} testID="btn-sort">
             <Ionicons name="swap-vertical" size={16} color={colors.onSurface} />
             <Text style={styles.controlText}>Sort</Text>
@@ -224,7 +318,7 @@ export default function Browse() {
         </View>
       </View>
     </View>
-  ), [search, category, categories, total, activeFilters, shops]);
+  ), [search, category, categories, total, activeFilters, shops, recent, hasAnyCriteria, savingAlert]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -356,4 +450,12 @@ const styles = StyleSheet.create({
   shopAvatarPlaceholder: { alignItems: "center", justifyContent: "center" },
   shopName: { fontSize: 12, fontWeight: "700", color: colors.onSurface, marginTop: spacing.xs, textAlign: "center" },
   shopMeta: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2, textAlign: "center" },
+  // v1.0.63 — recent searches strip.
+  recentBlock: { paddingTop: spacing.xs, paddingBottom: spacing.sm },
+  recentHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingBottom: spacing.xs },
+  recentTitle: { fontSize: 13, fontWeight: "800", color: colors.onSurface },
+  recentClear: { fontSize: 12, fontWeight: "700", color: colors.brand },
+  recentRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xs },
+  recentChip: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surfaceSecondary, paddingHorizontal: spacing.md, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, maxWidth: 220 },
+  recentChipText: { fontSize: 13, color: colors.onSurface, fontWeight: "600" },
 });

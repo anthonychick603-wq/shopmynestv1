@@ -286,6 +286,21 @@ export const nest = {
     request<{ ok: boolean }>("marketplace", "/notifications/read", { method: "POST", body: { ids: ids || [] } }),
 
   // -------------------------------------------------------------------------
+  // Saved searches — the-nest/v1/saved-searches (v3.7.101).
+  // Each row is a persisted search payload the buyer wants alerts on. The
+  // backend runs an hourly cron that replays each row and pushes a
+  // saved_search_hit notification when new products match.
+  // -------------------------------------------------------------------------
+  getSavedSearches: () =>
+    request<{ items: NestSavedSearchRaw[] }>("marketplace", "/saved-searches"),
+  saveSearch: (payload: SaveSearchPayload) =>
+    request<NestSavedSearchRaw>("marketplace", "/saved-searches", { method: "POST", body: payload }),
+  updateSavedSearch: (id: number, changes: { notify?: boolean }) =>
+    request<NestSavedSearchRaw>("marketplace", `/saved-searches/${id}`, { method: "PUT", body: changes }),
+  deleteSavedSearch: (id: number) =>
+    request<{ success: boolean }>("marketplace", `/saved-searches/${id}`, { method: "DELETE" }),
+
+  // -------------------------------------------------------------------------
   // Direct messaging — the-nest/v1/messages
   //   GET  /messages              → inbox: latest per conversation
   //   GET  /messages/{user_id}    → thread with a specific counterpart (marks read)
@@ -853,6 +868,44 @@ export type NestNotificationRaw = {
   created_at?: string;
   date?: string;
   meta?: Record<string, unknown>;
+};
+
+// v1.0.63 — saved searches. The `query` object is the exact payload that
+// will be re-run by the backend cron, so the mobile side just echoes it into
+// the Browse screen params to replay the search.
+export type NestSavedSearchQuery = {
+  search?: string;
+  category?: number;
+  sort?: string;
+  min_price?: string;
+  max_price?: string;
+  pa_condition?: string;
+  pa_size?: string;
+  pa_brand?: string;
+  seller_id?: number;
+};
+
+export type NestSavedSearchRaw = {
+  id: number;
+  label: string;
+  query: NestSavedSearchQuery;
+  notify: boolean;
+  last_checked_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SaveSearchPayload = {
+  label?: string;
+  search?: string;
+  category?: number | string;
+  sort?: string;
+  min_price?: string;
+  max_price?: string;
+  pa_condition?: string;
+  pa_size?: string;
+  pa_brand?: string;
+  seller_id?: number;
 };
 
 export type NestConfig = {
