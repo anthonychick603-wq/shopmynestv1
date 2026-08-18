@@ -15,6 +15,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
@@ -105,7 +106,7 @@ export default function ProductDetail() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="product-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="product-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <TouchableOpacity style={styles.topBtn} onPress={onFav} testID="product-favorite">
             <Ionicons name={isFavorite(product.id) ? "heart" : "heart-outline"} size={20} color={isFavorite(product.id) ? colors.error : colors.onSurface} />
@@ -119,12 +120,12 @@ export default function ProductDetail() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
       >
-        <Image source={{ uri: product.images[imageIdx] }} style={styles.hero} resizeMode="cover" />
+        <AppImage source={{ uri: product.images[imageIdx] }} style={styles.hero} resizeMode="cover" fallbackIcon="pricetag-outline" />
         {product.images.length > 1 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow}>
             {product.images.map((img, i) => (
               <TouchableOpacity key={i} onPress={() => { haptics.tap(); setImageIdx(i); }} style={[styles.thumb, imageIdx === i && styles.thumbActive]} accessibilityLabel={`Show image ${i + 1}`}>
-                <Image source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" />
+                <AppImage source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" fallbackIcon="pricetag-outline" />
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -144,7 +145,7 @@ export default function ProductDetail() {
           {product.seller ? (
             <TouchableOpacity style={styles.sellerRow} onPress={() => { haptics.tap(); router.push(`/seller/${product.seller!.id}`); }} testID="product-seller-link" activeOpacity={0.85} accessibilityLabel={`View shop by ${product.seller!.name}`}>
               {product.seller.profile_photo ? (
-                <Image source={{ uri: product.seller.profile_photo }} style={styles.sellerAvatar} />
+                <AppImage source={{ uri: product.seller.profile_photo }} style={styles.sellerAvatar} fallbackIcon="person-outline" />
               ) : (
                 <View style={[styles.sellerAvatar, { alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceTertiary }]}>
                   <Ionicons name="leaf" size={16} color={colors.brand} />

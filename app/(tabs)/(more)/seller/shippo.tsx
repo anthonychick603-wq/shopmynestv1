@@ -9,6 +9,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
+import { haptics } from "@/src/utils/haptics";
 
 /**
  * Seller-side Shippo Connect screen.
@@ -134,7 +135,7 @@ export default function SellerShippoConnect() {
                 <Text style={styles.dimSmall}>Connected {new Date(status.connected_at).toLocaleString()} • {status.source === "oauth" ? "One-click" : "API token"}</Text>
               ) : null}
               <View style={{ marginTop: spacing.md }}>
-                <Button title={disconnecting ? "Disconnecting…" : "Disconnect"} variant="secondary" onPress={disconnect} loading={disconnecting} testID="shippo-disconnect" />
+                <Button title={disconnecting ? "Disconnecting…" : "Disconnect"} variant="secondary" onPress={() => { haptics.warning(); disconnect(); }} loading={disconnecting} testID="shippo-disconnect" />
               </View>
             </View>
           ) : (
@@ -144,7 +145,7 @@ export default function SellerShippoConnect() {
                   <Text style={styles.cardTitle}>One-click Connect</Text>
                   <Text style={styles.dim}>Sign in to Shippo and authorize ShopMyNest — no copy-pasting.</Text>
                   <View style={{ marginTop: spacing.md }}>
-                    <Button title="Connect with Shippo" onPress={startOAuth} testID="shippo-oauth" />
+                    <Button title="Connect with Shippo" onPress={() => { haptics.press(); startOAuth(); }} testID="shippo-oauth" />
                   </View>
                 </View>
               ) : null}
@@ -166,7 +167,7 @@ export default function SellerShippoConnect() {
                 />
                 {error ? <Text style={styles.err}>{error}</Text> : null}
                 <View style={{ marginTop: spacing.md }}>
-                  <Button title={connecting ? "Validating…" : "Connect Shippo"} onPress={connect} loading={connecting} testID="shippo-manual-connect" />
+                  <Button title={connecting ? "Validating…" : "Connect Shippo"} onPress={() => { haptics.press(); connect(); }} loading={connecting} testID="shippo-manual-connect" />
                 </View>
               </View>
             </>

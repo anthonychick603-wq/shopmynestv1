@@ -11,6 +11,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Order } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -66,7 +67,7 @@ export default function Orders() {
             <Text style={styles.date}>{item.created_at ? format(new Date(item.created_at), "MMM d, yyyy") : ""}</Text>
             <View style={{ flexDirection: "row", marginTop: spacing.md }}>
               {item.items.slice(0, 3).map((it, i) => (
-                <Image key={i} source={{ uri: it.product.images?.[0] }} style={[styles.thumb, { marginLeft: i === 0 ? 0 : -12, zIndex: 5 - i }]} />
+                <AppImage key={i} source={{ uri: it.product.images?.[0] }} style={[styles.thumb, { marginLeft: i === 0 ? 0 : -12, zIndex: 5 - i }]} fallbackIcon="pricetag-outline" />
               ))}
               <View style={{ flex: 1, marginLeft: spacing.md, justifyContent: "center" }}>
                 <Text style={styles.itemCount}>{item.items.reduce((s, it) => s + it.quantity, 0)} items</Text>
@@ -84,7 +85,7 @@ export default function Orders() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={onBack} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Your orders</Text>
       <CartHeaderButton />
     </View>

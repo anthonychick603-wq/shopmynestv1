@@ -15,6 +15,7 @@ import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 export default function ApplySeller() {
   const insets = useSafeAreaInsets();
@@ -99,7 +100,7 @@ export default function ApplySeller() {
               return (
                 <TouchableOpacity
                   key={c.id}
-                  onPress={() => setSelectedCats((s) => (s.includes(c.id) ? s.filter((x) => x !== c.id) : [...s, c.id]))}
+                  onPress={() => { haptics.tap(); setSelectedCats((s) => (s.includes(c.id) ? s.filter((x) => x !== c.id) : [...s, c.id])); }}
                   style={[styles.chip, on && styles.chipOn]}
                   testID={`apply-cat-${c.id}`}
                 >
@@ -111,12 +112,12 @@ export default function ApplySeller() {
 
           <Input label="Shipping information" value={shipping} onChangeText={setShipping} multiline style={{ height: 80, textAlignVertical: "top" }} hint="Where do you ship from, average lead time." testID="apply-shipping" />
 
-          <TouchableOpacity onPress={() => setAgreed((v) => !v)} style={styles.terms} testID="apply-agree">
+          <TouchableOpacity onPress={() => { haptics.tap(); setAgreed((v) => !v); }} style={styles.terms} testID="apply-agree" accessibilityRole="checkbox" accessibilityLabel="Agree to seller terms">
             <Ionicons name={agreed ? "checkbox" : "square-outline"} size={22} color={agreed ? colors.brand : colors.onSurfaceMuted} />
             <Text style={{ color: colors.onSurface, flex: 1 }}>I agree to the My Nest seller terms and marketplace fee policy.</Text>
           </TouchableOpacity>
 
-          <Button title="Submit application" onPress={submit} loading={busy} testID="apply-submit" />
+          <Button title="Submit application" onPress={() => { haptics.press(); submit(); }} loading={busy} testID="apply-submit" />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -126,7 +127,7 @@ export default function ApplySeller() {
 function Top({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>{title}</Text>
       <CartHeaderButton />
     </View>

@@ -1,5 +1,6 @@
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AppImage } from "@/src/components/AppImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
 
@@ -34,7 +35,7 @@ export function PostCard({ post, onPressAuthor }: { post: Post; onPressAuthor?: 
     <View style={styles.card} testID={`post-card-${post.id}`}>
       <TouchableOpacity style={styles.head} onPress={onPressAuthor} activeOpacity={onPressAuthor ? 0.7 : 1} disabled={!onPressAuthor} testID={`post-author-${post.id}`}>
         {post.author.profile_photo ? (
-          <Image source={{ uri: post.author.profile_photo }} style={styles.avatar} />
+          <AppImage source={{ uri: post.author.profile_photo }} style={styles.avatar} fallbackIcon="person-outline" />
         ) : (
           <View style={[styles.avatar, styles.avatarFallback]}><Ionicons name="leaf" size={18} color={colors.brand} /></View>
         )}
@@ -47,7 +48,7 @@ export function PostCard({ post, onPressAuthor }: { post: Post; onPressAuthor?: 
       {post.title ? <Text style={styles.title}>{post.title}</Text> : null}
       {body ? <Text style={styles.body} numberOfLines={6}>{body}</Text> : null}
 
-      {post.image ? <Image source={{ uri: post.image }} style={styles.image} /> : null}
+      {post.image ? <AppImage source={{ uri: post.image }} style={styles.image} fallbackIcon="image-outline" /> : null}
 
       <TouchableOpacity style={styles.footer} onPress={() => pushFromCard(router, `/post/${post.id}/comments`, insideMore)} activeOpacity={0.7} testID={`post-comments-${post.id}`}>
         <Ionicons name="chatbubble-outline" size={16} color={colors.onSurfaceMuted} />

@@ -158,7 +158,7 @@ export default function BlogModeration() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="blog-moderation-back">
+      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="blog-moderation-back" accessibilityRole="button" accessibilityLabel="Go back">
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Blog moderation</Text>

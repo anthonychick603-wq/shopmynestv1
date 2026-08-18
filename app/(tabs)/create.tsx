@@ -11,6 +11,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { pushFromTab } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 export default function CreateTab() {
   const insets = useSafeAreaInsets();
@@ -90,7 +91,7 @@ function Action({
   testID?: string;
 }) {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85} testID={testID}>
+    <TouchableOpacity style={styles.card} onPress={() => { haptics.tap(); onPress(); }} activeOpacity={0.85} testID={testID} accessibilityRole="button" accessibilityLabel={title}>
       <View style={styles.cardIcon}>
         <Ionicons name={icon} size={22} color={colors.brand} />
       </View>

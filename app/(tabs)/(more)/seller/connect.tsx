@@ -12,6 +12,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 // Deep-link back into this same screen once Stripe-hosted onboarding finishes.
 // Scheme comes from app.json (`thenest`).
@@ -161,7 +162,7 @@ export default function Connect() {
         {ui === "ready" ? (
           <Button
             title="View Stripe balance & payout history"
-            onPress={openDashboard}
+            onPress={() => { haptics.press(); openDashboard(); }}
             loading={busy}
             testID="connect-dashboard"
             style={{ marginTop: spacing.lg }}
@@ -170,7 +171,7 @@ export default function Connect() {
           <>
             <Button
               title={ui === "incomplete" ? "Finish connecting with Stripe" : "Connect your bank account with Stripe"}
-              onPress={startOnboarding}
+              onPress={() => { haptics.press(); startOnboarding(); }}
               loading={busy}
               testID="connect-onboard"
               style={{ marginTop: spacing.lg }}
@@ -203,7 +204,7 @@ function StatusPill({ label, on }: { label: string; on: boolean }) {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Payout account</Text>
       <CartHeaderButton />
     </View>

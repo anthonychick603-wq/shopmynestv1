@@ -17,6 +17,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { Button } from "@/src/components/Button";
 import { pushFromTab } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { useCart } from "@/src/context/CartContext";
@@ -106,10 +107,10 @@ export default function Blog() {
       <View style={styles.header}>
         <NestLogo subtitle="Handmade, with love" />
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <TouchableOpacity testID="header-search" accessibilityLabel="Search products" accessibilityRole="button" onPress={() => router.push("/(tabs)/browse")} style={styles.iconBtn}>
+          <TouchableOpacity testID="header-search" accessibilityLabel="Search products" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/browse"); }} style={styles.iconBtn}>
             <Ionicons name="search" size={20} color={colors.onSurface} />
           </TouchableOpacity>
-          <TouchableOpacity testID="header-alerts" accessibilityLabel="Open notifications" accessibilityRole="button" onPress={() => router.push("/(tabs)/alerts")} style={styles.iconBtn}>
+          <TouchableOpacity testID="header-alerts" accessibilityLabel="Open notifications" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/alerts"); }} style={styles.iconBtn}>
             <Ionicons name="notifications-outline" size={20} color={colors.onSurface} />
           </TouchableOpacity>
           <CartHeaderButton />
@@ -135,9 +136,10 @@ export default function Blog() {
             item.status === "approved" ? (
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() =>
-                  pushFromTab(router, "/(tabs)/(more)/blog/[id]", { id: item.id, post: JSON.stringify(item) })
-                }
+                onPress={() => {
+                  haptics.tap();
+                  pushFromTab(router, "/(tabs)/(more)/blog/[id]", { id: item.id, post: JSON.stringify(item) });
+                }}
                 testID={`blog-open-${item.id}`}
               >
                 <BlogPostCard
@@ -166,7 +168,7 @@ export default function Blog() {
                     <Text style={styles.homeFeedTitle}>
                       {hasFollowed ? "Fresh from shops you follow" : "Fresh from the Nest"}
                     </Text>
-                    <TouchableOpacity accessibilityLabel="See all products in browse" accessibilityRole="button" onPress={() => router.push("/(tabs)/browse")} testID="home-feed-see-all">
+                    <TouchableOpacity accessibilityLabel="See all products in browse" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/browse"); }} testID="home-feed-see-all">
                       <Text style={styles.homeFeedSeeAll}>See all</Text>
                     </TouchableOpacity>
                   </View>
@@ -197,7 +199,7 @@ export default function Blog() {
                 <Text style={styles.composeBody}>Post a photo and a caption. An admin reviews every post before it goes live.</Text>
                 <Button
                   title="New Post"
-                  onPress={() => (user ? pushFromTab(router, "/blog/compose") : pushFromTab(router, "/(auth)/login"))}
+                  onPress={() => { haptics.tap(); (user ? pushFromTab(router, "/blog/compose") : pushFromTab(router, "/(auth)/login")); }}
                   style={{ marginTop: spacing.md }}
                   testID="blog-new-post"
                 />
@@ -206,7 +208,7 @@ export default function Blog() {
               {showBecomeMaker ? (
                 <TouchableOpacity
                   testID="become-seller-cta"
-                  onPress={() => (user ? pushFromTab(router, "/seller/apply") : pushFromTab(router, "/(auth)/login"))}
+                  onPress={() => { haptics.tap(); (user ? pushFromTab(router, "/seller/apply") : pushFromTab(router, "/(auth)/login")); }}
                   style={styles.becomeSellerCard}
                   activeOpacity={0.85}
                 >

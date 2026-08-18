@@ -182,7 +182,7 @@ function CommentRow({ comment }: { comment: NestPostCommentRaw }) {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="comments-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="comments-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Comments</Text>
       <CartHeaderButton />
     </View>

@@ -13,6 +13,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 export default function Payouts() {
   const insets = useSafeAreaInsets();
@@ -110,7 +111,7 @@ export default function Payouts() {
 
         <Button
           title={canRequest ? "Request payout" : `Minimum payout is $${minimum.toFixed(2)}`}
-          onPress={requestPayout}
+          onPress={() => { haptics.press(); requestPayout(); }}
           disabled={!canRequest}
           loading={busy}
           testID="payouts-request"
@@ -161,7 +162,7 @@ function Mini({ label, value }: { label: string; value: string }) {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Earnings & payouts</Text>
       <CartHeaderButton />
     </View>

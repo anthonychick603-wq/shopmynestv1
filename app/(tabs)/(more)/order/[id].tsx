@@ -16,6 +16,7 @@ import { Input } from "@/src/components/Input";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AppImage } from "@/src/components/AppImage";
 import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
 import { OrderReviewCTA } from "@/src/components/OrderReviewCTA";
@@ -99,7 +100,7 @@ export default function OrderDetail() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn}>
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back">
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Order</Text>
@@ -117,7 +118,7 @@ export default function OrderDetail() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Order #{order.id}</Text>
         <CartHeaderButton />
       </View>
@@ -143,7 +144,7 @@ export default function OrderDetail() {
           <Text style={styles.cardLabel}>Items</Text>
           {order.items.map((it, i) => (
             <View key={i} style={styles.itemRow}>
-              <Image source={{ uri: it.product.images?.[0] }} style={styles.itemImg} />
+              <AppImage source={{ uri: it.product.images?.[0] }} style={styles.itemImg} fallbackIcon="pricetag-outline" />
               <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
                 <Text style={styles.itemTitle} numberOfLines={2}>{it.product.title}</Text>
                 <Text style={styles.itemMeta}>Qty {it.quantity}</Text>
@@ -462,7 +463,7 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn}>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Order #{data.number || data.id}</Text>

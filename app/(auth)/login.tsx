@@ -41,7 +41,7 @@ export default function Login() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
-            <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} testID="login-back">
+            <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} testID="login-back" accessibilityRole="button" accessibilityLabel="Close">
               <Ionicons name="close" size={26} color={colors.onSurface} />
             </TouchableOpacity>
           </View>

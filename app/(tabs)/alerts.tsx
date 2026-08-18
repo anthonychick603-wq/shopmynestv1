@@ -14,6 +14,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { pushFromTab } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
   new_order_for_seller: "bag-check-outline",
@@ -100,7 +101,7 @@ export default function Alerts() {
         <NestLogo compact title="Alerts" subtitle={unread > 0 ? `${unread} unread` : undefined} />
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           {unread > 0 ? (
-            <TouchableOpacity onPress={markAllRead} testID="alerts-mark-all-read">
+            <TouchableOpacity onPress={() => { haptics.tap(); markAllRead(); }} testID="alerts-mark-all-read" accessibilityRole="button" accessibilityLabel="Mark all notifications as read">
               <Text style={styles.markRead}>Mark all read</Text>
             </TouchableOpacity>
           ) : null}

@@ -10,7 +10,7 @@
  * (and short tagline), POST /seller/profile, then bounce back.
  */
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { nest, ApiError, type NestSellerProfileMe } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
@@ -136,7 +137,7 @@ export default function ShopSettings() {
           />
         </View>
 
-        <Button title="Save shop settings" onPress={save} loading={saving} testID="shop-settings-save" />
+        <Button title="Save shop settings" onPress={() => { haptics.press(); save(); }} loading={saving} testID="shop-settings-save" />
       </ScrollView>
     </SafeAreaView>
   );
@@ -145,9 +146,9 @@ export default function ShopSettings() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <View style={styles.topBtn}>
-        <Ionicons name="chevron-back" size={22} color={colors.onSurface} onPress={onBack} />
-      </View>
+      <TouchableOpacity style={styles.topBtn} onPress={() => { haptics.tap(); onBack(); }} accessibilityRole="button" accessibilityLabel="Go back">
+        <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+      </TouchableOpacity>
       <Text style={styles.topTitle}>Shop settings</Text>
       <View style={styles.topBtn} />
     </View>

@@ -15,6 +15,7 @@ import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 type PackageSize = "small" | "medium" | "large" | "custom";
 
@@ -268,7 +269,7 @@ export default function ProductForm() {
       />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.photo} onPress={pickImage} testID="pf-photo">
+          <TouchableOpacity style={styles.photo} onPress={() => { haptics.tap(); pickImage(); }} testID="pf-photo" accessibilityRole="button" accessibilityLabel="Pick product photo">
             {imageUrl ? (
               <Image source={{ uri: imageUrl }} style={styles.photoImg} />
             ) : (
@@ -290,7 +291,7 @@ export default function ProductForm() {
             {categories.map((c) => {
               const on = selectedCats.includes(c.slug);
               return (
-                <TouchableOpacity key={c.id} onPress={() => toggleCat(c.slug)} style={[styles.chip, on && styles.chipOn]} testID={`pf-cat-${c.slug}`}>
+                <TouchableOpacity key={c.id} onPress={() => { haptics.tap(); toggleCat(c.slug); }} style={[styles.chip, on && styles.chipOn]} testID={`pf-cat-${c.slug}`} accessibilityRole="button" accessibilityLabel={`${on ? "Remove" : "Add"} category ${c.name}`}>
                   <Text style={[styles.chipText, on && styles.chipTextOn]}>{c.name}</Text>
                 </TouchableOpacity>
               );
@@ -304,7 +305,7 @@ export default function ProductForm() {
                 {PACKAGE_SIZES.map((s) => {
                   const on = packageSize === s.value;
                   return (
-                    <TouchableOpacity key={s.value} onPress={() => setPackageSize(s.value)} style={[styles.sizeOpt, on && styles.sizeOptOn]} testID={`pf-size-${s.value}`}>
+                    <TouchableOpacity key={s.value} onPress={() => { haptics.tap(); setPackageSize(s.value); }} style={[styles.sizeOpt, on && styles.sizeOptOn]} testID={`pf-size-${s.value}`} accessibilityRole="button" accessibilityLabel={`Package size ${s.label}`}>
                       <Text style={[styles.sizeText, on && styles.sizeTextOn]}>{s.label}</Text>
                     </TouchableOpacity>
                   );
@@ -321,17 +322,19 @@ export default function ProductForm() {
             </>
           )}
 
-          <Button title={isEdit ? "Save changes" : "Create listing"} onPress={submit} loading={busy} testID="pf-submit" style={{ marginTop: spacing.md }} />
+          <Button title={isEdit ? "Save changes" : "Create listing"} onPress={() => { haptics.press(); submit(); }} loading={busy} testID="pf-submit" style={{ marginTop: spacing.md }} />
 
           {/* v1.0.64 (Build #3) — duplicate button. Only shown when editing an
               existing listing; creates a draft copy on the server and pushes
               the form for the new draft. */}
           {isEdit ? (
             <TouchableOpacity
-              onPress={onDuplicate}
+              onPress={() => { haptics.tap(); onDuplicate?.(); }}
               disabled={duplicating || busy}
               style={styles.duplicateBtn}
               testID="pf-duplicate"
+              accessibilityRole="button"
+              accessibilityLabel="Duplicate this listing"
             >
               {duplicating ? (
                 <ActivityIndicator size="small" color={colors.brand} />
@@ -355,15 +358,16 @@ function decode(s: string): string {
 function Top({ onBack, title, onDuplicate, duplicating }: { onBack: () => void; title: string; onDuplicate?: () => void; duplicating?: boolean }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         {onDuplicate ? (
           <TouchableOpacity
-            onPress={onDuplicate}
+            onPress={() => { haptics.tap(); onDuplicate?.(); }}
             disabled={!!duplicating}
             style={styles.topBtn}
             testID="pf-duplicate-header"
+            accessibilityRole="button"
             accessibilityLabel="Duplicate this listing"
           >
             {duplicating ? (

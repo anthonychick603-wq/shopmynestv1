@@ -21,6 +21,7 @@ import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { shareSeller } from "@/src/utils/share";
 
 export default function SellerProfile() {
@@ -88,13 +89,13 @@ export default function SellerProfile() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/seller/dashboard")} style={styles.topBtn} testID="seller-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }} style={styles.topBtn} testID="seller-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>{storeName}</Text>
         <View style={styles.topRight}>
           {/* v1.0.56 - share the shop. */}
           {seller ? (
             <TouchableOpacity
-              onPress={() => shareSeller({ id: seller.id, store_name: seller.store_name, tagline: seller.tagline, about: seller.about })}
+              onPress={() => { haptics.tap(); shareSeller({ id: seller.id, store_name: seller.store_name, tagline: seller.tagline, about: seller.about }); }}
               style={styles.topBtn}
               testID="seller-share"
             >
@@ -136,7 +137,7 @@ export default function SellerProfile() {
                 <View style={styles.actionsRow}>
                   <TouchableOpacity
                     style={styles.messageBtn}
-                    onPress={() => router.push({ pathname: "/messages/[userId]", params: { userId: String(id), name: storeName } })}
+                    onPress={() => { haptics.tap(); router.push({ pathname: "/messages/[userId]", params: { userId: String(id), name: storeName } }); }}
                     testID="seller-message"
                   >
                     <Ionicons name="chatbubble-ellipses" size={16} color={colors.onBrand} />
@@ -171,7 +172,7 @@ export default function SellerProfile() {
                   {reviewTotal > reviews.length ? (
                     <TouchableOpacity
                       style={styles.seeAllReviews}
-                      onPress={() => router.push({ pathname: "/seller/reviews", params: { id: String(id), name: storeName } })}
+                      onPress={() => { haptics.tap(); router.push({ pathname: "/seller/reviews", params: { id: String(id), name: storeName } }); }}
                       testID="seller-see-all-reviews"
                     >
                       <Text style={styles.seeAllReviewsText}>See all {reviewTotal} reviews</Text>

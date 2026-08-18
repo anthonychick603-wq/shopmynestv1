@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { nest } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { toast } from "@/src/components/Toast";
 
 type Phase = "idle" | "uploading" | "preview" | "running" | "done" | "error";
@@ -112,7 +113,7 @@ export default function ImportScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/seller/dashboard")} accessibilityLabel="Back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }} accessibilityLabel="Go back" accessibilityRole="button">
           <Ionicons name="chevron-back" size={26} color={colors.brand} />
         </TouchableOpacity>
         <Text style={styles.title}>Import products</Text>
@@ -129,7 +130,7 @@ export default function ImportScreen() {
               </Text>
               <Text style={styles.small}>Supported columns: Name, SKU, Regular price, Sale price, Description, Short description, Stock, Categories, Tags, Images, Weight (lbs), Length/Width/Height (in). Max 500 rows, 10 MB.</Text>
             </View>
-            <TouchableOpacity style={styles.primaryBtn} onPress={pickAndUpload}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => { haptics.press(); pickAndUpload(); }} accessibilityRole="button" accessibilityLabel="Pick and upload CSV">
               <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
               <Text style={styles.primaryBtnText}>Choose CSV file</Text>
             </TouchableOpacity>
@@ -178,13 +179,15 @@ export default function ImportScreen() {
 
             <TouchableOpacity
               style={[styles.primaryBtn, upload.total_rows === 0 && styles.disabledBtn]}
-              onPress={startImport}
+              onPress={() => { haptics.press(); startImport(); }}
               disabled={upload.total_rows === 0}
+              accessibilityRole="button"
+              accessibilityLabel={`Import ${upload.total_rows} products`}
             >
               <Ionicons name="rocket-outline" size={18} color="#fff" />
               <Text style={styles.primaryBtnText}>Import {upload.total_rows} product{upload.total_rows === 1 ? "" : "s"}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.linkBtn} onPress={reset}>
+            <TouchableOpacity style={styles.linkBtn} onPress={() => { haptics.tap(); reset(); }} accessibilityRole="button" accessibilityLabel="Pick a different file">
               <Text style={styles.linkText}>Pick a different file</Text>
             </TouchableOpacity>
           </>
@@ -217,7 +220,7 @@ export default function ImportScreen() {
                 </>
               )}
             </View>
-            <TouchableOpacity style={styles.primaryBtn} onPress={finish}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => { haptics.press(); finish(); }} accessibilityRole="button" accessibilityLabel="Back to dashboard">
               <Text style={styles.primaryBtnText}>Back to dashboard</Text>
             </TouchableOpacity>
           </>
@@ -229,7 +232,7 @@ export default function ImportScreen() {
               <Text style={styles.errorTitle}>Something went wrong</Text>
               <Text style={styles.small}>{error}</Text>
             </View>
-            <TouchableOpacity style={styles.primaryBtn} onPress={reset}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => { haptics.press(); reset(); }} accessibilityRole="button" accessibilityLabel="Try again">
               <Text style={styles.primaryBtnText}>Try again</Text>
             </TouchableOpacity>
           </>

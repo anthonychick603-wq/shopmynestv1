@@ -514,7 +514,7 @@ function AddressFormModal({
         <View style={[styles.modalSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Shipping address</Text>
-            <TouchableOpacity onPress={onCancel} testID="address-form-cancel"><Ionicons name="close" size={24} color={colors.onSurface} /></TouchableOpacity>
+            <TouchableOpacity onPress={onCancel} testID="address-form-cancel" accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={24} color={colors.onSurface} /></TouchableOpacity>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.lg }}>
             <Field label="Full name" value={fullName} onChangeText={setFullName} testID="address-full-name" autoCapitalize="words" />

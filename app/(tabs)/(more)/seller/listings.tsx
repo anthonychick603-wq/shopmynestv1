@@ -10,9 +10,11 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 const PER_PAGE = 50;
 
@@ -86,12 +88,12 @@ export default function SellerListings() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/seller/dashboard")} style={styles.topBtn} testID="listings-back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }} style={styles.topBtn} testID="listings-back" accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>Your listings</Text>
         <View style={styles.topRight}>
-          <TouchableOpacity onPress={createNew} style={styles.addBtn} testID="listings-add-new">
+          <TouchableOpacity onPress={() => { haptics.press(); createNew(); }} style={styles.addBtn} testID="listings-add-new" accessibilityRole="button" accessibilityLabel="Add a new listing">
             <Ionicons name="add" size={18} color={colors.onBrand} />
             <Text style={styles.addBtnText}>Add New</Text>
           </TouchableOpacity>
@@ -100,7 +102,9 @@ export default function SellerListings() {
       </View>
 
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+        <View style={{ padding: spacing.lg }}>
+          <ProductGridSkeleton count={6} />
+        </View>
       ) : (
         <FlatList
           data={products}
@@ -108,7 +112,7 @@ export default function SellerListings() {
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.row} onPress={() => edit(item)} activeOpacity={0.85} testID={`listing-${item.id}`}>
+            <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); edit(item); }} activeOpacity={0.85} testID={`listing-${item.id}`} accessibilityRole="button" accessibilityLabel={`Edit ${decodeEntities(item.title)}`}>
               <Image source={{ uri: item.images?.[0] }} style={styles.rowImg} />
               <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{decodeEntities(item.title)}</Text>
@@ -127,7 +131,9 @@ export default function SellerListings() {
                 ) : null}
               </View>
               <TouchableOpacity
-                onPress={() => duplicate(item)}
+                onPress={() => { haptics.tap(); duplicate(item); }}
+                accessibilityRole="button"
+                accessibilityLabel={`Duplicate ${decodeEntities(item.title)}`}
                 style={styles.rowAction}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 disabled={duplicatingId === item.id}

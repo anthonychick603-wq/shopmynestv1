@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
 import { pushFromTab } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 const TAB_BAR_HEIGHT = 64;
 
@@ -64,8 +65,10 @@ function CreatePlusButton() {
     <>
       <Pressable
         style={styles.createBtnWrap}
-        onPress={() => (isMaker ? show() : pushFromTab(router, "/blog/compose"))}
+        onPress={() => { haptics.press(); isMaker ? show() : pushFromTab(router, "/blog/compose"); }}
         testID="tab-create"
+        accessibilityLabel="Create"
+        accessibilityRole="button"
       >
         <View style={styles.createBtn}>
           <Ionicons name="add" size={30} color={colors.onBrand} />
@@ -73,18 +76,18 @@ function CreatePlusButton() {
       </Pressable>
 
       <Modal visible={open} transparent animationType="none" onRequestClose={() => hide()}>
-        <Pressable style={styles.menuBackdrop} onPress={() => hide()} testID="create-menu-backdrop">
+        <Pressable style={styles.menuBackdrop} onPress={() => hide()} testID="create-menu-backdrop" accessibilityLabel="Close create menu" accessibilityRole="button">
           <Animated.View
             style={[
               styles.menuRow,
               { bottom: insets.bottom + TAB_BAR_HEIGHT + 16, opacity: anim, transform: [{ translateY }, { scale }] },
             ]}
           >
-            <TouchableOpacity style={styles.pill} onPress={() => go("blog")} testID="create-menu-blog" activeOpacity={0.85}>
+            <TouchableOpacity style={styles.pill} onPress={() => { haptics.tap(); go("blog"); }} testID="create-menu-blog" activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Create a blog post">
               <Ionicons name="newspaper-outline" size={18} color={colors.onSurface} />
               <Text style={styles.pillText}>Blog</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.pill} onPress={() => go()} testID="create-menu-sell" activeOpacity={0.85}>
+            <TouchableOpacity style={styles.pill} onPress={() => { haptics.tap(); go(); }} testID="create-menu-sell" activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="List a new product">
               <Ionicons name="pricetag-outline" size={18} color={colors.onSurface} />
               <Text style={styles.pillText}>List</Text>
             </TouchableOpacity>
@@ -123,6 +126,7 @@ export default function TabsLayout() {
           title: "Blog",
           tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? "home" : "home-outline"} color={color} focused={focused} />,
           tabBarButtonTestID: "tab-blog",
+          tabBarAccessibilityLabel: "Blog tab",
         }}
       />
       <Tabs.Screen
@@ -131,6 +135,7 @@ export default function TabsLayout() {
           title: "Browse",
           tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? "grid" : "grid-outline"} color={color} focused={focused} />,
           tabBarButtonTestID: "tab-browse",
+          tabBarAccessibilityLabel: "Browse tab",
         }}
       />
       <Tabs.Screen
@@ -146,6 +151,7 @@ export default function TabsLayout() {
           title: "My Nest",
           tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? "storefront" : "storefront-outline"} color={color} focused={focused} />,
           tabBarButtonTestID: "tab-seller-dashboard",
+          tabBarAccessibilityLabel: "My Nest seller dashboard tab",
         }}
       />
       <Tabs.Screen
@@ -154,6 +160,7 @@ export default function TabsLayout() {
           title: "Account",
           tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? "person" : "person-outline"} color={color} focused={focused} />,
           tabBarButtonTestID: "tab-account",
+          tabBarAccessibilityLabel: "Account tab",
         }}
       />
 

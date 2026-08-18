@@ -10,6 +10,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { decodeEntities } from "@/src/utils/html";
 
 // v1.0.64 - Build #4: paginated shop-reviews list. Reached via
@@ -64,10 +65,9 @@ export default function SellerReviewsScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
         <TouchableOpacity
-          onPress={() => safeBack(router, `/seller/${id}`)}
+          onPress={() => { haptics.tap(); safeBack(router, `/seller/${id}`); }}
           style={styles.topBtn}
-          testID="reviews-back"
-        >
+          testID="reviews-back" accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>

@@ -1,5 +1,6 @@
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { AppImage } from "@/src/components/AppImage";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -38,7 +39,7 @@ export function BlogPostCard({
     <View style={styles.card} testID={`blog-card-${post.id}`}>
       <View style={styles.head}>
         {post.author.profile_photo ? (
-          <Image source={{ uri: post.author.profile_photo }} style={styles.avatar} />
+          <AppImage source={{ uri: post.author.profile_photo }} style={styles.avatar} fallbackIcon="person-outline" />
         ) : (
           <View style={[styles.avatar, styles.avatarFallback]}>
             <Ionicons name="person" size={16} color={colors.onSurface} />
@@ -56,7 +57,7 @@ export function BlogPostCard({
       </View>
 
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
-      {post.image ? <Image source={{ uri: post.image }} style={styles.image} /> : null}
+      {post.image ? <AppImage source={{ uri: post.image }} style={styles.image} fallbackIcon="image-outline" /> : null}
       {/* v1.0.54 - surface the comment count so buyers can see there's a
           conversation on this post. Tapping the card takes them to the
           detail screen with the composer. */}

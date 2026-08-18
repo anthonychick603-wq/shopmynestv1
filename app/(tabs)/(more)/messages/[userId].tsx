@@ -365,7 +365,7 @@ export default function MessageThread() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="thread-back">
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="thread-back" accessibilityRole="button" accessibilityLabel="Go back">
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle} numberOfLines={1}>{headerName}</Text>
@@ -382,7 +382,7 @@ export default function MessageThread() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="thread-back">
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="thread-back" accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <TouchableOpacity
@@ -468,7 +468,7 @@ export default function MessageThread() {
                     <Ionicons name="alert-circle" size={20} color="#fff" />
                   </View>
                 ) : null}
-                <TouchableOpacity style={styles.draftRemove} onPress={() => removeDraft(d.key)} testID={`draft-remove-${d.key}`}>
+                <TouchableOpacity style={styles.draftRemove} onPress={() => removeDraft(d.key)} testID={`draft-remove-${d.key}`} accessibilityRole="button" accessibilityLabel="Close">
                   <Ionicons name="close" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
@@ -524,7 +524,7 @@ export default function MessageThread() {
                 transition={120}
               />
               <View style={styles.viewerHeader}>
-                <TouchableOpacity onPress={() => setViewer(null)} style={styles.viewerBtn} testID="viewer-close">
+                <TouchableOpacity onPress={() => setViewer(null)} style={styles.viewerBtn} testID="viewer-close" accessibilityRole="button" accessibilityLabel="Close">
                   <Ionicons name="close" size={22} color="#fff" />
                 </TouchableOpacity>
                 <Text style={styles.viewerCount}>{viewer.index + 1} / {viewer.photos.length}</Text>
@@ -536,8 +536,7 @@ export default function MessageThread() {
                     <TouchableOpacity
                       style={[styles.viewerNav, { left: 16 }]}
                       onPress={() => setViewer({ ...viewer, index: viewer.index - 1 })}
-                      testID="viewer-prev"
-                    >
+                      testID="viewer-prev" accessibilityRole="button" accessibilityLabel="Go back">
                       <Ionicons name="chevron-back" size={26} color="#fff" />
                     </TouchableOpacity>
                   ) : null}
