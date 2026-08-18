@@ -181,6 +181,15 @@ export default function SellerDashboard() {
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Quick actions</Text></View>
         <Button title="+ Create a new listing" onPress={() => pushFromTab(router, "/seller/product-form")} testID="dash-new-product" />
+        {/* v1.0.68 - Shop profile edit is now a first-class row so sellers can
+            change their store name, tagline, and bio without hunting through
+            the readiness checklist. Screen already existed at
+            /seller/shop-settings; this just surfaces it in My Nest. */}
+        <TouchableOpacity style={styles.payoutsBtn} onPress={() => pushFromTab(router, "/seller/shop-settings")} testID="dash-shop-profile">
+          <Ionicons name="storefront-outline" size={18} color={colors.brand} />
+          <Text style={styles.payoutsBtnText}>Shop profile (name, tagline, bio)</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.payoutsBtn} onPress={() => pushFromTab(router, "/seller/payouts")} testID="dash-payouts">
           <Ionicons name="cash-outline" size={18} color={colors.brand} />
           <Text style={styles.payoutsBtnText}>Earnings & payouts</Text>
