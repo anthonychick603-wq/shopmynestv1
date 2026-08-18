@@ -27,6 +27,9 @@ const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
   new_product: "gift-outline",
   new_message: "chatbubbles-outline",
   announcement: "megaphone-outline",
+  // v1.0.66 Build #5 - Favorites growth loop.
+  favorite_added: "heart-outline",
+  favorites_digest: "heart-outline",
 };
 
 export default function Alerts() {

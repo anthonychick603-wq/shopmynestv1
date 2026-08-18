@@ -110,6 +110,18 @@ export default function SellerListings() {
               <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{decodeEntities(item.title)}</Text>
                 <Text style={styles.rowMeta}>Stock: {item.stock} · ${item.price.toFixed(2)}</Text>
+                {/* v1.0.66 - Build #5: surface favorites so the seller knows
+                    which listings are drawing interest. Only shown when at
+                    least one buyer has favorited the item so brand-new
+                    listings don't display a "0" that reads as a bad score. */}
+                {(item.favorites_count ?? 0) > 0 ? (
+                  <View style={styles.rowFavRow}>
+                    <Ionicons name="heart" size={12} color={colors.brand} />
+                    <Text style={styles.rowFavText}>
+                      {item.favorites_count === 1 ? "1 favorite" : `${item.favorites_count} favorites`}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <TouchableOpacity
                 onPress={() => duplicate(item)}
@@ -156,5 +168,7 @@ const styles = StyleSheet.create({
   rowImg: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
   rowTitle: { fontSize: 14, fontWeight: "700", color: colors.onSurface },
   rowMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  rowFavRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 },
+  rowFavText: { fontSize: 12, color: colors.brand, fontWeight: "600" },
   rowAction: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
 });

@@ -51,6 +51,9 @@ export function toProduct(p: NestProductRaw): Product {
         }
       : undefined,
     permalink: p.permalink,
+    // v1.0.66 Build #5 - Only populated in seller context, so the field is
+    // usually undefined for a buyer-facing product card.
+    favorites_count: typeof p.favorites_count === "number" ? p.favorites_count : undefined,
   };
 }
 

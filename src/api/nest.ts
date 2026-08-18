@@ -701,6 +701,9 @@ export type NestProductRaw = {
   permalink?: string;
   seller?: NestSellerRaw;
   categories?: { id: number; name: string; slug: string }[];
+  // v3.7.104 Build #5 - Populated only in seller context. Buyer-facing
+  // endpoints omit it to keep the response small.
+  favorites_count?: number;
 };
 
 export type NestFeedItemRaw = {

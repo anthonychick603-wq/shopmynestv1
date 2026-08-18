@@ -97,6 +97,14 @@ export function routeForPush(data: PushData): string | null {
       }
       return "/saved-searches";
 
+    // v1.0.66 Build #5 - Favorites growth loop. The seller is the recipient.
+    // Both the immediate first-favorite nudge and the weekly digest carry
+    // object_type='product', so a tap lands on the product edit screen where
+    // the seller can Boost the listing.
+    case "favorite_added":
+    case "favorites_digest":
+      return objectId ? `/seller/product-form?id=${objectId}` : "/seller/listings";
+
     // Anything else routes to the in-app alerts list so nothing is dead-ended.
     default:
       return "/alerts";
