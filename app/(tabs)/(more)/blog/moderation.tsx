@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -25,6 +25,7 @@ export default function BlogModeration() {
   const [status, setStatus] = useState<Status>("pending");
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
 
@@ -38,6 +39,7 @@ export default function BlogModeration() {
       setError(e instanceof ApiError ? e.friendly : "Could not load posts for review.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -106,6 +108,17 @@ export default function BlogModeration() {
           data={posts}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 40 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                load(status);
+              }}
+              tintColor={colors.brand}
+              colors={[colors.brand]}
+            />
+          }
           renderItem={({ item }) => (
             <BlogPostCard
               post={item}

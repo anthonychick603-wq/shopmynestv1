@@ -10,6 +10,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { BlogPost, Product } from "@/src/types";
 import { BlogPostCard } from "@/src/components/BlogPostCard";
 import { ProductCard } from "@/src/components/ProductCard";
+import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { ScrollView } from "react-native";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
@@ -116,7 +117,9 @@ export default function Blog() {
       </View>
 
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color={colors.onSurface} /></View>
+        // v1.0.69 — skeleton grid keeps the layout during first load so the
+        // home feed doesn't flash from spinner to content.
+        <ProductGridSkeleton count={4} />
       ) : error ? (
         <EmptyState icon="cloud-offline-outline" title="We couldn't load the blog" message={error} actionLabel="Retry" onAction={() => load(1)} testID="blog-error" />
       ) : (

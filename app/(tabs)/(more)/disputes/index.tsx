@@ -20,6 +20,7 @@ export default function DisputesList() {
   const { user } = useAuth();
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -31,6 +32,7 @@ export default function DisputesList() {
       setDisputes([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -55,8 +57,11 @@ export default function DisputesList() {
           data={disputes}
           keyExtractor={(d) => d.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
-          onRefresh={load}
-          refreshing={false}
+          onRefresh={() => {
+            setRefreshing(true);
+            load();
+          }}
+          refreshing={refreshing}
           ListHeaderComponent={
             <View style={styles.infoCard}>
               <Ionicons name="shield-checkmark" size={20} color={colors.brand} />

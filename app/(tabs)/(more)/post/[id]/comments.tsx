@@ -5,6 +5,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -49,6 +50,7 @@ export default function PostComments() {
 
   const [comments, setComments] = useState<NestPostCommentRaw[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -63,6 +65,7 @@ export default function PostComments() {
       setError(e instanceof ApiError ? e.friendly : "Could not load comments.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [id]);
 
@@ -100,6 +103,17 @@ export default function PostComments() {
             data={comments}
             keyExtractor={(c) => String(c.id)}
             contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.lg, flexGrow: 1 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  load();
+                }}
+                tintColor={colors.brand}
+                colors={[colors.brand]}
+              />
+            }
             renderItem={({ item }) => <CommentRow comment={item} />}
             ListEmptyComponent={
               <EmptyState

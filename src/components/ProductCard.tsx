@@ -6,6 +6,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
 import { shareProduct } from "@/src/utils/share";
 import { pushFromCard } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import type { Product } from "@/src/types";
 
@@ -49,7 +50,12 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
         <Image source={{ uri: image }} style={imgStyle} resizeMode="cover" />
         <TouchableOpacity
           testID={`product-favorite-${product.id}`}
-          onPress={onToggleFavorite}
+          onPress={() => {
+            // v1.0.69 — light tap on favorite; the Toast will fire the
+            // success/error haptic once the request lands.
+            haptics.tap();
+            onToggleFavorite?.();
+          }}
           style={styles.favBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityLabel={isFavorite ? "Remove from favorites" : "Add to favorites"}
@@ -61,7 +67,10 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
             feed without opening the detail screen. */}
         <TouchableOpacity
           testID={`product-share-${product.id}`}
-          onPress={() => shareProduct(product)}
+          onPress={() => {
+            haptics.tap();
+            shareProduct(product);
+          }}
           style={styles.shareBtn}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityLabel={`Share ${decodeEntities(product.title)}`}
@@ -102,7 +111,12 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
             onAddToCart ? (
               <TouchableOpacity
                 testID={`product-add-cart-${product.id}`}
-                onPress={onAddToCart}
+                onPress={() => {
+                  // Add-to-cart uses a heavier tick; success toast then
+                  // confirms with a notification haptic.
+                  haptics.press();
+                  onAddToCart?.();
+                }}
                 style={styles.addBtn}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel={`Add ${product.name} to cart`}

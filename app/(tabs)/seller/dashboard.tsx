@@ -21,6 +21,7 @@ import { SellerBadge } from "@/src/components/SellerBadge";
 import { BoostSheet } from "@/src/components/BoostSheet";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { pushFromTab } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
 
 export default function SellerDashboard() {
@@ -98,6 +99,9 @@ export default function SellerDashboard() {
   }, [load]));
 
   const confirmDelete = (p: Product) => {
+    // v1.0.69 — warn haptic tells the user this is destructive before the
+    // dialog animates in; success/error haptic fires after the request.
+    haptics.warning();
     Alert.alert("Delete listing", `Remove "${p.title}"? This moves it to trash and hides it from buyers.`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -107,7 +111,9 @@ export default function SellerDashboard() {
           try {
             await nest.deleteProduct(p.id);
             setProducts((cur) => cur.filter((x) => x.id !== p.id));
+            haptics.success();
           } catch (e) {
+            haptics.error();
             Alert.alert("Could not delete", e instanceof ApiError ? e.friendly : "Please try again.");
           }
         },

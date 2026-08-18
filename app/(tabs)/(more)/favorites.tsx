@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -30,6 +30,7 @@ export default function Favorites() {
   const { ids, isFavorite, toggle, refresh, blogPosts, isBlogFavorite, toggleBlog } = useFavorites();
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("items");
 
   const load = useCallback(async () => {
@@ -43,6 +44,7 @@ export default function Favorites() {
       setItems(products.filter((p): p is Product => !!p));
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -105,6 +107,17 @@ export default function Favorites() {
               numColumns={2}
               columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
               contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: insets.bottom + 40 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    setRefreshing(true);
+                    load();
+                  }}
+                  tintColor={colors.brand}
+                  colors={[colors.brand]}
+                />
+              }
               renderItem={({ item }) => <ProductCard product={item} layout="grid" onAddToCart={() => onAdd(item)} onToggleFavorite={() => toggle(item.id)} isFavorite={isFavorite(item.id)} />}
               ListEmptyComponent={<EmptyState icon="heart-outline" title="No favorites yet" message="Tap the heart on any item to save it here." actionLabel="Browse the shop" onAction={() => router.push("/(tabs)/browse")} testID="favorites-empty" />}
             />
@@ -113,6 +126,17 @@ export default function Favorites() {
               data={blogPosts}
               keyExtractor={(p) => p.id}
               contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={() => {
+                    setRefreshing(true);
+                    load();
+                  }}
+                  tintColor={colors.brand}
+                  colors={[colors.brand]}
+                />
+              }
               renderItem={({ item }) => (
                 <TouchableOpacity
                   activeOpacity={0.85}

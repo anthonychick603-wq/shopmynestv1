@@ -1,6 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, ViewStyle, TextStyle, ActivityIndicator } from "react-native";
 import { colors, radius, spacing, shadows } from "@/src/theme";
+import { haptics } from "@/src/utils/haptics";
 
 type Props = {
   title: string;
@@ -26,10 +27,22 @@ export function Button({
   testID,
 }: Props) {
   const isDisabled = disabled || loading;
+  // v1.0.69 — every button press gets a subtle haptic. Ghost and outline
+  // buttons use a lighter selection tick; primary/secondary use a medium
+  // impact so real CTAs feel more decisive than a secondary tap.
+  const handlePress = React.useCallback(() => {
+    if (isDisabled) return;
+    if (variant === "primary" || variant === "secondary") {
+      haptics.press();
+    } else {
+      haptics.tap();
+    }
+    onPress?.();
+  }, [isDisabled, onPress, variant]);
   return (
     <TouchableOpacity
       testID={testID}
-      onPress={onPress}
+      onPress={handlePress}
       disabled={isDisabled}
       activeOpacity={0.85}
       style={[

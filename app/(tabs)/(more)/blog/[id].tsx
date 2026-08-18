@@ -5,6 +5,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -73,6 +74,7 @@ export default function BlogPostDetail() {
   const [post, setPost] = useState<BlogPost | null>(initial);
   const [comments, setComments] = useState<NestBlogCommentRaw[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -97,6 +99,7 @@ export default function BlogPostDetail() {
       setError(e instanceof ApiError ? e.friendly : "Could not load comments.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [id, post]);
 
@@ -155,6 +158,17 @@ export default function BlogPostDetail() {
             data={comments}
             keyExtractor={(c) => String(c.id)}
             contentContainerStyle={{ paddingBottom: spacing.lg, flexGrow: 1 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => {
+                  setRefreshing(true);
+                  load();
+                }}
+                tintColor={colors.brand}
+                colors={[colors.brand]}
+              />
+            }
             ListHeaderComponent={
               post ? (
                 <View style={styles.postCard} testID={`blog-post-${post.id}`}>

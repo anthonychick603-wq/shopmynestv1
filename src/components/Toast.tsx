@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { colors, radius, shadows, spacing } from "@/src/theme";
+import { haptics } from "@/src/utils/haptics";
 
 type Toast = { id: string; message: string; type: "info" | "success" | "error" };
 
@@ -10,6 +11,11 @@ let counter = 0;
 export const toast = {
   show(message: string, type: Toast["type"] = "info") {
     const t: Toast = { id: `${++counter}`, message, type };
+    // v1.0.69 — pair every toast with a matching haptic so state changes
+    // register even when a user is looking away from the screen briefly.
+    if (type === "success") haptics.success();
+    else if (type === "error") haptics.error();
+    else haptics.tap();
     listeners.forEach((l) => l(t));
   },
   info(m: string) {

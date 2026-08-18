@@ -11,6 +11,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 import type { Category, Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
+import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { useCart } from "@/src/context/CartContext";
@@ -340,7 +341,9 @@ export default function Browse() {
       {loading && !refreshing ? (
         <>
           {StickyHeader}
-          <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+          {/* v1.0.69 — shimmer grid instead of a lonely spinner keeps the
+              layout weight during the first load; feels dramatically faster. */}
+          <ProductGridSkeleton count={6} />
         </>
       ) : error ? (
         <>
