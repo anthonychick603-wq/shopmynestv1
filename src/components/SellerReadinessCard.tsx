@@ -18,11 +18,28 @@ import type { NestSellerReadiness, NestSellerReadinessStep } from "@/src/api/nes
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 
+// v1.0.61 — the readiness endpoint still returns a "Set your shop name"
+// step but shops now have a display name at signup, so it never provides
+// useful signal and just adds noise. Hide it client-side and recompute
+// completed/total off the filtered list. When every remaining step is
+// ok we hide the whole card.
+const HIDDEN_STEP_KEYS = new Set(["store_name"]);
+
 export function SellerReadinessCard({ readiness }: { readiness: NestSellerReadiness | null }) {
   const router = useRouter();
   if (!readiness || !readiness.steps?.length) return null;
 
-  const { ready_to_sell, completed, total, steps } = readiness;
+  const visibleSteps = readiness.steps.filter((s) => !HIDDEN_STEP_KEYS.has(s.key));
+  if (visibleSteps.length === 0) return null;
+
+  const completed = visibleSteps.filter((s) => s.ok).length;
+  const total = visibleSteps.length;
+  const ready_to_sell = completed === total;
+
+  // Hide the entire card once every remaining step is complete.
+  if (ready_to_sell) return null;
+
+  const steps = visibleSteps;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const handlePress = (step: NestSellerReadinessStep) => {
@@ -36,22 +53,18 @@ export function SellerReadinessCard({ readiness }: { readiness: NestSellerReadin
     <View style={styles.card} testID="seller-readiness">
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{ready_to_sell ? "You're set up to sell" : "Finish setup to start selling"}</Text>
+          <Text style={styles.title}>Finish setup to start selling</Text>
           <Text style={styles.subtitle}>
-            {completed} of {total} complete{ready_to_sell ? "" : ` \u00b7 ${pct}%`}
+            {completed} of {total} complete · {pct}%
           </Text>
         </View>
-        <View style={[styles.badge, ready_to_sell ? styles.badgeOk : styles.badgeWarn]}>
-          <Ionicons
-            name={ready_to_sell ? "checkmark-circle" : "alert-circle"}
-            size={18}
-            color={ready_to_sell ? colors.success : colors.warning}
-          />
+        <View style={[styles.badge, styles.badgeWarn]}>
+          <Ionicons name="alert-circle" size={18} color={colors.warning} />
         </View>
       </View>
 
       <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${pct}%` }, ready_to_sell ? styles.progressFillOk : null]} />
+        <View style={[styles.progressFill, { width: `${pct}%` }]} />
       </View>
 
       {steps.map((step) => {
