@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import { nest, ApiError, type NestProductWritePayload } from "@/src/api/nest";
-import { toCategory } from "@/src/api/adapters";
+import { toCategory, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Category } from "@/src/types";
 import { Button } from "@/src/components/Button";
@@ -33,6 +33,26 @@ export default function ProductForm() {
 
   const [loading, setLoading] = useState(isEdit);
   const [busy, setBusy] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+
+  // v1.0.64 (Build #3) — server clones and returns the new draft; we then
+  // navigate to the form for that new id. `router.replace` (not push) so the
+  // back stack stays clean — the user came from listings, not from their
+  // original listing's form.
+  const onDuplicate = async () => {
+    if (!id) return;
+    setDuplicating(true);
+    try {
+      const raw = await nest.duplicateProduct(id);
+      const copy = toProduct(raw);
+      toast.success("Draft copy created");
+      router.replace(`/seller/product-form?id=${copy.id}` as never);
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.friendly : "Could not duplicate");
+    } finally {
+      setDuplicating(false);
+    }
+  };
   const [categories, setCategories] = useState<Category[]>([]);
   // Stripe Connect gate — only enforced for brand-new listings, never for edits.
   const [gateChecking, setGateChecking] = useState(!isEdit);
@@ -294,6 +314,25 @@ export default function ProductForm() {
           )}
 
           <Button title={isEdit ? "Save changes" : "Create listing"} onPress={submit} loading={busy} testID="pf-submit" style={{ marginTop: spacing.md }} />
+
+          {/* v1.0.64 (Build #3) — duplicate button. Only shown when editing an
+              existing listing; creates a draft copy on the server and pushes
+              the form for the new draft. */}
+          {isEdit ? (
+            <TouchableOpacity
+              onPress={onDuplicate}
+              disabled={duplicating || busy}
+              style={styles.duplicateBtn}
+              testID="pf-duplicate"
+            >
+              {duplicating ? (
+                <ActivityIndicator size="small" color={colors.brand} />
+              ) : (
+                <Ionicons name="copy-outline" size={18} color={colors.brand} />
+              )}
+              <Text style={styles.duplicateBtnText}>Duplicate this listing</Text>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -338,4 +377,17 @@ const styles = StyleSheet.create({
   sizeTextOn: { color: colors.onBrand },
   dims: { flexDirection: "row", gap: spacing.sm },
   dimCol: { flex: 1 },
+  duplicateBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  duplicateBtnText: { color: colors.brand, fontWeight: "800", fontSize: 15 },
 });

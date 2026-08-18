@@ -360,6 +360,10 @@ export const nest = {
     request<{ shipping: NestProductShippingRaw }>("shipping", `/seller/products/${id}/shipping`),
   deleteProduct: (id: number | string) =>
     request<{ success: boolean }>("marketplace", `/seller/products/${id}`, { method: "DELETE" }),
+  // v1.0.64 (Build #3) — server-side clone. Returns the new draft product; the
+  // UI navigates to its edit form so the seller can tweak variant fields.
+  duplicateProduct: (id: number | string) =>
+    request<NestProductRaw>("marketplace", `/seller/products/${id}/duplicate`, { method: "POST" }),
   // Multipart image upload. Field name must be `file`. Returns the attachment id
   // to attach to a product via `image_id`.
   uploadMedia: (formData: FormData) =>

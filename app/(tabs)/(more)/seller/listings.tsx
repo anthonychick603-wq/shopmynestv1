@@ -1,15 +1,16 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 
-import { nest } from "@/src/api/nest";
+import { nest, ApiError } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
 
@@ -50,6 +51,36 @@ export default function SellerListings() {
   const createNew = () => router.push("/seller/product-form");
   const edit = (p: Product) => router.push(`/seller/product-form?id=${p.id}`);
 
+  // v1.0.64 (Build #3) — server duplicates the listing as a draft and returns
+  // the new product. We then push the form for that new draft so the seller
+  // can tweak color/size/photo and hit publish.
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const duplicate = (p: Product) => {
+    Alert.alert(
+      "Duplicate this listing?",
+      `A draft copy of "${decodeEntities(p.title)}" will be created. You can edit it before publishing.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Duplicate",
+          onPress: async () => {
+            setDuplicatingId(p.id);
+            try {
+              const raw = await nest.duplicateProduct(p.id);
+              const copy = toProduct(raw);
+              toast.success("Draft copy created");
+              router.push(`/seller/product-form?id=${copy.id}`);
+            } catch (e) {
+              toast.error(e instanceof ApiError ? e.friendly : "Could not duplicate");
+            } finally {
+              setDuplicatingId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
@@ -80,7 +111,20 @@ export default function SellerListings() {
                 <Text style={styles.rowTitle} numberOfLines={1}>{decodeEntities(item.title)}</Text>
                 <Text style={styles.rowMeta}>Stock: {item.stock} · ${item.price.toFixed(2)}</Text>
               </View>
-              <Ionicons name="create-outline" size={20} color={colors.onSurfaceMuted} />
+              <TouchableOpacity
+                onPress={() => duplicate(item)}
+                style={styles.rowAction}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                disabled={duplicatingId === item.id}
+                testID={`listing-duplicate-${item.id}`}
+              >
+                {duplicatingId === item.id ? (
+                  <ActivityIndicator size="small" color={colors.onSurfaceMuted} />
+                ) : (
+                  <Ionicons name="copy-outline" size={20} color={colors.onSurfaceMuted} />
+                )}
+              </TouchableOpacity>
+              <Ionicons name="create-outline" size={20} color={colors.onSurfaceMuted} style={{ marginLeft: spacing.sm }} />
             </TouchableOpacity>
           )}
           ListEmptyComponent={
@@ -112,4 +156,5 @@ const styles = StyleSheet.create({
   rowImg: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
   rowTitle: { fontSize: 14, fontWeight: "700", color: colors.onSurface },
   rowMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  rowAction: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
 });
