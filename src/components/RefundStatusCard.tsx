@@ -186,7 +186,7 @@ export function RefundStatusCard({ orderId, refund, onChange }: Props) {
           <Text style={styles.blockerHeader}>You can't request a refund on this order</Text>
           {blockers.map((b, i) => (
             <View key={i} style={styles.blockerRow}>
-              <Ionicons name="alert-circle-outline" size={14} color={colors.mutedText} />
+              <Ionicons name="alert-circle-outline" size={14} color={colors.onSurfaceMuted} />
               <Text style={styles.blockerText}>{b}</Text>
             </View>
           ))}
@@ -220,7 +220,7 @@ export function RefundStatusCard({ orderId, refund, onChange }: Props) {
                   <Ionicons
                     name={reason === r.key ? "radio-button-on" : "radio-button-off"}
                     size={18}
-                    color={reason === r.key ? colors.brand : colors.mutedText}
+                    color={reason === r.key ? colors.brand : colors.onSurfaceMuted}
                   />
                   <Text style={styles.reasonLabel}>{r.label}</Text>
                 </TouchableOpacity>
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.sm,
   },
-  cardLabel: { color: colors.mutedText, fontSize: 12, letterSpacing: 1, textTransform: "uppercase" },
+  cardLabel: { color: colors.onSurfaceMuted, fontSize: 12, letterSpacing: 1, textTransform: "uppercase" },
   badge: {
     flexDirection: "row",
     alignItems: "center",
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgeText: { fontSize: 12, fontWeight: "600" },
-  helper: { color: colors.mutedText, fontSize: 13, lineHeight: 18, marginTop: spacing.xs },
+  helper: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: spacing.xs },
   amountBox: {
     marginTop: spacing.md,
     backgroundColor: "#FBFAF6",
@@ -301,12 +301,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   amountRow: { flexDirection: "row", justifyContent: "space-between" },
-  amountKey: { color: colors.mutedText, fontSize: 13 },
+  amountKey: { color: colors.onSurfaceMuted, fontSize: 13 },
   amountVal: { color: colors.onSurface, fontSize: 14, fontWeight: "600" },
   metaBlock: { marginTop: spacing.md },
-  metaKey: { color: colors.mutedText, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase" },
+  metaKey: { color: colors.onSurfaceMuted, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase" },
   metaVal: { color: colors.onSurface, fontSize: 14, marginTop: 2 },
-  metaSub: { color: colors.mutedText, fontSize: 13, marginTop: 2 },
+  metaSub: { color: colors.onSurfaceMuted, fontSize: 13, marginTop: 2 },
   denialBlock: { backgroundColor: "#FCF3F3", padding: spacing.md, borderRadius: radius.md },
   timeline: { marginTop: spacing.md, paddingLeft: spacing.xs },
   timelineRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm, alignItems: "flex-start" },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   timelineLabel: { color: colors.onSurface, fontSize: 13 },
-  timelineWhen: { color: colors.mutedText, fontSize: 11, marginTop: 1 },
+  timelineWhen: { color: colors.onSurfaceMuted, fontSize: 11, marginTop: 1 },
   cta: {
     marginTop: spacing.md,
     backgroundColor: colors.brand,
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   },
   blockerHeader: { color: colors.onSurface, fontSize: 13, fontWeight: "600", marginBottom: 4 },
   blockerRow: { flexDirection: "row", gap: 6, marginTop: 4, alignItems: "flex-start" },
-  blockerText: { flex: 1, color: colors.mutedText, fontSize: 13, lineHeight: 18 },
+  blockerText: { flex: 1, color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18 },
 
   modalBackdrop: {
     flex: 1,
@@ -355,8 +355,8 @@ const styles = StyleSheet.create({
     maxHeight: "85%",
   },
   modalTitle: { fontSize: 18, fontWeight: "700", color: colors.onSurface },
-  modalSub: { color: colors.mutedText, fontSize: 13, lineHeight: 18 },
-  modalKey: { color: colors.mutedText, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase", marginTop: spacing.sm },
+  modalSub: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18 },
+  modalKey: { color: colors.onSurfaceMuted, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase", marginTop: spacing.sm },
   reasonList: { maxHeight: 220 },
   reasonRow: {
     flexDirection: "row",
@@ -377,5 +377,5 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   modalCancel: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  modalCancelText: { color: colors.mutedText, fontWeight: "600" },
+  modalCancelText: { color: colors.onSurfaceMuted, fontWeight: "600" },
 });

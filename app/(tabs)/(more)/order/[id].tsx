@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -20,6 +20,8 @@ import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
 import { OrderReviewCTA } from "@/src/components/OrderReviewCTA";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
+import { OrderDetailSkeleton } from "@/src/components/OrderDetailSkeleton";
 
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -33,8 +35,9 @@ export default function OrderDetail() {
   const [sellerOrder, setSellerOrder] = useState<NestSellerOrderRaw | null>(null);
   // v1.0.49 — refund lifecycle block returned by /orders/{id}.
   const [refund, setRefund] = useState<NestRefundStatus | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoadError(null);
     setLoading(true);
     // v1.0.46 — Jo tapped her seller dashboard's #2943 row and hit the
@@ -61,10 +64,12 @@ export default function OrderDetail() {
           .then((res) => setSellerOrder(res.orders?.find((o) => String(o.id) === String(id)) ?? null))
           .catch(() => setSellerOrder(null))
       : Promise.resolve();
-    Promise.all([buyerP, sellerP]).finally(() => setLoading(false));
+    return Promise.all([buyerP, sellerP]).finally(() => { setLoading(false); setRefreshing(false); });
   }, [id, isSeller]);
 
-  if (loading) return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <SafeAreaView style={styles.safe}><OrderDetailSkeleton /></SafeAreaView>;
 
   // v1.0.46 — seller-only view: buyer fetch was refused (403) but this
   // seller has a line item on the order. Render a purpose-built seller
@@ -101,9 +106,9 @@ export default function OrderDetail() {
           <View style={{ width: 36 }} />
         </View>
         <View style={styles.center}>
-          <Ionicons name={status === 403 ? "lock-closed-outline" : status === 401 ? "log-in-outline" : "help-circle-outline"} size={40} color={colors.mutedText} />
+          <Ionicons name={status === 403 ? "lock-closed-outline" : status === 401 ? "log-in-outline" : "help-circle-outline"} size={40} color={colors.onSurfaceMuted} />
           <Text style={[styles.status, { marginTop: spacing.md }]}>{heading}</Text>
-          <Text style={{ color: colors.mutedText, textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.xl }}>{detail}</Text>
+          <Text style={{ color: colors.onSurfaceMuted, textAlign: "center", marginTop: spacing.sm, paddingHorizontal: spacing.xl }}>{detail}</Text>
         </View>
       </SafeAreaView>
     );
@@ -116,7 +121,10 @@ export default function OrderDetail() {
         <Text style={styles.topTitle}>Order #{order.id}</Text>
         <CartHeaderButton />
       </View>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
+      >
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Status</Text>
           <Text style={styles.status}>{buyerStatusLabel(order).toUpperCase()}</Text>
@@ -204,6 +212,7 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
+    haptics.press();
     setBusy(true);
     try {
       const tracking_number = [carrier.trim(), tracking.trim()].filter(Boolean).join(" ");
@@ -231,7 +240,7 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
         {SELLER_STATUSES.map((s) => {
           const on = status === s.value;
           return (
-            <TouchableOpacity key={s.value} onPress={() => setStatus(s.value)} style={[styles.statusChip, on && styles.statusChipOn]} testID={`order-status-${s.value}`}>
+            <TouchableOpacity key={s.value} onPress={() => { haptics.tap(); setStatus(s.value); }} style={[styles.statusChip, on && styles.statusChipOn]} testID={`order-status-${s.value}`} accessibilityLabel={`Set status to ${s.label}`}>
               <Text style={[styles.statusChipText, on && styles.statusChipTextOn]}>{s.label}</Text>
             </TouchableOpacity>
           );

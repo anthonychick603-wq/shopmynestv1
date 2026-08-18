@@ -23,6 +23,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
+import { StatusPill } from "@/src/components/StatusPill";
 
 export default function SellerDashboard() {
   const insets = useSafeAreaInsets();
@@ -366,32 +367,6 @@ function formatMoney(n: number): string {
   return `$${n.toFixed(2)}`;
 }
 
-function statusColors(status: string): { bg: string; fg: string } {
-  const s = status.toLowerCase();
-  if (s.includes("cancel") || s.includes("refund") || s.includes("fail")) {
-    return { bg: "#F8D7DA", fg: "#8B2E36" };
-  }
-  if (s.includes("ship") || s.includes("transit")) {
-    return { bg: "#E7EEF7", fg: "#2F5AA3" };
-  }
-  if (s.includes("complete") || s.includes("delivered") || s.includes("paid")) {
-    return { bg: "#DFF3E3", fg: "#2A6B3A" };
-  }
-  if (s.includes("pending") || s.includes("hold") || s.includes("processing")) {
-    return { bg: "#FFEED9", fg: "#8A4B10" };
-  }
-  return { bg: colors.surfaceTertiary, fg: colors.onSurface };
-}
-
-function StatusPill({ status }: { status: string }) {
-  const c = statusColors(status);
-  return (
-    <View style={[styles.statusPill, { backgroundColor: c.bg }]}>
-      <Text style={[styles.statusPillText, { color: c.fg }]}>{status.toUpperCase()}</Text>
-    </View>
-  );
-}
-
 function Stat({
   label,
   value,
@@ -545,8 +520,6 @@ const styles = StyleSheet.create({
   empty: { color: colors.onSurfaceMuted, fontStyle: "italic", marginTop: spacing.sm },
   orderRow: { flexDirection: "row", alignItems: "center", padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, marginBottom: spacing.sm, gap: spacing.md, ...shadows.card },
   orderId: { fontSize: 14, fontWeight: "800", color: colors.onSurface, marginBottom: 4 },
-  statusPill: { alignSelf: "flex-start", paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill },
-  statusPillText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
   orderTotal: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   prodRow: { flexDirection: "row", alignItems: "center", padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.card },
   prodImg: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },

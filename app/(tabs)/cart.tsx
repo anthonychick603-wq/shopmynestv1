@@ -26,6 +26,8 @@ import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate } from 
 import { toast } from "@/src/components/Toast";
 import { storage } from "@/src/utils/storage";
 import { pushFromTab } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
+import { CartSkeleton } from "@/src/components/CartSkeleton";
 
 // Where the buyer's destination address is persisted locally (reused across sessions).
 const SHIPPING_ADDRESS_KEY = "nest.checkout.shipping_address";
@@ -182,7 +184,7 @@ export default function Cart() {
     return (
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <Top title="Cart" />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.brand} /></View>
+        <CartSkeleton />
       </SafeAreaView>
     );
   }
@@ -347,18 +349,18 @@ export default function Cart() {
               <Text style={styles.itemTitle} numberOfLines={2}>{it.product.title}</Text>
               <Text style={styles.itemSeller}>by {it.product.seller?.name ?? "My Nest"}</Text>
               <View style={styles.qtyRow}>
-                <TouchableOpacity onPress={() => updateItem(idx, Math.max(0, it.quantity - 1))} style={styles.qtyBtn} testID={`cart-qty-dec-${idx}`}>
+                <TouchableOpacity onPress={() => { haptics.tap(); updateItem(idx, Math.max(0, it.quantity - 1)); }} style={styles.qtyBtn} testID={`cart-qty-dec-${idx}`} accessibilityLabel={`Decrease quantity of ${it.product.title}`}>
                   <Ionicons name="remove" size={16} color={colors.onSurface} />
                 </TouchableOpacity>
                 <Text style={styles.qtyText}>{it.quantity}</Text>
-                <TouchableOpacity onPress={() => updateItem(idx, it.quantity + 1)} style={styles.qtyBtn} testID={`cart-qty-inc-${idx}`}>
+                <TouchableOpacity onPress={() => { haptics.tap(); updateItem(idx, it.quantity + 1); }} style={styles.qtyBtn} testID={`cart-qty-inc-${idx}`} accessibilityLabel={`Increase quantity of ${it.product.title}`}>
                   <Ionicons name="add" size={16} color={colors.onSurface} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
                 <Text style={styles.itemPrice}>${it.line_total.toFixed(2)}</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={() => removeItem(idx)} testID={`cart-remove-${idx}`} style={styles.removeBtn}>
+            <TouchableOpacity onPress={() => { haptics.warning(); removeItem(idx); }} testID={`cart-remove-${idx}`} style={styles.removeBtn} accessibilityLabel={`Remove ${it.product.title} from cart`}>
               <Ionicons name="trash-outline" size={18} color={colors.error} />
             </TouchableOpacity>
           </View>
@@ -429,7 +431,7 @@ export default function Cart() {
           <Text style={styles.bottomTotalLabel}>Total</Text>
           <Text style={styles.bottomTotal}>${displayTotal.toFixed(2)}</Text>
         </View>
-        <TouchableOpacity onPress={onCheckout} disabled={paying} style={[styles.checkoutBtn, paying && styles.checkoutBtnDisabled]} testID="cart-checkout">
+        <TouchableOpacity onPress={() => { haptics.press(); onCheckout(); }} disabled={paying} style={[styles.checkoutBtn, paying && styles.checkoutBtnDisabled]} testID="cart-checkout">
           {paying ? (
             <ActivityIndicator color={colors.onBrand} />
           ) : (

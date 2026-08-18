@@ -236,19 +236,19 @@ export default function ImportScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: colors.surface },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  title: { fontSize: 18, fontWeight: "600", color: colors.text },
-  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.sm },
+  title: { fontSize: 18, fontWeight: "600", color: colors.onSurface },
+  card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.card },
   warnCard: { borderLeftWidth: 4, borderLeftColor: "#E8A54B" },
   errorCard: { borderLeftWidth: 4, borderLeftColor: "#D94F4F" },
-  h2: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: spacing.sm },
-  p: { fontSize: 14, color: colors.text, marginBottom: spacing.sm, lineHeight: 20 },
-  small: { fontSize: 13, color: colors.muted, lineHeight: 18, marginTop: 2 },
+  h2: { fontSize: 16, fontWeight: "700", color: colors.onSurface, marginBottom: spacing.sm },
+  p: { fontSize: 14, color: colors.onSurface, marginBottom: spacing.sm, lineHeight: 20 },
+  small: { fontSize: 13, color: colors.onSurfaceMuted, lineHeight: 18, marginTop: 2 },
   warnTitle: { fontSize: 14, fontWeight: "700", color: "#8C5B10", marginTop: spacing.sm, marginBottom: 4 },
   errorTitle: { fontSize: 14, fontWeight: "700", color: "#7A2323", marginBottom: 4 },
   errorText: { color: "#7A2323", fontSize: 13, marginTop: spacing.md, textAlign: "center" },
@@ -263,8 +263,8 @@ const styles = StyleSheet.create({
   linkText: { color: colors.brand, fontSize: 14 },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xl, gap: spacing.sm },
   previewRow: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  previewName: { fontSize: 14, color: colors.text, fontWeight: "500" },
-  previewMeta: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  previewName: { fontSize: 14, color: colors.onSurface, fontWeight: "500" },
+  previewMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
   progressBar: { height: 8, backgroundColor: colors.border, borderRadius: 4, overflow: "hidden", marginVertical: spacing.md },
   progressFill: { height: "100%", backgroundColor: colors.brand },
 });

@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -25,6 +25,7 @@ export default function Payouts() {
   const [minimum, setMinimum] = useState(25);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!isSeller) return;
@@ -35,6 +36,7 @@ export default function Payouts() {
       setMinimum(res.minimum ?? 25);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [isSeller]);
 
@@ -90,7 +92,10 @@ export default function Payouts() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
+      >
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available to withdraw</Text>
           <Text style={styles.balanceValue}>${available.toFixed(2)}</Text>

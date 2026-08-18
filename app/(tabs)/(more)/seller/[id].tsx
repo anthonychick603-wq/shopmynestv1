@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -41,6 +41,7 @@ export default function SellerProfile() {
   const [reviews, setReviews] = useState<NestSellerReviewRaw[]>([]);
   const [reviewTotal, setReviewTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +60,7 @@ export default function SellerProfile() {
     setReviews(reviewsRes.items || []);
     setReviewTotal(reviewsRes.total || 0);
     setLoading(false);
+    setRefreshing(false);
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -110,6 +112,7 @@ export default function SellerProfile() {
           numColumns={2}
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
           ListHeaderComponent={
             <View style={styles.header}>
               <View style={styles.profileRow}>

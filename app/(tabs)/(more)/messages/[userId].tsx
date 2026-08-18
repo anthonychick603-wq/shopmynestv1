@@ -5,6 +5,7 @@ import {
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
+  RefreshControl,
   Modal,
   Platform,
   Pressable,
@@ -26,6 +27,7 @@ import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 // Format a MySQL UTC timestamp as a friendly time-of-day / date line above a
 // message bubble ("Today 3:14 PM", "Yesterday 11:02 AM", "Mar 4 3:14 PM").
@@ -184,6 +186,8 @@ export default function MessageThread() {
   const [viewer, setViewer] = useState<{ photos: NestMessagePhoto[]; index: number } | null>(null);
   const listRef = useRef<FlatList<NestMessageRaw>>(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const load = useCallback(async () => {
     if (!user || !otherId) return;
     try {
@@ -284,6 +288,8 @@ export default function MessageThread() {
       toast.info("Wait for photos to finish uploading.");
       return;
     }
+    // v1.0.71 — tap on commit, success on server ack, error handled below.
+    haptics.tap();
     setSending(true);
     const tempId = -Date.now();
     const optimistic: NestMessageRaw = {
@@ -304,8 +310,10 @@ export default function MessageThread() {
       await nest.sendMessage({ recipient_id: otherId, message: body, product_id: productId || undefined, photo_ids: readyIds });
       // Reload to get server-authoritative rows (fresh signed URLs, etc.).
       await load();
+      haptics.success();
     } catch (e: any) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      haptics.error();
       toast.error(e?.friendly || "Message could not be sent.");
       setDraft(body);
       // Keep drafts in the composer so the user can retry send without re-picking.
@@ -399,6 +407,7 @@ export default function MessageThread() {
             data={messages}
             keyExtractor={(m) => String(m.id)}
             contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
             renderItem={({ item, index }) => {
               const mine = item.sender_id === user.id;
               const prev = index > 0 ? messages[index - 1] : null;

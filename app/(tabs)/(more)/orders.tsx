@@ -12,18 +12,11 @@ import type { Order } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
+import { StatusPill } from "@/src/components/StatusPill";
 
-// Every pill is a saturated fill so the white label stays legible.
-const STATUS_COLOR: Record<string, { backgroundColor: string; color: string }> = {
-  processing: { backgroundColor: colors.yellow, color: colors.onBrand },
-  paid: { backgroundColor: colors.green, color: colors.onBrand },
-  shipped: { backgroundColor: colors.green, color: colors.onBrand },
-  delivered: { backgroundColor: colors.success, color: colors.onBrand },
-  failed: { backgroundColor: colors.error, color: colors.onBrand },
-  cancelled: { backgroundColor: colors.error, color: colors.onBrand },
-};
-
-const STATUS_FALLBACK = { backgroundColor: colors.brand, color: colors.onBrand };
+// v1.0.71 — status coloring is now shared with the seller dashboard via
+// StatusPill so buyers and sellers see the same color language across the app.
 
 export default function Orders() {
   const insets = useSafeAreaInsets();
@@ -65,12 +58,10 @@ export default function Orders() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
         ListEmptyComponent={<EmptyState icon="receipt-outline" title="No orders yet" message="Once you place an order it will show up here." testID="orders-empty" />}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => router.push(`/order/${item.id}`)} style={styles.card} testID={`order-${item.id}`}>
+          <TouchableOpacity onPress={() => { haptics.tap(); router.push(`/order/${item.id}`); }} style={styles.card} testID={`order-${item.id}`} accessibilityLabel={`Open order ${item.id}, status ${item.status}`}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Text style={styles.orderId}>#{item.id}</Text>
-              <View style={[styles.status, { backgroundColor: (STATUS_COLOR[item.status] ?? STATUS_FALLBACK).backgroundColor }]}>
-                <Text style={[styles.statusText, { color: (STATUS_COLOR[item.status] ?? STATUS_FALLBACK).color }]}>{item.status.toUpperCase()}</Text>
-              </View>
+              <StatusPill status={item.status} />
             </View>
             <Text style={styles.date}>{item.created_at ? format(new Date(item.created_at), "MMM d, yyyy") : ""}</Text>
             <View style={{ flexDirection: "row", marginTop: spacing.md }}>
@@ -107,8 +98,6 @@ const styles = StyleSheet.create({
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadows.card },
   orderId: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
-  status: { paddingHorizontal: spacing.md, paddingVertical: 4, borderRadius: radius.pill },
-  statusText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
   date: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: 2 },
   thumb: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: colors.surface, backgroundColor: colors.surfaceTertiary },
   itemCount: { color: colors.onSurfaceMuted, fontSize: 12 },

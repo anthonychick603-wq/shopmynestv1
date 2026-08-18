@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -17,6 +17,8 @@ import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
+import { haptics } from "@/src/utils/haptics";
+import { ProductDetailSkeleton } from "@/src/components/ProductDetailSkeleton";
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,8 +34,13 @@ export default function ProductDetail() {
   const [imageIdx, setImageIdx] = useState(0);
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const onFav = () => {
+    // v1.0.71 — haptic on every top-bar action so the buyer
+    // gets consistent feedback between product detail and the seller
+    // dashboard that shipped in v1.0.70.
+    haptics.tap();
     if (!user) return router.push("/(auth)/login");
     if (product) toggleFavorite(product.id);
   };
@@ -56,6 +63,7 @@ export default function ProductDetail() {
   const onSale = product?.sale_price != null && product.sale_price < (product.price ?? 0);
 
   const doAdd = async (buyNow = false) => {
+    haptics.press();
     if (!user) return router.push("/(auth)/login");
     if (!product) return;
     if (adding) return;
@@ -75,6 +83,7 @@ export default function ProductDetail() {
   };
 
   const doShare = async () => {
+    haptics.tap();
     if (!product) return;
     // v1.0.56 - share sheet uses the shared util so product cards, product
     // detail, blog detail, and seller profile all produce the same title +
@@ -83,7 +92,11 @@ export default function ProductDetail() {
   };
 
   if (loading) {
-    return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ProductDetailSkeleton />
+      </SafeAreaView>
+    );
   }
   if (err || !product) {
     return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.errText}>{err ?? "Product not found"}</Text><Button title="Back" onPress={() => safeBack(router, "/(tabs)")} style={{ marginTop: spacing.md }} /></View></SafeAreaView>;
@@ -101,12 +114,16 @@ export default function ProductDetail() {
           <CartHeaderButton />
         </View>
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 130 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: insets.bottom + 130 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
+      >
         <Image source={{ uri: product.images[imageIdx] }} style={styles.hero} resizeMode="cover" />
         {product.images.length > 1 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow}>
             {product.images.map((img, i) => (
-              <TouchableOpacity key={i} onPress={() => setImageIdx(i)} style={[styles.thumb, imageIdx === i && styles.thumbActive]}>
+              <TouchableOpacity key={i} onPress={() => { haptics.tap(); setImageIdx(i); }} style={[styles.thumb, imageIdx === i && styles.thumbActive]} accessibilityLabel={`Show image ${i + 1}`}>
                 <Image source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" />
               </TouchableOpacity>
             ))}
@@ -125,7 +142,7 @@ export default function ProductDetail() {
           </View>
 
           {product.seller ? (
-            <TouchableOpacity style={styles.sellerRow} onPress={() => router.push(`/seller/${product.seller!.id}`)} testID="product-seller-link" activeOpacity={0.85}>
+            <TouchableOpacity style={styles.sellerRow} onPress={() => { haptics.tap(); router.push(`/seller/${product.seller!.id}`); }} testID="product-seller-link" activeOpacity={0.85} accessibilityLabel={`View shop by ${product.seller!.name}`}>
               {product.seller.profile_photo ? (
                 <Image source={{ uri: product.seller.profile_photo }} style={styles.sellerAvatar} />
               ) : (
@@ -145,6 +162,7 @@ export default function ProductDetail() {
             <TouchableOpacity
               style={styles.askSellerBtn}
               onPress={() => {
+                haptics.tap();
                 if (!user) return router.push("/(auth)/login");
                 router.push({
                   pathname: "/messages/[userId]",
@@ -172,9 +190,9 @@ export default function ProductDetail() {
           <View style={{ marginTop: spacing.lg }}>
             <Text style={styles.varLabel}>Quantity</Text>
             <View style={styles.qtyRow}>
-              <TouchableOpacity onPress={() => setQty((q) => Math.max(1, q - 1))} style={styles.qtyBtn} testID="qty-decrement" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Decrease quantity" accessibilityRole="button"><Ionicons name="remove" size={18} color={colors.onSurface} /></TouchableOpacity>
+              <TouchableOpacity onPress={() => { haptics.tap(); setQty((q) => Math.max(1, q - 1)); }} style={styles.qtyBtn} testID="qty-decrement" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Decrease quantity" accessibilityRole="button"><Ionicons name="remove" size={18} color={colors.onSurface} /></TouchableOpacity>
               <Text style={styles.qtyText} accessibilityLabel={`Quantity ${qty}`}>{qty}</Text>
-              <TouchableOpacity onPress={() => setQty((q) => {
+              <TouchableOpacity onPress={() => { haptics.tap(); setQty((q) => {
                 const stockNum = Number((product as any)?.stock);
                 const cap = Number.isFinite(stockNum) && stockNum > 0 ? Math.min(99, stockNum) : 99;
                 if (q + 1 > cap) {
@@ -182,7 +200,7 @@ export default function ProductDetail() {
                   return cap;
                 }
                 return q + 1;
-              })} style={styles.qtyBtn} testID="qty-increment" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Increase quantity" accessibilityRole="button"><Ionicons name="add" size={18} color={colors.onSurface} /></TouchableOpacity>
+              }); }} style={styles.qtyBtn} testID="qty-increment" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Increase quantity" accessibilityRole="button"><Ionicons name="add" size={18} color={colors.onSurface} /></TouchableOpacity>
             </View>
           </View>
 
@@ -194,7 +212,7 @@ export default function ProductDetail() {
             <Text style={styles.infoText}>Ships from My Nest. Sellers set their own turnaround; delivery details finalize at checkout.</Text>
           </View>
 
-          <TouchableOpacity style={styles.reportBtn} onPress={() => router.push(`/report/${product.id}`)} testID="product-report">
+          <TouchableOpacity style={styles.reportBtn} onPress={() => { haptics.tap(); router.push(`/report/${product.id}`); }} testID="product-report" accessibilityLabel="Report this item">
             <Ionicons name="flag-outline" size={16} color={colors.onSurfaceMuted} />
             <Text style={styles.reportText}>Report this item</Text>
           </TouchableOpacity>

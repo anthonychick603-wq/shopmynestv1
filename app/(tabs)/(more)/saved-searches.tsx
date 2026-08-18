@@ -6,7 +6,7 @@
 // via an inline trash icon (a Modal confirm would be overkill for this).
 
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -141,8 +141,7 @@ export default function SavedSearchesScreen() {
           keyExtractor={(r) => String(r.id)}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 100, gap: spacing.sm }}
           renderItem={renderItem}
-          onRefresh={() => { setRefreshing(true); load(); }}
-          refreshing={refreshing}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
           testID="saved-searches-list"
         />
       )}

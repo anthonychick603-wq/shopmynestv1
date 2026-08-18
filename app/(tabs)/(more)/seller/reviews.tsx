@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -29,6 +29,7 @@ export default function SellerReviewsScreen() {
   const [average, setAverage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadPage = useCallback(async (nextPage: number) => {
     const res = await nest
@@ -79,6 +80,7 @@ export default function SellerReviewsScreen() {
           data={items}
           keyExtractor={(r) => String(r.id)}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 40 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadPage(1); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
           onEndReachedThreshold={0.4}
           onEndReached={onEnd}
           ListHeaderComponent={

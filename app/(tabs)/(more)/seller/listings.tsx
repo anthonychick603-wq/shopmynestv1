@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -21,6 +21,7 @@ export default function SellerListings() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Fetch the seller's full inventory (not a capped page) by walking pages until
   // we've collected every listing the API reports.
@@ -43,6 +44,7 @@ export default function SellerListings() {
       setProducts(all);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -104,6 +106,7 @@ export default function SellerListings() {
           data={products}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.row} onPress={() => edit(item)} activeOpacity={0.85} testID={`listing-${item.id}`}>
               <Image source={{ uri: item.images?.[0] }} style={styles.rowImg} />
