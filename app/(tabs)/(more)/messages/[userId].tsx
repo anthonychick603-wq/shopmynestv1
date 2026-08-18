@@ -294,7 +294,9 @@ export default function MessageThread() {
     const tempId = -Date.now();
     const optimistic: NestMessageRaw = {
       id: tempId,
-      sender_id: user!.id,
+      // v1.0.71 — NestMessageRaw declares these as number; User.id is a
+      // string in our types, so coerce here (server-side ids are all numeric).
+      sender_id: Number(user!.id),
       recipient_id: otherId,
       message: body,
       is_read: false,
@@ -409,7 +411,7 @@ export default function MessageThread() {
             contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
             renderItem={({ item, index }) => {
-              const mine = item.sender_id === user.id;
+              const mine = String(item.sender_id) === String(user.id);
               const prev = index > 0 ? messages[index - 1] : null;
               const showTime =
                 !prev ||

@@ -131,7 +131,7 @@ export default function SellerProfile() {
                 </View>
               </View>
 
-              {user && seller && Number(id) !== user.id ? (
+              {user && seller && String(id) !== String(user.id) ? (
                 <View style={styles.actionsRow}>
                   <TouchableOpacity
                     style={styles.messageBtn}

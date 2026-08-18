@@ -119,7 +119,7 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
                 }}
                 style={styles.addBtn}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                accessibilityLabel={`Add ${product.name} to cart`}
+                accessibilityLabel={`Add ${product.title} to cart`}
                 accessibilityRole="button"
               >
                 <Ionicons name="add" size={18} color={colors.onBrand} />
