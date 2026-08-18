@@ -69,11 +69,21 @@ export function setReferringTab(path: string | null): void {
 }
 
 export function pushFromTab(router: Router, path: string, params?: Record<string, unknown>): void {
-  // dismissAll is a no-op when the stack has no dismissable entries; when
-  // there are stale entries it clears them so the new push lands on a
-  // clean single-entry stack.
+  // Clear any leftover entries in the shared (more) stack so back returns
+  // to the tab, not to whatever the user was doing in an earlier flow.
+  //
+  // canDismiss() must gate dismissAll(): calling dismissAll() when the
+  // stack has no dismissable entries dispatches a POP_TO_TOP action that
+  // no navigator claims, which surfaces as a red "action was not handled
+  // by any navigator" error banner in dev builds (v1.0.58 regression).
   try {
-    (router as unknown as { dismissAll?: () => void }).dismissAll?.();
+    const r = router as unknown as {
+      canDismiss?: () => boolean;
+      dismissAll?: () => void;
+    };
+    if (r.canDismiss?.() && r.dismissAll) {
+      r.dismissAll();
+    }
   } catch {}
   if (params) {
     router.push({ pathname: path as any, params: params as any });
