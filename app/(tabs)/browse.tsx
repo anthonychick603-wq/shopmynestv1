@@ -107,7 +107,7 @@ export default function Browse() {
   useEffect(() => { load(); }, [load]);
 
   const onAdd = async (p: Product) => {
-    if (!user) return router.push("/(auth)/login");
+    if (!user) return pushFromTab(router, "/(auth)/login");
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
@@ -119,7 +119,7 @@ export default function Browse() {
   };
 
   const onFav = (p: Product) => {
-    if (!user) return router.push("/(auth)/login");
+    if (!user) return pushFromTab(router, "/(auth)/login");
     toggleFavorite(p.id);
   };
 

@@ -46,11 +46,11 @@ export default function Blog() {
   // heart-toggles-favorite / plus-adds-to-cart contract works on the home
   // feed too.
   const onFav = (p: Product) => {
-    if (!user) return router.push("/(auth)/login");
+    if (!user) return pushFromTab(router, "/(auth)/login");
     toggleFavorite(p.id);
   };
   const onAdd = async (p: Product) => {
-    if (!user) return router.push("/(auth)/login");
+    if (!user) return pushFromTab(router, "/(auth)/login");
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
@@ -195,7 +195,7 @@ export default function Blog() {
                 <Text style={styles.composeBody}>Post a photo and a caption. An admin reviews every post before it goes live.</Text>
                 <Button
                   title="New Post"
-                  onPress={() => (user ? pushFromTab(router, "/blog/compose") : router.push("/(auth)/login"))}
+                  onPress={() => (user ? pushFromTab(router, "/blog/compose") : pushFromTab(router, "/(auth)/login"))}
                   style={{ marginTop: spacing.md }}
                   testID="blog-new-post"
                 />
@@ -204,7 +204,7 @@ export default function Blog() {
               {showBecomeMaker ? (
                 <TouchableOpacity
                   testID="become-seller-cta"
-                  onPress={() => (user ? pushFromTab(router, "/seller/apply") : router.push("/(auth)/login"))}
+                  onPress={() => (user ? pushFromTab(router, "/seller/apply") : pushFromTab(router, "/(auth)/login"))}
                   style={styles.becomeSellerCard}
                   activeOpacity={0.85}
                 >

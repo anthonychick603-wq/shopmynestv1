@@ -10,6 +10,7 @@ import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { pushFromTab } from "@/src/utils/nav";
 
 export default function CreateTab() {
   const insets = useSafeAreaInsets();
@@ -24,7 +25,7 @@ export default function CreateTab() {
           title="Sign in to create"
           message="Log in to apply as a seller or list new products."
           actionLabel="Sign in"
-          onAction={() => router.push("/(auth)/login")}
+          onAction={() => pushFromTab(router, "/(auth)/login")}
           testID="create-signed-out"
         />
       </SafeAreaView>
@@ -62,7 +63,7 @@ export default function CreateTab() {
               icon="storefront-outline"
               title="Build your Nest"
               body="Tell us about your shop and what you make."
-              onPress={() => router.push("/seller/apply")}
+              onPress={() => pushFromTab(router, "/seller/apply")}
               testID="create-apply-seller"
             />
             {user.seller_application_status === "rejected" ? (

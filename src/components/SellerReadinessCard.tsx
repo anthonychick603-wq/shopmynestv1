@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 
 import type { NestSellerReadiness, NestSellerReadinessStep } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
+import { pushFromTab } from "@/src/utils/nav";
 
 export function SellerReadinessCard({ readiness }: { readiness: NestSellerReadiness | null }) {
   const router = useRouter();
@@ -26,7 +27,9 @@ export function SellerReadinessCard({ readiness }: { readiness: NestSellerReadin
 
   const handlePress = (step: NestSellerReadinessStep) => {
     if (!step.action_url) return;
-    router.push(step.action_url as never);
+    // Rendered only on the seller dashboard tab root, so every step opens a
+    // (more) screen — reset the shared stack so back returns to the tab.
+    pushFromTab(router, String(step.action_url));
   };
 
   return (

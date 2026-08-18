@@ -5,8 +5,10 @@ import { LogBox, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useDeepLinkRouting } from "@/src/hooks/use-deep-link-routing";
+import { useHardwareBack } from "@/src/hooks/use-hardware-back";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { useNotificationRouting } from "@/src/hooks/use-notification-routing";
+import { useTrackReferringTab } from "@/src/hooks/use-track-referring-tab";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
@@ -50,6 +52,8 @@ export default function RootLayout() {
               {/* Needs the auth + navigation contexts, so they mount inside them. */}
               <NotificationTapRouter />
               <DeepLinkRouter />
+              <HardwareBackRouter />
+              <ReferringTabTracker />
             </View>
             </StripePaymentProvider>
           </FavoritesProvider>
@@ -68,6 +72,21 @@ function DeepLinkRouter() {
   // v1.0.56 - routes inbound shopmynest.com URLs (Android App Links) to the
   // matching in-app screen.
   useDeepLinkRouting();
+  return null;
+}
+
+function HardwareBackRouter() {
+  // v1.0.57 - Android hardware / gesture back mirrors the in-app chevron:
+  // pops (more) stack when there's history, routes to the natural parent
+  // tab when there isn't, and stays out of the way on tab roots.
+  useHardwareBack();
+  return null;
+}
+
+function ReferringTabTracker() {
+  // v1.0.57 - remembers which tab the user was on so safeBack can return
+  // there when the (more) stack has no history to pop.
+  useTrackReferringTab();
   return null;
 }
 

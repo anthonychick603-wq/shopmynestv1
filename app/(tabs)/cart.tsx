@@ -25,6 +25,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
 import { storage } from "@/src/utils/storage";
+import { pushFromTab } from "@/src/utils/nav";
 
 // Where the buyer's destination address is persisted locally (reused across sessions).
 const SHIPPING_ADDRESS_KEY = "nest.checkout.shipping_address";
@@ -172,7 +173,7 @@ export default function Cart() {
     return (
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <Top title="Cart" />
-        <EmptyState icon="log-in-outline" title="Sign in to view your cart" actionLabel="Sign in" onAction={() => router.push("/(auth)/login")} testID="cart-signed-out" />
+        <EmptyState icon="log-in-outline" title="Sign in to view your cart" actionLabel="Sign in" onAction={() => pushFromTab(router, "/(auth)/login")} testID="cart-signed-out" />
       </SafeAreaView>
     );
   }
@@ -302,7 +303,7 @@ export default function Cart() {
       startNewCheckoutAttempt();
       await clear();
       toast.success("Payment successful! Your order is on its way.");
-      router.push("/orders");
+      pushFromTab(router, "/orders");
     } catch (e) {
       const message = e instanceof ApiError ? e.friendly : "Could not complete checkout. Please try again.";
       toast.error(message);

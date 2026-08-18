@@ -1,10 +1,11 @@
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { stripHtml } from "@/src/utils/html";
+import { pushFromCard } from "@/src/utils/nav";
 import type { Post } from "@/src/types";
 
 function timeAgo(iso?: string): string {
@@ -26,6 +27,8 @@ function timeAgo(iso?: string): string {
 
 export function PostCard({ post, onPressAuthor }: { post: Post; onPressAuthor?: () => void }) {
   const router = useRouter();
+  const segments = useSegments();
+  const insideMore = segments.includes("(more)" as never);
   const body = stripHtml(post.content) || post.excerpt;
   return (
     <View style={styles.card} testID={`post-card-${post.id}`}>
@@ -46,7 +49,7 @@ export function PostCard({ post, onPressAuthor }: { post: Post; onPressAuthor?: 
 
       {post.image ? <Image source={{ uri: post.image }} style={styles.image} /> : null}
 
-      <TouchableOpacity style={styles.footer} onPress={() => router.push(`/post/${post.id}/comments`)} activeOpacity={0.7} testID={`post-comments-${post.id}`}>
+      <TouchableOpacity style={styles.footer} onPress={() => pushFromCard(router, `/post/${post.id}/comments`, insideMore)} activeOpacity={0.7} testID={`post-comments-${post.id}`}>
         <Ionicons name="chatbubble-outline" size={16} color={colors.onSurfaceMuted} />
         <Text style={styles.footerText}>{post.comments} {post.comments === 1 ? "comment" : "comments"}</Text>
       </TouchableOpacity>

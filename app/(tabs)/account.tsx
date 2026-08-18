@@ -69,8 +69,8 @@ export default function Account() {
           </View>
           <Text style={styles.name}>Welcome to My Nest</Text>
           <Text style={styles.email}>Sign in to save favorites, follow sellers, and check out faster.</Text>
-          <Button title="Sign in" onPress={() => router.push("/(auth)/login")} style={{ marginTop: spacing.lg, minWidth: 220 }} testID="account-signin" />
-          <Button title="Create account" variant="outline" onPress={() => router.push("/(auth)/register")} style={{ marginTop: spacing.sm, minWidth: 220 }} testID="account-register" />
+          <Button title="Sign in" onPress={() => pushFromTab(router, "/(auth)/login")} style={{ marginTop: spacing.lg, minWidth: 220 }} testID="account-signin" />
+          <Button title="Create account" variant="outline" onPress={() => pushFromTab(router, "/(auth)/register")} style={{ marginTop: spacing.sm, minWidth: 220 }} testID="account-register" />
         </View>
       </SafeAreaView>
     );
@@ -89,7 +89,7 @@ export default function Account() {
           <TouchableOpacity
             activeOpacity={1}
             delayLongPress={800}
-            onLongPress={() => (user.is_approved_seller ? router.push("/blog/moderation") : undefined)}
+            onLongPress={() => (user.is_approved_seller ? pushFromTab(router, "/blog/moderation") : undefined)}
             testID="acc-blog-moderation"
           >
             <NestLogo compact title="Account" />

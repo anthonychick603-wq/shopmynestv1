@@ -13,6 +13,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
+import { pushFromTab } from "@/src/utils/nav";
 
 const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
   new_order_for_seller: "bag-check-outline",
@@ -72,7 +73,7 @@ export default function Alerts() {
           title="Sign in to see alerts"
           message="Log in to see order updates, follower alerts, and news from your favorite sellers."
           actionLabel="Sign in"
-          onAction={() => router.push("/(auth)/login")}
+          onAction={() => pushFromTab(router, "/(auth)/login")}
           testID="alerts-signed-out"
         />
       </SafeAreaView>

@@ -1,4 +1,4 @@
-// v1.0.57 — safeBack + pushFromTab
+// v1.0.57.1 — safeBack + pushFromTab + referring tab memory
 //
 // A one-liner router.back() will silently no-op when the current screen was
 // opened as a router.replace() destination (no prior entry) or when the app
@@ -19,13 +19,34 @@
 // stack correctly, and back always returns to the actual previous page.
 import type { Router } from "expo-router";
 
+// Records the tab route that last called pushFromTab / pushFromCard. When a
+// (more) screen with no stack history taps back, safeBack prefers this over
+// the caller-provided fallback so the user returns to the tab they came from
+// instead of a hard-coded default. Cleared when the user lands back on a
+// tab root (see clearReferringTab, wired in _layout).
+let referringTab: string | null = null;
+
+/** Read the last-recorded tab route. Exposed for safeBack + tests. */
+export function getReferringTab(): string | null {
+  return referringTab;
+}
+
+/** Manually clear the referring tab. Call when a tab root regains focus. */
+export function clearReferringTab(): void {
+  referringTab = null;
+}
+
 export function safeBack(router: Router, fallback: string = "/(tabs)") {
   if (router.canGoBack()) {
     router.back();
     return;
   }
-  // replace so the fallback becomes the new root instead of stacking on top.
-  router.replace(fallback as any);
+  // No history: prefer the tab the user launched from, then the caller's
+  // fallback, then the tabs root. This keeps back predictable across the
+  // full app: Account → Orders → back → Account (not seller dashboard),
+  // Seller dashboard → Orders → back → Seller dashboard (not account).
+  const target = referringTab ?? fallback;
+  router.replace(target as any);
 }
 
 /**
@@ -38,6 +59,15 @@ export function safeBack(router: Router, fallback: string = "/(tabs)") {
  * for within-flow pushes (product → seller → product), which want the
  * default stacking behaviour.
  */
+/**
+ * Set the referring tab. Called by useTrackReferringTab (mounted at the
+ * root) whenever the focused screen is a tab root. Event handlers can then
+ * call pushFromTab without needing hooks to read the current path.
+ */
+export function setReferringTab(path: string | null): void {
+  referringTab = path;
+}
+
 export function pushFromTab(router: Router, path: string, params?: Record<string, unknown>): void {
   // dismissAll is a no-op when the stack has no dismissable entries; when
   // there are stale entries it clears them so the new push lands on a
