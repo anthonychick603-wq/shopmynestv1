@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { LogBox, StatusBar, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { useDeepLinkRouting } from "@/src/hooks/use-deep-link-routing";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { useNotificationRouting } from "@/src/hooks/use-notification-routing";
 import { AuthProvider } from "@/src/context/AuthContext";
@@ -46,8 +47,9 @@ export default function RootLayout() {
                 <Stack.Screen name="(auth)" options={{ presentation: "modal" }} />
               </Stack>
               <ToastHost />
-              {/* Needs the auth + navigation contexts, so it mounts inside them. */}
+              {/* Needs the auth + navigation contexts, so they mount inside them. */}
               <NotificationTapRouter />
+              <DeepLinkRouter />
             </View>
             </StripePaymentProvider>
           </FavoritesProvider>
@@ -59,6 +61,13 @@ export default function RootLayout() {
 
 function NotificationTapRouter() {
   useNotificationRouting();
+  return null;
+}
+
+function DeepLinkRouter() {
+  // v1.0.56 - routes inbound shopmynest.com URLs (Android App Links) to the
+  // matching in-app screen.
+  useDeepLinkRouting();
   return null;
 }
 

@@ -10,6 +10,7 @@ import { nest, type NestSellerListItem } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { safeBack } from "@/src/utils/nav";
+import { shareSeller } from "@/src/utils/share";
 
 export default function AllShops() {
   const insets = useSafeAreaInsets();
@@ -58,6 +59,19 @@ export default function AllShops() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.card} onPress={() => router.push(`/(tabs)/(more)/seller/${item.id}`)} testID={`shop-full-${item.id}`}>
+              {/* v1.0.56 - share icon in the corner opens the share sheet with
+                  the shop's tagline + public shop URL. Stops propagation so
+                  tapping it doesn't also navigate into the shop. */}
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); shareSeller({ id: item.id, store_name: item.store_name || item.display_name, tagline: item.tagline, shop_url: item.shop_url }); }}
+                hitSlop={8}
+                style={styles.shareBtn}
+                testID={`shop-share-${item.id}`}
+                accessibilityLabel={`Share ${item.store_name || item.display_name || "shop"}`}
+                accessibilityRole="button"
+              >
+                <Ionicons name="share-outline" size={16} color={colors.onSurface} />
+              </TouchableOpacity>
               {item.avatar ? (
                 <Image source={{ uri: item.avatar }} style={styles.avatar} />
               ) : (
@@ -84,6 +98,7 @@ const styles = StyleSheet.create({
   topBtn: { padding: 6 },
   topTitle: { fontSize: 17, fontWeight: "800", color: colors.onSurface },
   card: { flex: 1, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, alignItems: "center", ...shadows.card },
+  shareBtn: { position: "absolute", top: spacing.sm, right: spacing.sm, width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.surfaceTertiary, borderWidth: 1, borderColor: colors.border },
   avatarPh: { alignItems: "center", justifyContent: "center" },
   name: { fontSize: 14, fontWeight: "800", color: colors.onSurface, marginTop: spacing.sm, textAlign: "center" },

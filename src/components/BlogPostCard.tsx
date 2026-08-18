@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { stripHtml } from "@/src/utils/html";
+import { shareBlogPost } from "@/src/utils/share";
 import type { BlogPost } from "@/src/types";
 
 function timeAgo(iso?: string): string {
@@ -87,6 +88,17 @@ export function BlogPostCard({
                   : `${post.comment_count ?? 0} comments`}
               </Text>
             </View>
+            {/* v1.0.56 - share the post from the feed. */}
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation?.(); shareBlogPost(post); }}
+              hitSlop={8}
+              style={styles.metaChip}
+              testID={`blog-card-share-${post.id}`}
+              accessibilityLabel="Share post"
+              accessibilityRole="button"
+            >
+              <Ionicons name="share-outline" size={14} color={colors.onSurfaceMuted} />
+            </TouchableOpacity>
           </View>
           <Text style={styles.metaCta}>View</Text>
         </View>

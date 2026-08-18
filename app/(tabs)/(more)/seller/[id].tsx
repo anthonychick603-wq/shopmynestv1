@@ -19,6 +19,7 @@ import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { shareSeller } from "@/src/utils/share";
 
 export default function SellerProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -77,7 +78,19 @@ export default function SellerProfile() {
       <View style={styles.top}>
         <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/seller/dashboard")} style={styles.topBtn} testID="seller-back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>{storeName}</Text>
-        <CartHeaderButton />
+        <View style={styles.topRight}>
+          {/* v1.0.56 - share the shop. */}
+          {seller ? (
+            <TouchableOpacity
+              onPress={() => shareSeller({ id: seller.id, store_name: seller.store_name, tagline: seller.tagline, about: seller.about })}
+              style={styles.topBtn}
+              testID="seller-share"
+            >
+              <Ionicons name="share-outline" size={20} color={colors.onSurface} />
+            </TouchableOpacity>
+          ) : null}
+          <CartHeaderButton />
+        </View>
       </View>
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
@@ -148,6 +161,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md },
   topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface, flex: 1, textAlign: "center" },
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  topRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
   profileRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.surfaceTertiary },

@@ -2,7 +2,7 @@
   "expo": {
     "name": "ShopMyNest",
     "slug": "the-nest-marketplace",
-    "version": "1.0.55",
+    "version": "1.0.56",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -25,13 +25,65 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.thenest.marketplace",
-      "versionCode": 21,
+      "versionCode": 22,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"
       ],
       "blockedPermissions": [
         "android.permission.CAMERA"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "shopmynest.com",
+              "pathPrefix": "/product"
+            },
+            {
+              "scheme": "https",
+              "host": "shopmynest.com",
+              "pathPrefix": "/shop"
+            },
+            {
+              "scheme": "https",
+              "host": "shopmynest.com",
+              "pathPrefix": "/vendors"
+            },
+            {
+              "scheme": "https",
+              "host": "shopmynest.com",
+              "pathPrefix": "/blog"
+            },
+            {
+              "scheme": "https",
+              "host": "www.shopmynest.com",
+              "pathPrefix": "/product"
+            },
+            {
+              "scheme": "https",
+              "host": "www.shopmynest.com",
+              "pathPrefix": "/shop"
+            },
+            {
+              "scheme": "https",
+              "host": "www.shopmynest.com",
+              "pathPrefix": "/vendors"
+            },
+            {
+              "scheme": "https",
+              "host": "www.shopmynest.com",
+              "pathPrefix": "/blog"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import { nest, ApiError, SITE } from "@/src/api/nest";
+import { nest, ApiError } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
@@ -16,6 +16,7 @@ import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { shareProduct } from "@/src/utils/share";
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -75,25 +76,10 @@ export default function ProductDetail() {
 
   const doShare = async () => {
     if (!product) return;
-    // v1.0.54 - actually share the link. Previously the share sheet only
-    // carried a bare "Check out X on My Nest." message, so pasting into
-    // Messages/Whatsapp landed as plain text with no way to reach the
-    // listing. Prefer the WP permalink returned by the API; fall back to
-    // the canonical /?p=<id> URL for older responses that omit it.
-    const title = decodeEntities(product.title);
-    const url = product.permalink && /^https?:/i.test(product.permalink)
-      ? product.permalink
-      : `${SITE}/?p=${product.id}`;
-    try {
-      await Share.share(
-        {
-          message: `${title} on My Nest\n${url}`,
-          url, // iOS reads this field for rich link previews.
-          title,
-        },
-        { dialogTitle: `Share ${title}` },
-      );
-    } catch {}
+    // v1.0.56 - share sheet uses the shared util so product cards, product
+    // detail, blog detail, and seller profile all produce the same title +
+    // short description + link payload.
+    await shareProduct(product);
   };
 
   if (loading) {

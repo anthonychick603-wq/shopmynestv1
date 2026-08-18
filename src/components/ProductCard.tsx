@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
+import { shareProduct } from "@/src/utils/share";
 import type { Product } from "@/src/types";
 
 type Layout = "full" | "grid";
@@ -46,6 +47,18 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
           accessibilityRole="button"
         >
           <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={20} color={isFavorite ? colors.error : colors.onSurface} />
+        </TouchableOpacity>
+        {/* v1.0.56 - share icon lets buyers copy a product link straight from the
+            feed without opening the detail screen. */}
+        <TouchableOpacity
+          testID={`product-share-${product.id}`}
+          onPress={() => shareProduct(product)}
+          style={styles.shareBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={`Share ${decodeEntities(product.title)}`}
+          accessibilityRole="button"
+        >
+          <Ionicons name="share-outline" size={18} color={colors.onSurface} />
         </TouchableOpacity>
         {onSale ? (
           <View style={styles.saleTag}>
@@ -118,6 +131,17 @@ const styles = StyleSheet.create({
   favBtn: {
     position: "absolute",
     top: spacing.md,
+    right: spacing.md,
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shareBtn: {
+    position: "absolute",
+    top: spacing.md + 40,
     right: spacing.md,
     width: 34,
     height: 34,

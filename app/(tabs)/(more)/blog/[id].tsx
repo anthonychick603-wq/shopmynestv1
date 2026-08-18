@@ -24,6 +24,7 @@ import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { safeBack } from "@/src/utils/nav";
+import { shareBlogPost } from "@/src/utils/share";
 import { stripHtml } from "@/src/utils/html";
 import type { BlogPost } from "@/src/types";
 
@@ -128,7 +129,20 @@ export default function BlogPostDetail() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>Post</Text>
-        <CartHeaderButton />
+        <View style={styles.topRight}>
+          {/* v1.0.56 - share the blog post. Only rendered once the header is
+              hydrated so we can pass caption/author into the share sheet. */}
+          {post ? (
+            <TouchableOpacity
+              onPress={() => shareBlogPost(post)}
+              style={styles.topBtn}
+              testID="blog-detail-share"
+            >
+              <Ionicons name="share-outline" size={20} color={colors.onSurface} />
+            </TouchableOpacity>
+          ) : null}
+          <CartHeaderButton />
+        </View>
       </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         {loading && !post ? (
@@ -260,6 +274,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
+  topRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
   postCard: { backgroundColor: colors.surfaceSecondary, marginHorizontal: spacing.lg, marginBottom: spacing.md, borderRadius: radius.lg, padding: spacing.lg, ...shadows.card },
