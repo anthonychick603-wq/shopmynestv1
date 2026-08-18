@@ -20,9 +20,15 @@ Notifications.setNotificationHandler({
 type PushData = {
   source?: string;
   type?: string;
+  // Order lifecycle (buyer + seller)
   order_id?: number | string;
   seller_id?: number | string;
   status?: string;
+  // Generic tnm_notify payload (v3.7.100)
+  object_id?: number | string;
+  object_type?: string;
+  actor_id?: number | string;
+  notification_id?: number | string;
 };
 
 /**
@@ -34,20 +40,56 @@ type PushData = {
  */
 export function routeForPush(data: PushData): string | null {
   const orderId = data.order_id != null && data.order_id !== "" ? String(data.order_id) : "";
+  const objectId = data.object_id != null && data.object_id !== "" ? String(data.object_id) : "";
+  const actorId = data.actor_id != null && data.actor_id !== "" ? String(data.actor_id) : "";
+
   switch (data.type) {
     // Buyer-facing: the recipient is the customer on the order, so the buyer
     // order detail screen can load it.
     case "order_shipped":
     case "order_update":
       return orderId ? `/order/${orderId}` : "/orders";
+
     // Seller-facing. Deliberately NOT /order/{id}: that screen loads through
     // GET the-nest/v1/orders/{id}, which only authorises the buyer (or a
     // manage_woocommerce admin), so a vendor would land on "Order not found".
     // The dashboard is where a seller's own orders actually are.
     case "new_order":
       return "/seller/dashboard";
+
+    // New chat message — tnm_notify's object_id is the message id but the
+    // thread is keyed on the sender's user id (actor_id). Land there.
+    case "new_message":
+      return actorId ? `/messages/${actorId}` : "/messages";
+
+    // Someone followed the recipient's shop — open the follower's profile.
+    case "new_follower":
+      return actorId ? `/seller/${actorId}` : "/alerts";
+
+    // Product review posted on a shop the recipient owns. Object is the
+    // review row on the product, so send them to the seller profile where
+    // reviews are surfaced.
+    case "seller_review":
+      return "/seller/dashboard";
+
+    // Blog engagement: comment or reply. object_id is the blog post id.
+    case "blog_comment":
+    case "blog_reply":
+      return objectId ? `/blog/${objectId}` : "/alerts";
+
+    // Social feed engagement (likes, comments on user posts).
+    case "post_like":
+    case "post_comment":
+      return objectId ? `/post/${objectId}` : "/alerts";
+
+    // Payout / refund updates — send the seller to the payouts screen.
+    case "payout_paid":
+    case "payout_failed":
+      return "/seller/payouts";
+
+    // Anything else routes to the in-app alerts list so nothing is dead-ended.
     default:
-      return null;
+      return "/alerts";
   }
 }
 
