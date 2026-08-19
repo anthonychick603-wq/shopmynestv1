@@ -171,11 +171,13 @@ export default function Account() {
         </Section>
 
         <Section title="Legal">
-          {/* v1.0.51 — canonical short slugs served by shopmynest-legal-pages.
-              The long-slug variants used to 301-loop against these short ones,
-              so hardcoding the long slugs meant every legal link opened a
-              broken redirect chain. */}
-          <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy/`)} testID="acc-privacy" />
+          {/* v1.0.100 — canonical slugs served by shopmynest-legal-pages.
+              Privacy uses the long slug /privacy-policy/ (matches WP core's
+              wp_page_for_privacy_policy option). The other three use short
+              slugs /terms/, /refunds/, /shipping/. Legal-pages v1.1.4 owns
+              those redirects; the unified marketplace plugin used to fight
+              them (see v3.7.94 flip and v3.7.122.2 loop fix). */}
+          <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy-policy/`)} testID="acc-privacy" />
           <Row icon="document-text-outline" label="Terms of service" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms/`)} testID="acc-terms" />
           <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refunds/`)} testID="acc-refund" />
           <Row icon="cube-outline" label="Shipping policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/shipping/`)} testID="acc-shipping" />
