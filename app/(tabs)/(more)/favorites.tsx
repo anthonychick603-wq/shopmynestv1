@@ -105,6 +105,11 @@ export default function Favorites() {
             tab === "items" ? <ProductGridSkeleton count={4} /> : <BlogPostSkeleton count={3} />
           ) : tab === "items" ? (
             <FlatList
+              // v1.0.77 — distinct key per tab. Without this, React reconciles
+              // the two FlatLists as the same instance and RN throws
+              // "Changing numColumns on the fly is not supported" when
+              // switching from Items (numColumns=2) to Posts (numColumns=1).
+              key="favorites-items-grid"
               data={items}
               keyExtractor={(p) => p.id}
               numColumns={2}
@@ -126,6 +131,7 @@ export default function Favorites() {
             />
           ) : (
             <FlatList
+              key="favorites-posts-list"
               data={blogPosts}
               keyExtractor={(p) => p.id}
               contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
