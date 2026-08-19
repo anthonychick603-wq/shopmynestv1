@@ -130,6 +130,8 @@ export default function AdminDashboard() {
                 icon="bag-check-outline"
                 tint={colors.success}
                 full
+                onPress={() => pushFromTab(router, "/admin/orders")}
+                testID="admin-tile-orders"
               />
             </View>
 

@@ -240,6 +240,14 @@ export const nest = {
     request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/resolve`, { method: "POST" }),
   adminDismissReport: (id: number | string) =>
     request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/dismiss`, { method: "POST" }),
+  // v1.0.90 — marketplace-wide orders list for the admin drawer's Orders
+  // tile (plugin v3.7.117 /admin/orders).
+  adminListOrders: (query?: { range?: "7d" | "30d" | "all"; page?: number; per_page?: number }) =>
+    request<{ items: AdminOrder[]; page: number; total: number; total_pages: number; range: string }>(
+      "marketplace",
+      "/admin/orders",
+      { query },
+    ),
 
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
@@ -774,6 +782,18 @@ export type AdminStats = {
   products_total: number;
   orders_7d: number;
   refreshed_at: string;
+};
+
+// v1.0.90 — marketplace-wide orders row (plugin v3.7.117 /admin/orders).
+export type AdminOrder = {
+  id: number;
+  number: string;
+  status: string;
+  total: number;
+  currency: string;
+  item_count: number;
+  buyer: string;
+  created_at: string | null;
 };
 
 export type AdminReport = {
