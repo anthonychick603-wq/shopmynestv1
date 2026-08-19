@@ -5,7 +5,8 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 import { formatDistanceToNow } from "date-fns";
 
-import { nest } from "@/src/api/nest";
+import { nest, ApiError } from "@/src/api/nest";
+import { toast } from "@/src/components/Toast";
 import { toNotification } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { NotificationItem } from "@/src/types";
@@ -65,7 +66,13 @@ export default function Alerts() {
     try {
       await nest.markNotificationsRead();
       load();
-    } catch {}
+    } catch (e) {
+      // v1.0.97 — previously swallowed. If the server is down or auth
+      // expired mid-session, the user would tap "mark all read" and get
+      // silence; the list would then still show unread on next load and
+      // they'd think the button was broken. Now we surface it.
+      toast.error(e instanceof ApiError ? e.friendly : "Couldn’t mark alerts as read");
+    }
   };
 
   if (!user) {

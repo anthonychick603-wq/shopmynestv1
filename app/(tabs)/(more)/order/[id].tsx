@@ -344,7 +344,14 @@ function ShippingLabelSection({ orderId }: { orderId: string }) {
     let alive = true;
     nest.getShippingLabel(orderId)
       .then((res) => { if (alive) applyLabel(res.label); })
-      .catch(() => {})
+      .catch((e: unknown) => {
+        // v1.0.97 — previously swallowed. The label probe was designed
+        // to fail benignly when an order simply has no label yet, but a
+        // real network / auth error was indistinguishable from that. Now
+        // we surface the error into the section’s inline error slot so
+        // the seller sees why buying rates won’t work.
+        if (alive) setError(e instanceof ApiError ? e.friendly : "Couldn’t check for an existing label");
+      })
       .finally(() => { if (alive) setChecking(false); });
     return () => { alive = false; };
   }, [orderId, applyLabel]);

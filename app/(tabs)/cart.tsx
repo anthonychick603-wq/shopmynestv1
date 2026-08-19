@@ -21,6 +21,8 @@ import { useCart } from "@/src/context/CartContext";
 import { useAuth } from "@/src/context/AuthContext";
 import { useStripeKey, STRIPE_MERCHANT_ID, STRIPE_URL_SCHEME } from "@/src/context/StripePayment";
 import { EmptyState } from "@/src/components/EmptyState";
+// v1.0.97 — picker sheet moved to its own component; cart just wires it up.
+import { AddressPickerModal } from "@/src/components/AddressPickerModal";
 import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate, type NestAddressBookEntry } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
 import { storage } from "@/src/utils/storage";
@@ -626,129 +628,6 @@ function formatAddress(a: NestWpAddress): string {
 // Minimal local address form — collects the fields the backend needs to compute
 // real carrier rates. Persisted locally by the caller; not sent to the server
 // until a quote / checkout.
-// v1.0.94 (Build #17a) — saved-address picker modal. Renders a bottom
-// sheet listing entries from /me/addresses, with the default entry
-// pinned at the top. "Enter a new address" falls through to the
-// existing AddressFormModal; "Manage addresses" navigates to the full
-// CRUD screen at /(tabs)/(more)/me/addresses.
-function AddressPickerModal({
-  visible,
-  loading,
-  entries,
-  onPick,
-  onEnterNew,
-  onManage,
-  onCancel,
-}: {
-  visible: boolean;
-  loading: boolean;
-  entries: NestAddressBookEntry[];
-  onPick: (e: NestAddressBookEntry) => void;
-  onEnterNew: () => void;
-  onManage: () => void;
-  onCancel: () => void;
-}) {
-  const sorted = React.useMemo(
-    () => [...entries].sort((a, b) => (a.is_default === b.is_default ? 0 : a.is_default ? -1 : 1)),
-    [entries],
-  );
-  return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onCancel}>
-      <View style={pickerStyles.backdrop}>
-        <View style={pickerStyles.sheet}>
-          <View style={pickerStyles.handle} />
-          <View style={pickerStyles.header}>
-            <Text style={pickerStyles.title}>Choose an address</Text>
-            <TouchableOpacity onPress={onCancel} accessibilityLabel="Close" testID="cart-picker-close">
-              <Ionicons name="close" size={22} color={colors.onSurface} />
-            </TouchableOpacity>
-          </View>
-          {loading ? (
-            <View style={{ paddingVertical: spacing.xl }}>
-              <ActivityIndicator color={colors.brand} />
-            </View>
-          ) : (
-            <ScrollView contentContainerStyle={{ paddingBottom: spacing.md }}>
-              {sorted.map((e) => {
-                const name = [e.first_name, e.last_name].filter(Boolean).join(" ") || e.label || "Recipient";
-                const line1 = [e.address_1, e.address_2].filter(Boolean).join(", ");
-                const line2 = `${e.city}, ${e.state} ${e.postcode}`;
-                return (
-                  <TouchableOpacity
-                    key={e.id}
-                    style={pickerStyles.row}
-                    onPress={() => onPick(e)}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Ship to ${name} at ${line1}`}
-                    testID={`cart-picker-row-${e.id}`}
-                  >
-                    <View style={pickerStyles.rowIcon}>
-                      <Ionicons name="location" size={18} color={colors.brand} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Text style={pickerStyles.rowLabel}>{e.label || "Address"}</Text>
-                        {e.is_default ? <Text style={pickerStyles.badge}>Default</Text> : null}
-                      </View>
-                      <Text style={pickerStyles.rowName}>{name}</Text>
-                      <Text style={pickerStyles.rowLine} numberOfLines={2}>{line1}</Text>
-                      <Text style={pickerStyles.rowLine}>{line2}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
-                  </TouchableOpacity>
-                );
-              })}
-              <TouchableOpacity
-                style={pickerStyles.rowAction}
-                onPress={onEnterNew}
-                accessibilityRole="button"
-                accessibilityLabel="Enter a new address"
-                testID="cart-picker-new"
-              >
-                <View style={pickerStyles.rowIcon}>
-                  <Ionicons name="add" size={18} color={colors.brand} />
-                </View>
-                <Text style={pickerStyles.rowActionText}>Enter a new address</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={pickerStyles.rowAction}
-                onPress={onManage}
-                accessibilityRole="button"
-                accessibilityLabel="Manage saved addresses"
-                testID="cart-picker-manage"
-              >
-                <View style={pickerStyles.rowIcon}>
-                  <Ionicons name="settings-outline" size={18} color={colors.brand} />
-                </View>
-                <Text style={pickerStyles.rowActionText}>Manage saved addresses</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
-              </TouchableOpacity>
-            </ScrollView>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const pickerStyles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "#0007", justifyContent: "flex-end" },
-  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg, maxHeight: "80%" },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, alignSelf: "center", marginBottom: spacing.sm },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  title: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  rowIcon: { width: 36, height: 36, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
-  rowLabel: { fontSize: 12, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5 },
-  badge: { fontSize: 10, fontWeight: "800", color: colors.brand, backgroundColor: colors.brand + "15", paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, overflow: "hidden" },
-  rowName: { fontSize: 15, fontWeight: "700", color: colors.onSurface, marginTop: 2 },
-  rowLine: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 1 },
-  rowAction: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  rowActionText: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.brandDark },
-});
-
 function AddressFormModal({
   visible,
   initial,
