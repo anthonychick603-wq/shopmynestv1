@@ -20,6 +20,8 @@ import { safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
 import { ProductDetailSkeleton } from "@/src/components/ProductDetailSkeleton";
+import { VariationPicker, findMatchingVariation } from "@/src/components/VariationPicker";
+import type { ProductVariationDetail } from "@/src/types";
 
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -36,6 +38,9 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.91 — for variable products, the buyer must pick each attribute
+  // (e.g. Size, Color) before the add-to-cart button becomes enabled.
+  const [picked, setPicked] = useState<Record<string, string>>({});
 
   const onFav = () => {
     // v1.0.71 — haptic on every top-bar action so the buyer
@@ -63,14 +68,28 @@ export default function ProductDetail() {
   const price = product?.sale_price ?? product?.price ?? 0;
   const onSale = product?.sale_price != null && product.sale_price < (product.price ?? 0);
 
+  // v1.0.91 — resolve the picked attribute map to a specific variation.
+  const isVariable = product?.type === "variable" && Array.isArray(product.attributes) && product.attributes.length > 0;
+  const matchedVariation: ProductVariationDetail | null = React.useMemo(() => {
+    if (!isVariable || !product?.variation_details) return null;
+    return findMatchingVariation(product.variation_details, picked) ?? null;
+  }, [isVariable, product, picked]);
+  const allPicked = !isVariable || (product?.attributes ?? []).every((a) => !!picked[a.name]);
+  const variationAvailable = !isVariable || (matchedVariation?.is_purchasable && matchedVariation.stock_status !== "outofstock");
+
   const doAdd = async (buyNow = false) => {
     haptics.press();
     if (!user) return router.push("/(auth)/login");
     if (!product) return;
     if (adding) return;
+    if (isVariable) {
+      if (!allPicked) { toast.error("Pick an option for each attribute."); return; }
+      if (!matchedVariation) { toast.error("That combination isn't available."); return; }
+      if (!variationAvailable) { toast.error("This combination is out of stock."); return; }
+    }
     setAdding(true);
     try {
-      const ok = addProduct(product, qty);
+      const ok = addProduct(product, qty, matchedVariation);
       if (!ok) {
         toast.error("Out of stock");
       } else if (buyNow) {
@@ -188,6 +207,23 @@ export default function ProductDetail() {
             </TouchableOpacity>
           ) : null}
 
+          {isVariable && product.attributes ? (
+            <View style={{ marginTop: spacing.lg }}>
+              <VariationPicker
+                attributes={product.attributes}
+                variations={product.variation_details ?? []}
+                picked={picked}
+                onChange={setPicked}
+              />
+              {allPicked && matchedVariation && matchedVariation.price !== product.price ? (
+                <Text style={styles.variationPrice}>
+                  ${matchedVariation.price.toFixed(2)}
+                  {matchedVariation.stock_status === "outofstock" || !matchedVariation.is_purchasable ? " · Out of stock" : ""}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
           <View style={{ marginTop: spacing.lg }}>
             <Text style={styles.varLabel}>Quantity</Text>
             <View style={styles.qtyRow}>
@@ -223,11 +259,11 @@ export default function ProductDetail() {
       {/* No insets.bottom here: the tab bar sits below this screen and already
           clears the home indicator. */}
       <View style={[styles.bottomBar, { paddingBottom: spacing.md }]}>
-        <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock} style={[styles.actionSecondary, (!product.in_stock || adding) && { opacity: 0.5 }]} testID="product-add-cart">
+        <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-add-cart">
           <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
           <Text style={styles.actionSecondaryText}>Add to cart</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock} style={[styles.actionPrimary, (!product.in_stock || adding) && { opacity: 0.5 }]} testID="product-buy-now">
+        <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-buy-now">
           {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
         </TouchableOpacity>
       </View>
@@ -259,6 +295,7 @@ const styles = StyleSheet.create({
   sellerLabel: { fontSize: 11, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5 },
   sellerName: { fontSize: 15, fontWeight: "700", color: colors.onSurface },
   varLabel: { fontSize: 14, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.sm },
+  variationPrice: { marginTop: spacing.sm, fontSize: 15, fontWeight: "700", color: colors.brand },
   qtyRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   qtyBtn: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   qtyText: { fontSize: 17, fontWeight: "800", color: colors.onSurface, minWidth: 24, textAlign: "center" },

@@ -407,6 +407,10 @@ export const nest = {
   getSellerApplicationStatus: () =>
     request<{ status: "none" | "pending" | "approved" | "rejected"; application_id?: number; submitted_at?: string }>("marketplace", "/seller/application/status"),
   getSellerDashboard: () => request<NestSellerDashboardRaw>("marketplace", "/seller/dashboard"),
+  // v1.0.91 — rolling analytics for the seller dashboard's Analytics tile
+  // (plugin v3.7.118 /seller/analytics).
+  getSellerAnalytics: (range: 7 | 30 | 90 = 30) =>
+    request<SellerAnalytics>("marketplace", "/seller/analytics", { query: { range } }),
   // v3.7.93 — one-screen seller readiness checklist (Stripe Connect, ship-from,
   // shop name, first product). See MNU_Seller_Readiness::build on the plugin.
   getSellerReadiness: () => request<NestSellerReadiness>("marketplace", "/seller/readiness"),
@@ -561,14 +565,14 @@ export const nest = {
   // Native Stripe PaymentSheet checkout (nest-native/v1).
   // Passing a destination address unlocks real live carrier rates (shipping_rates);
   // without one the server returns the historical flat estimate only.
-  quoteCheckout: (items: { product_id: number; quantity: number }[], shippingAddress: NestWpAddress | null) =>
+  quoteCheckout: (items: { product_id: number; quantity: number; variation_id?: number }[], shippingAddress: NestWpAddress | null) =>
     request<NestQuoteRaw>("checkout", "/checkout/quote", { method: "POST", body: { items, shipping_address: shippingAddress } }),
   // Creates the WC order + Stripe PaymentIntent (and Customer + ephemeral key)
   // straight from the current cart items. Returns everything PaymentSheet needs.
   // The server re-computes shipping from shipping_address + shipping_method_id and
   // only trusts the picked id (never a client amount).
   createPaymentIntent: (payload: {
-    items: { product_id: number; quantity: number }[];
+    items: { product_id: number; quantity: number; variation_id?: number }[];
     billing?: NestWpAddress;
     shipping?: NestWpAddress;
     shipping_address?: NestWpAddress;
@@ -755,6 +759,30 @@ export type NestProductRaw = {
   // v3.7.104 Build #5 - Populated only in seller context. Buyer-facing
   // endpoints omit it to keep the response small.
   favorites_count?: number;
+  // v3.7.118 — variations. `type: 'variable'` products carry attribute
+  // + variation arrays so the mobile product screen can render size/color
+  // pickers. Simple products keep the historical shape untouched.
+  type?: "simple" | "variable" | "grouped" | "external" | string;
+  attributes?: NestProductAttributeRaw[];
+  variations?: NestProductVariationRaw[];
+};
+
+export type NestProductAttributeRaw = {
+  name: string;
+  label: string;
+  options: { slug: string; label: string }[];
+};
+
+export type NestProductVariationRaw = {
+  id: number;
+  attributes: Record<string, string>;
+  price: number;
+  regular_price?: number;
+  stock_status: "instock" | "outofstock";
+  stock_quantity?: number | null;
+  image?: string;
+  sku?: string;
+  is_purchasable: boolean;
 };
 
 export type NestFeedItemRaw = {
@@ -782,6 +810,19 @@ export type AdminStats = {
   products_total: number;
   orders_7d: number;
   refreshed_at: string;
+};
+
+// v1.0.91 — seller analytics timeseries (plugin v3.7.118 /seller/analytics).
+export type SellerAnalytics = {
+  range: 7 | 30 | 90;
+  revenue: Array<{ date: string; revenue: number }>;
+  orders_count: number;
+  refund_rate: number;
+  total_gross: number;
+  total_fees: number;
+  total_net: number;
+  top_products: Array<{ id: number; name: string; image: string; gross: number }>;
+  pending_payout: number;
 };
 
 // v1.0.90 — marketplace-wide orders row (plugin v3.7.117 /admin/orders).

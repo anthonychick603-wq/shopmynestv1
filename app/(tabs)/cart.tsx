@@ -71,10 +71,17 @@ export default function Cart() {
   const [shippingOverride, setShippingOverride] = React.useState<number | null>(null);
 
   const itemsForApi = React.useMemo(
-    () => (cart?.items ?? []).map((it) => ({ product_id: Number(it.product_id), quantity: it.quantity })),
+    () =>
+      (cart?.items ?? []).map((it) => ({
+        product_id: Number(it.product_id),
+        quantity: it.quantity,
+        // v1.0.91 — pass through the picked variation id when set so the
+        // server prices and stock-checks against the right WC variation.
+        ...(it.variation_id ? { variation_id: Number(it.variation_id) } : {}),
+      })),
     [cart],
   );
-  const itemsSig = itemsForApi.map((i) => `${i.product_id}x${i.quantity}`).join(",");
+  const itemsSig = itemsForApi.map((i) => `${i.product_id}${i.variation_id ? `v${i.variation_id}` : ""}x${i.quantity}`).join(",");
   // Whole object, not formatAddress(): recipient name is part of what gets
   // written onto the order, and changing only the name must still count.
   const addressSig = address ? JSON.stringify(address) : "";
@@ -218,7 +225,12 @@ export default function Cart() {
     if (paying || !cart || cart.items.length === 0) return;
     setPaying(true);
     try {
-      const items = cart.items.map((it) => ({ product_id: Number(it.product_id), quantity: it.quantity }));
+      const items = cart.items.map((it) => ({
+        product_id: Number(it.product_id),
+        quantity: it.quantity,
+        // v1.0.91 — mirror itemsForApi so create-intent gets the variation ref.
+        ...(it.variation_id ? { variation_id: Number(it.variation_id) } : {}),
+      }));
 
       // 1. Create the order + PaymentIntent (and Stripe Customer + ephemeral key).
       //    Pass the destination + picked rate id; the server recomputes the real

@@ -51,6 +51,25 @@ export function toProduct(p: NestProductRaw): Product {
     // v1.0.66 Build #5 - Only populated in seller context, so the field is
     // usually undefined for a buyer-facing product card.
     favorites_count: typeof p.favorites_count === "number" ? p.favorites_count : undefined,
+    // v1.0.91 — variable product picker payload. Simple products carry
+    // undefined here so nothing renders in the product screen picker.
+    type: p.type,
+    attributes: Array.isArray(p.attributes)
+      ? p.attributes.map((a) => ({ name: a.name, label: a.label, options: a.options || [] }))
+      : undefined,
+    variation_details: Array.isArray(p.variations)
+      ? p.variations.map((v) => ({
+          id: Number(v.id),
+          attributes: v.attributes || {},
+          price: Number(v.price ?? 0),
+          regular_price: v.regular_price != null ? Number(v.regular_price) : undefined,
+          stock_status: (v.stock_status === "outofstock" ? "outofstock" : "instock") as "instock" | "outofstock",
+          stock_quantity: v.stock_quantity ?? null,
+          image: v.image || undefined,
+          sku: v.sku || undefined,
+          is_purchasable: !!v.is_purchasable,
+        }))
+      : undefined,
   };
 }
 

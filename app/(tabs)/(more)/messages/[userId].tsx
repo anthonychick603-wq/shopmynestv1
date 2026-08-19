@@ -28,6 +28,7 @@ import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { TemplatesSheet } from "@/src/components/TemplatesSheet";
 
 // Format a MySQL UTC timestamp as a friendly time-of-day / date line above a
 // message bubble ("Today 3:14 PM", "Yesterday 11:02 AM", "Mar 4 3:14 PM").
@@ -181,6 +182,9 @@ export default function MessageThread() {
   const [messages, setMessages] = useState<NestMessageRaw[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<string>(typeof params.draft === "string" ? params.draft : "");
+  // v1.0.91 — seller canned replies. Only rendered when the current user
+  // is a seller/admin, so buyer→seller composers stay unchanged.
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [drafts, setDrafts] = useState<DraftPhoto[]>([]);
   const [sending, setSending] = useState(false);
   const [viewer, setViewer] = useState<{ photos: NestMessagePhoto[]; index: number } | null>(null);
@@ -486,6 +490,18 @@ export default function MessageThread() {
           >
             <Ionicons name="image-outline" size={22} color={drafts.length >= 5 ? colors.onSurfaceMuted : colors.onSurface} />
           </TouchableOpacity>
+          {user && (user.role === "seller" || user.role === "admin") ? (
+            <TouchableOpacity
+              style={styles.attachBtn}
+              onPress={() => { haptics.tap(); setTemplatesOpen(true); }}
+              disabled={sending}
+              testID="thread-templates"
+              accessibilityRole="button"
+              accessibilityLabel="Quick replies"
+            >
+              <Ionicons name="chatbox-ellipses-outline" size={22} color={colors.onSurface} />
+            </TouchableOpacity>
+          ) : null}
           <TextInput
             style={styles.input}
             value={draft}
@@ -514,6 +530,15 @@ export default function MessageThread() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {user ? (
+        <TemplatesSheet
+          visible={templatesOpen}
+          onClose={() => setTemplatesOpen(false)}
+          onPick={(body) => setDraft((prev) => prev ? `${prev}\n${body}` : body)}
+          userId={user.id}
+        />
+      ) : null}
 
       {/* Full-screen photo viewer */}
       <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={() => setViewer(null)}>

@@ -35,6 +35,22 @@ export type NestUser = {
 
 export type ProductVariation = { id: string; name: string; options: string[] };
 
+// v1.0.91 — shape of a WooCommerce variable product's picker options.
+export type ProductAttribute = { name: string; label: string; options: { slug: string; label: string }[] };
+
+// v1.0.91 — one purchasable variation on a variable product.
+export type ProductVariationDetail = {
+  id: number;
+  attributes: Record<string, string>;
+  price: number;
+  regular_price?: number;
+  stock_status: "instock" | "outofstock";
+  stock_quantity?: number | null;
+  image?: string;
+  sku?: string;
+  is_purchasable: boolean;
+};
+
 export type Product = {
   id: string;
   title: string;
@@ -48,6 +64,11 @@ export type Product = {
   sku?: string;
   in_stock: boolean;
   variations: ProductVariation[];
+  // v1.0.91 — WooCommerce product type + picker payload for variable products.
+  // Simple products leave these undefined.
+  type?: "simple" | "variable" | "grouped" | "external" | string;
+  attributes?: ProductAttribute[];
+  variation_details?: ProductVariationDetail[];
   status: "draft" | "published";
   featured?: boolean;
   seller?: { id: string; name: string; profile_photo?: string | null; rating?: number; review_count?: number };
@@ -89,6 +110,9 @@ export type CartItem = {
   product_id: string;
   quantity: number;
   variation?: Record<string, string> | null;
+  // v1.0.91 — numeric variation id for the picked size/color combo. The
+  // server needs this to attach the WC order line to the correct variation.
+  variation_id?: number | null;
   unit_price: number;
   line_total: number;
   product: Product;

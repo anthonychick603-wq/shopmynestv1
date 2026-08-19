@@ -222,6 +222,12 @@ export default function SellerDashboard() {
             testID="dash-shop-profile"
           />
           <ActionTile
+            icon="analytics-outline"
+            label="Analytics"
+            onPress={() => pushFromTab(router, "/seller/analytics")}
+            testID="dash-analytics"
+          />
+          <ActionTile
             icon="cash-outline"
             label="Earnings & payouts"
             onPress={() => pushFromTab(router, "/seller/payouts")}

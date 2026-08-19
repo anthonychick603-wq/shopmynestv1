@@ -19,6 +19,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AppImage } from "@/src/components/AppImage";
 import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
+import { OrderStatusTimeline } from "@/src/components/OrderStatusTimeline";
 import { OrderReviewCTA } from "@/src/components/OrderReviewCTA";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -128,7 +129,10 @@ export default function OrderDetail() {
       >
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Status</Text>
-          <Text style={styles.status}>{buyerStatusLabel(order).toUpperCase()}</Text>
+          <OrderStatusTimeline order={order} />
+          <Text style={[styles.statusHint, { marginTop: spacing.sm, textAlign: "center" }]}>
+            {buyerStatusLabel(order)}
+          </Text>
           {order.shipping_status === "partial" ? (
             <Text style={styles.statusHint}>Some sellers on this order have shipped, others are still preparing.</Text>
           ) : null}

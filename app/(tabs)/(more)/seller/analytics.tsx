@@ -1,0 +1,252 @@
+// v1.0.91 — Seller analytics dashboard. Reads /seller/analytics (plugin
+// v3.7.118), lets the seller flip between 7/30/90-day windows, and shows
+// a bar-based revenue sparkline, KPI tiles (net, orders, refund rate,
+// pending payout), and the top 5 products by gross. No external chart
+// dependency — bars are simple <View>s with computed heights.
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect, useRouter } from "expo-router";
+import { format, parseISO } from "date-fns";
+
+import { nest, ApiError, type SellerAnalytics } from "@/src/api/nest";
+import { colors, radius, shadows, spacing } from "@/src/theme";
+import { EmptyState } from "@/src/components/EmptyState";
+import { AppImage } from "@/src/components/AppImage";
+import { useAuth } from "@/src/context/AuthContext";
+import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
+
+type Range = 7 | 30 | 90;
+const RANGES: { key: Range; label: string }[] = [
+  { key: 7, label: "7d" },
+  { key: 30, label: "30d" },
+  { key: 90, label: "90d" },
+];
+
+export default function SellerAnalytics() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const [range, setRange] = useState<Range>(30);
+  const [data, setData] = useState<SellerAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (next: Range) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await nest.getSellerAnalytics(next);
+      setData(res);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.friendly : "Could not load analytics.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(range); }, [load, range]));
+
+  if (!user || (user.role !== "seller" && user.role !== "admin")) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={() => safeBack(router, "/seller/dashboard")} />
+        <EmptyState icon="lock-closed-outline" title="Maker only" message="Analytics are for approved sellers." />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <Top onBack={() => safeBack(router, "/seller/dashboard")} />
+
+      <View style={styles.tabs}>
+        {RANGES.map((t) => (
+          <TouchableOpacity
+            key={t.key}
+            onPress={() => { haptics.tap(); setRange(t.key); }}
+            style={[styles.tab, range === t.key && styles.tabActive]}
+            testID={`analytics-range-${t.key}`}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.tabLabel, range === t.key && styles.tabLabelActive]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading && !data ? (
+        <View style={styles.center}><ActivityIndicator color={colors.onSurface} /></View>
+      ) : error && !data ? (
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="We couldn't load analytics"
+          message={error}
+          actionLabel="Retry"
+          onAction={() => load(range)}
+          testID="analytics-error"
+        />
+      ) : !data ? null : (
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 40 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(range); }}
+              tintColor={colors.brand}
+              colors={[colors.brand]}
+            />
+          }
+        >
+          <Text style={styles.sectionLabel}>Revenue (net)</Text>
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTotal}>${data.total_net.toFixed(2)}</Text>
+            <Text style={styles.chartHint}>${data.total_gross.toFixed(2)} gross · ${data.total_fees.toFixed(2)} platform fees</Text>
+            <RevenueBars series={data.revenue} />
+          </View>
+
+          <Text style={styles.sectionLabel}>Overview</Text>
+          <View style={styles.kpiGrid}>
+            <Kpi label="Orders" value={String(data.orders_count)} icon="bag-check-outline" />
+            <Kpi label="Refund rate" value={`${(data.refund_rate * 100).toFixed(1)}%`} icon="return-down-back-outline" tone={data.refund_rate > 0.05 ? "warning" : "default"} />
+            <Kpi label="Pending payout" value={`$${data.pending_payout.toFixed(2)}`} icon="wallet-outline" />
+            <Kpi label="Avg order" value={`$${data.orders_count > 0 ? (data.total_gross / data.orders_count).toFixed(2) : "0.00"}`} icon="analytics-outline" />
+          </View>
+
+          <Text style={styles.sectionLabel}>Top products</Text>
+          {data.top_products.length === 0 ? (
+            <View style={styles.emptyProducts}>
+              <Text style={styles.emptyProductsText}>No sales in this window yet.</Text>
+            </View>
+          ) : (
+            data.top_products.map((p, i) => (
+              <TouchableOpacity
+                key={p.id}
+                style={styles.productRow}
+                activeOpacity={0.7}
+                onPress={() => { haptics.tap(); router.push(`/product/${p.id}` as any); }}
+                testID={`analytics-top-${p.id}`}
+              >
+                <Text style={styles.rank}>#{i + 1}</Text>
+                <AppImage source={{ uri: p.image }} style={styles.productImg} fallbackIcon="pricetag-outline" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
+                  <Text style={styles.productMeta}>${p.gross.toFixed(2)} gross</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
+              </TouchableOpacity>
+            ))
+          )}
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}
+
+function RevenueBars({ series }: { series: SellerAnalytics["revenue"] }) {
+  const max = Math.max(1, ...series.map((s) => s.revenue));
+  const n = series.length;
+  // Show up to 30 labels for readability
+  const labelStep = Math.max(1, Math.ceil(n / 6));
+  return (
+    <View style={styles.barsWrap}>
+      <View style={styles.bars} accessibilityRole="summary">
+        {series.map((pt, i) => {
+          const h = Math.max(2, (pt.revenue / max) * 100);
+          return (
+            <View key={pt.date} style={styles.barCol}>
+              <View style={[styles.bar, { height: `${h}%`, backgroundColor: pt.revenue > 0 ? colors.brand : colors.surfaceTertiary }]} />
+            </View>
+          );
+        })}
+      </View>
+      <View style={styles.barLabels}>
+        {series.map((pt, i) => (
+          <Text
+            key={pt.date}
+            style={[styles.barLabel, { flex: 1, textAlign: "center" }]}
+            numberOfLines={1}
+          >
+            {i % labelStep === 0 ? safeFormat(pt.date) : " "}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function safeFormat(iso: string): string {
+  try {
+    return format(parseISO(iso), "MMM d");
+  } catch {
+    return "";
+  }
+}
+
+function Kpi({ label, value, icon, tone }: { label: string; value: string; icon: keyof typeof import("@expo/vector-icons").Ionicons.glyphMap; tone?: "warning" | "default" }) {
+  return (
+    <View style={styles.kpi}>
+      <View style={[styles.kpiIcon, tone === "warning" ? { backgroundColor: colors.warning + "22" } : null]}>
+        <Ionicons name={icon} size={16} color={tone === "warning" ? colors.warning : colors.brand} />
+      </View>
+      <Text style={styles.kpiValue}>{value}</Text>
+      <Text style={styles.kpiLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function Top({ onBack }: { onBack: () => void }) {
+  return (
+    <View style={styles.top}>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="analytics-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
+        <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+      </TouchableOpacity>
+      <Text style={styles.topTitle}>Analytics</Text>
+      <View style={{ width: 40 }} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.surface },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
+  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
+  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+
+  tabs: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, alignSelf: "flex-start" },
+  tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
+  tabActive: { backgroundColor: colors.brand },
+  tabLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted },
+  tabLabelActive: { color: colors.onBrand },
+
+  sectionLabel: { fontSize: 11, fontWeight: "800", color: colors.onSurfaceMuted, letterSpacing: 0.6, textTransform: "uppercase", marginTop: spacing.md, marginBottom: spacing.sm },
+
+  chartCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, ...shadows.card },
+  chartTotal: { fontSize: 28, fontWeight: "800", color: colors.onSurface },
+  chartHint: { fontSize: 12, color: colors.onSurfaceMuted, marginBottom: spacing.md },
+  barsWrap: { height: 130 },
+  bars: { flexDirection: "row", alignItems: "flex-end", height: 100, gap: 2 },
+  barCol: { flex: 1, height: "100%", justifyContent: "flex-end" },
+  bar: { width: "100%", borderRadius: 2, backgroundColor: colors.brand, minHeight: 2 },
+  barLabels: { flexDirection: "row", marginTop: spacing.xs },
+  barLabel: { fontSize: 9, color: colors.onSurfaceMuted },
+
+  kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  kpi: { flexBasis: "48%", flexGrow: 1, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, ...shadows.card },
+  kpiIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brand + "22", alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
+  kpiValue: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
+  kpiLabel: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.3 },
+
+  emptyProducts: { padding: spacing.lg, alignItems: "center" },
+  emptyProductsText: { color: colors.onSurfaceMuted, fontSize: 13 },
+  productRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.sm, ...shadows.card },
+  rank: { width: 22, textAlign: "center", fontSize: 12, fontWeight: "800", color: colors.onSurfaceMuted },
+  productImg: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
+  productName: { fontSize: 13, fontWeight: "700", color: colors.onSurface },
+  productMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+});

@@ -2,20 +2,31 @@
 // Mirrors v1.0.7's CartContext but in TypeScript with the internal Product shape.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { storage } from "@/src/utils/storage";
-import type { Product, Cart, CartItem } from "@/src/types";
+import type { Product, Cart, CartItem, ProductVariationDetail } from "@/src/types";
 import { useAuth } from "./AuthContext";
 
 const CART_STORAGE_KEY = "nest.cart.items";
 const MAX_QTY = 99;
 
-type LocalItem = { product: Product; quantity: number; variation?: Record<string, string> | null };
+// v1.0.91 — cart lines can now pin a specific variation (size/color combo)
+// on variable products. `variation_id` is the numeric id the server needs
+// when it creates the WC order line; `variation` is the display-only
+// attribute→option map. Both are optional for backwards compat with
+// simple products.
+type LocalItem = {
+  product: Product;
+  quantity: number;
+  variation?: Record<string, string> | null;
+  variation_id?: number | null;
+  variation_price?: number | null;
+};
 
 type CartContextValue = {
   cart: Cart | null;
   refreshing: boolean;
   refresh: () => Promise<void>;
   addItem: (product_id: string, quantity: number, variation?: Record<string, string> | null, product?: Product) => Promise<void>;
-  addProduct: (product: Product, quantity?: number) => boolean;
+  addProduct: (product: Product, quantity?: number, variation?: ProductVariationDetail | null) => boolean;
   updateItem: (index: number, quantity: number) => Promise<void>;
   removeItem: (index: number) => Promise<void>;
   applyCoupon: (code: string) => Promise<void>;
@@ -40,11 +51,16 @@ function clamp(product: Product, qty: number): number {
 
 function toCart(items: LocalItem[]): Cart {
   const outItems: CartItem[] = items.map((it) => {
-    const unit = it.product.sale_price ?? it.product.price ?? 0;
+    // Prefer the picked variation price when set; fall back to the product
+    // price so simple products keep their historical unit price.
+    const unit = it.variation_price != null
+      ? it.variation_price
+      : (it.product.sale_price ?? it.product.price ?? 0);
     return {
       product_id: it.product.id,
       quantity: it.quantity,
       variation: it.variation || null,
+      variation_id: it.variation_id ?? null,
       unit_price: unit,
       line_total: Math.round(unit * it.quantity * 100) / 100,
       product: it.product,
@@ -96,17 +112,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // client-side; nothing to fetch
   }, []);
 
-  const addProduct = useCallback((product: Product, quantity: number = 1) => {
-    const q = clamp(product, quantity);
+  const addProduct = useCallback((product: Product, quantity: number = 1, variation: ProductVariationDetail | null = null) => {
+    // v1.0.91 — when a variation is picked, its stock/purchasability
+    // gates the add (not the parent product). Stock quantity is copied
+    // from the variation so `clamp` and `limitFor` behave correctly.
+    const gate: Product = variation
+      ? {
+          ...product,
+          stock: Number(variation.stock_quantity ?? 0),
+          in_stock: variation.stock_status !== "outofstock" && variation.is_purchasable,
+        }
+      : product;
+    const q = clamp(gate, quantity);
     if (q < 1) return false;
     setItems((cur) => {
-      const idx = cur.findIndex((it) => it.product.id === product.id);
+      // Two lines of the same product with different variations must NOT merge.
+      const idx = cur.findIndex(
+        (it) => it.product.id === product.id && (it.variation_id ?? null) === (variation?.id ?? null),
+      );
       if (idx >= 0) {
         const next = [...cur];
-        next[idx] = { ...next[idx], product, quantity: clamp(product, next[idx].quantity + q) };
+        next[idx] = { ...next[idx], product, quantity: clamp(gate, next[idx].quantity + q) };
         return next;
       }
-      return [...cur, { product, quantity: q }];
+      return [
+        ...cur,
+        {
+          product,
+          quantity: q,
+          variation: variation?.attributes ?? null,
+          variation_id: variation?.id ?? null,
+          variation_price: variation?.price ?? null,
+        },
+      ];
     });
     return true;
   }, []);
