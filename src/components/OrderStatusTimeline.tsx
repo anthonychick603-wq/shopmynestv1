@@ -3,9 +3,13 @@
 // color, current step pulsing subtly, and future steps muted. Reads
 // order.status + order.shipping_status. Pure presentational — no
 // network calls.
+//
+// v1.0.94 (Build #16) — each completed step now shows its timestamp
+// underneath so the buyer sees WHEN each step happened.
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { formatDistanceToNowStrict } from "date-fns";
 
 import { colors, radius, spacing } from "@/src/theme";
 import type { Order } from "@/src/types";
@@ -43,9 +47,27 @@ function currentStepIndex(order: Order): number {
   return 0;
 }
 
+// v1.0.94 (Build #16) — relative-time formatter for the timeline
+// timestamps. Shorter than the full timestamp and easier to scan ("2d
+// ago", "3h ago"). Absolute time is still exposed via the a11y label.
+function relTime(iso?: string | null): { rel: string; abs: string } | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  try {
+    return { rel: `${formatDistanceToNowStrict(d, { addSuffix: false })} ago`, abs: d.toLocaleString() };
+  } catch {
+    return null;
+  }
+}
+
 export function OrderStatusTimeline({ order }: { order: Order }) {
   const active = currentStepIndex(order);
   const isTerminated = ["cancelled", "failed", "refunded"].includes((order.status || "").toLowerCase());
+
+  // v1.0.94 (Build #16) — pull the per-step timestamps from the domain Order.
+  // shipped_at is the aggregate of per-seller ship timestamps (adapters.ts).
+  const timestamps: Array<string | undefined> = [order.created_at, order.paid_at, order.shipped_at, order.completed_at];
 
   return (
     <View style={styles.wrap} accessibilityRole="summary" accessibilityLabel={`Order status: ${STEPS[active].label}`}>
@@ -55,6 +77,7 @@ export function OrderStatusTimeline({ order }: { order: Order }) {
           const isCurrent = i === active;
           const dotBg = done ? colors.brand : colors.surfaceTertiary;
           const dotColor = done ? colors.onBrand : colors.onSurfaceMuted;
+          const ts = done ? relTime(timestamps[i]) : null;
           return (
             <React.Fragment key={step.key}>
               <View style={styles.stepCol}>
@@ -64,6 +87,9 @@ export function OrderStatusTimeline({ order }: { order: Order }) {
                 <Text style={[styles.label, done && styles.labelDone, isCurrent && styles.labelCurrent]} numberOfLines={1}>
                   {step.label}
                 </Text>
+                {ts ? (
+                  <Text style={styles.stamp} numberOfLines={1} accessibilityLabel={ts.abs}>{ts.rel}</Text>
+                ) : null}
               </View>
               {i < STEPS.length - 1 ? (
                 <View
@@ -110,6 +136,8 @@ const styles = StyleSheet.create({
   },
   labelDone: { color: colors.onSurface },
   labelCurrent: { color: colors.brandDark, fontWeight: "800" },
+  // v1.0.94 (Build #16) — relative timestamp under each completed step.
+  stamp: { marginTop: 2, fontSize: 10, color: colors.onSurfaceMuted, textAlign: "center" },
   connector: {
     flex: 1,
     height: 2,

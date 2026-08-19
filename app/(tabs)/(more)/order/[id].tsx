@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -38,6 +38,41 @@ export default function OrderDetail() {
   // v1.0.49 — refund lifecycle block returned by /orders/{id}.
   const [refund, setRefund] = useState<NestRefundStatus | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.94 (Build #16) — in-flight flag for buyer-initiated cancel.
+  const [cancelling, setCancelling] = useState(false);
+
+  // v1.0.94 (Build #16) — buyer-initiated cancel. Confirms first so a
+  // stray tap can't wipe out the order. On success we reload the order so
+  // the timeline flips to Cancelled and the cancel button disappears.
+  const onCancelOrder = useCallback(() => {
+    if (!order) return;
+    Alert.alert(
+      "Cancel this order?",
+      "The seller will be notified and the order will be closed.",
+      [
+        { text: "Keep order", style: "cancel" },
+        {
+          text: "Cancel order",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setCancelling(true);
+              haptics.warning();
+              const raw = await nest.cancelBuyerOrder(order.id);
+              setOrder(toOrder(raw));
+              toast.success("Order cancelled");
+            } catch (e) {
+              const friendly = e instanceof ApiError ? e.friendly : "Couldn't cancel this order. Please try again.";
+              toast.error(friendly);
+              haptics.error();
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [order]);
 
   const load = useCallback(() => {
     setLoadError(null);
@@ -135,6 +170,32 @@ export default function OrderDetail() {
           </Text>
           {order.shipping_status === "partial" ? (
             <Text style={styles.statusHint}>Some sellers on this order have shipped, others are still preparing.</Text>
+          ) : null}
+          {/*
+            v1.0.94 (Build #16) — inline cancel action for buyers. Only
+            visible while the order is truly cancellable (pending/on-hold,
+            no shipments). Paid orders route to the refund flow via
+            RefundStatusCard below. We confirm with Alert.alert so a stray
+            tap can't nuke the order.
+          */}
+          {!isSeller && order.cancellable && !refund ? (
+            <TouchableOpacity
+              onPress={onCancelOrder}
+              disabled={cancelling}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel this order"
+              style={styles.cancelBtn}
+              testID="order-cancel"
+            >
+              {cancelling ? (
+                <ActivityIndicator color={colors.error} size="small" />
+              ) : (
+                <>
+                  <Ionicons name="close-circle-outline" size={16} color={colors.error} />
+                  <Text style={styles.cancelBtnText}>Cancel order</Text>
+                </>
+              )}
+            </TouchableOpacity>
           ) : null}
         </View>
         {order.tracking_rows.length > 0 ? (
@@ -546,6 +607,23 @@ const styles = StyleSheet.create({
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
   card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadows.card },
   cardLabel: { fontSize: 11, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
+  // v1.0.94 (Build #16) — inline cancel button rendered inside the Status card.
+  cancelBtn: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.error + "55",
+    backgroundColor: colors.error + "10",
+    alignSelf: "center",
+    minHeight: 36,
+  },
+  cancelBtnText: { fontSize: 13, fontWeight: "700", color: colors.error },
   status: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   statusHint: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 4, lineHeight: 17 },
   tracking: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, backgroundColor: colors.surfaceTertiary, padding: spacing.md, borderRadius: radius.md },

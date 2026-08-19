@@ -39,6 +39,9 @@ export default function Blog() {
   const [refreshing, setRefreshing] = useState(false);
   const [homeItems, setHomeItems] = useState<Product[]>([]);
   const [hasFollowed, setHasFollowed] = useState(false);
+  // v1.0.94 (Build #18a) — recently viewed carousel. Only shown when logged
+  // in and there's at least one row from the server MRU.
+  const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
   const { isFavorite, toggle: toggleFavorite, isBlogFavorite, toggleBlog: toggleBlogFavorite } = useFavorites();
   const { addProduct } = useCart();
 
@@ -73,11 +76,23 @@ export default function Blog() {
     }
   }, []);
 
+  // v1.0.94 (Build #18a) — recently viewed for the signed-in buyer. Silent
+  // failure keeps the row simply absent, so no error UI on the home tab.
+  const loadRecentlyViewed = useCallback(async () => {
+    if (!user) { setRecentlyViewed([]); return; }
+    try {
+      const res = await nest.getRecentlyViewed(12);
+      setRecentlyViewed((res.items || []).map(toProduct));
+    } catch {
+      setRecentlyViewed([]);
+    }
+  }, [user]);
+
   const load = useCallback(async (nextPage = 1) => {
     setError(null);
     try {
       if (nextPage === 1) {
-        await loadHomeFeed();
+        await Promise.all([loadHomeFeed(), loadRecentlyViewed()]);
       }
       const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
       const items = (res.items || []).map(toBlogPost);
@@ -162,6 +177,35 @@ export default function Blog() {
           }}
           ListHeaderComponent={
             <View>
+              {recentlyViewed.length > 0 ? (
+                <View style={styles.homeFeedSection}>
+                  <View style={styles.homeFeedHeader}>
+                    <Text style={styles.homeFeedTitle}>Keep browsing</Text>
+                    <TouchableOpacity accessibilityLabel="See all recently viewed products" accessibilityRole="button" onPress={() => { haptics.tap(); pushFromTab(router, "/me/recently-viewed"); }} testID="home-recent-see-all">
+                      <Text style={styles.homeFeedSeeAll}>See all</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.homeFeedRow}
+                    testID="home-recent-scroller"
+                  >
+                    {recentlyViewed.map((item) => (
+                      <View key={item.id} style={styles.homeFeedItem}>
+                        <ProductCard
+                          product={item}
+                          layout="full"
+                          onAddToCart={() => onAdd(item)}
+                          onToggleFavorite={() => onFav(item)}
+                          isFavorite={isFavorite(item.id)}
+                          testID={`home-recent-card-${item.id}`}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
               {homeItems.length > 0 ? (
                 <View style={styles.homeFeedSection}>
                   <View style={styles.homeFeedHeader}>

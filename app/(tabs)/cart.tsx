@@ -21,7 +21,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useAuth } from "@/src/context/AuthContext";
 import { useStripeKey, STRIPE_MERCHANT_ID, STRIPE_URL_SCHEME } from "@/src/context/StripePayment";
 import { EmptyState } from "@/src/components/EmptyState";
-import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate } from "@/src/api/nest";
+import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate, type NestAddressBookEntry } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
 import { storage } from "@/src/utils/storage";
 import { pushFromTab } from "@/src/utils/nav";
@@ -57,6 +57,13 @@ export default function Cart() {
   // the order stays stable regardless of cart/auth state.
   const [address, setAddress] = React.useState<NestWpAddress | null>(null);
   const [formOpen, setFormOpen] = React.useState(false);
+  // v1.0.94 (Build #17a) — saved-address picker on checkout. We lazy-load
+  // /me/addresses on the first Change/Add tap; the picker sheet keeps the
+  // existing AddressFormModal underneath as the fallback for "Enter new
+  // address", so we don't lose the guest / one-off path.
+  const [pickerOpen, setPickerOpen] = React.useState(false);
+  const [savedAddresses, setSavedAddresses] = React.useState<NestAddressBookEntry[] | null>(null);
+  const [savedLoading, setSavedLoading] = React.useState(false);
   const [rates, setRates] = React.useState<NestShippingRate[] | null>(null);
   const [selectedRateId, setSelectedRateId] = React.useState<string | null>(null);
   const [ratesLoading, setRatesLoading] = React.useState(false);
@@ -202,6 +209,59 @@ export default function Cart() {
     setFormOpen(false);
     await storage.setItem(SHIPPING_ADDRESS_KEY, a);
   };
+
+  // v1.0.94 (Build #17a) — open the saved-address picker. First open
+  // pulls /me/addresses; subsequent opens reuse the cached list. If the
+  // list is empty we skip the picker and go straight to the manual form
+  // (matches the previous behaviour so first-time buyers aren't blocked).
+  const openAddressPicker = React.useCallback(async () => {
+    haptics.tap();
+    if (savedAddresses && savedAddresses.length === 0) {
+      setFormOpen(true);
+      return;
+    }
+    setPickerOpen(true);
+    if (savedAddresses !== null) return;
+    try {
+      setSavedLoading(true);
+      const res = await nest.listAddressBook();
+      const items = res.items || [];
+      setSavedAddresses(items);
+      if (items.length === 0) {
+        // Nothing to pick from — close the picker and open the manual form.
+        setPickerOpen(false);
+        setFormOpen(true);
+      }
+    } catch {
+      // The address book endpoint isn't critical to checkout — if it fails
+      // (older server, offline, etc) fall back to the manual form silently.
+      setSavedAddresses([]);
+      setPickerOpen(false);
+      setFormOpen(true);
+    } finally {
+      setSavedLoading(false);
+    }
+  }, [savedAddresses]);
+
+  // Convert a saved book entry to the flat NestWpAddress shape used on
+  // the cart. The book has extras (label, company, is_default) that the
+  // Woo-style address doesn't carry — they stay in the book for later.
+  const pickSavedAddress = React.useCallback(async (entry: NestAddressBookEntry) => {
+    haptics.tap();
+    const wp: NestWpAddress = {
+      first_name: entry.first_name,
+      last_name: entry.last_name,
+      address_1: entry.address_1,
+      address_2: entry.address_2,
+      city: entry.city,
+      state: entry.state,
+      postcode: entry.postcode,
+      country: entry.country || "US",
+      phone: entry.phone,
+    };
+    setPickerOpen(false);
+    await saveAddress(wp);
+  }, []);
 
   if (!user) {
     return (
@@ -368,12 +428,12 @@ export default function Cart() {
               <Text style={styles.addrName}>{[address.first_name, address.last_name].filter(Boolean).join(" ") || "Recipient"}</Text>
               <Text style={styles.addrLine}>{formatAddress(address)}</Text>
             </View>
-            <TouchableOpacity onPress={() => setFormOpen(true)} testID="cart-address-edit">
-              <Text style={styles.addrEdit}>Edit</Text>
+            <TouchableOpacity onPress={openAddressPicker} testID="cart-address-edit">
+              <Text style={styles.addrEdit}>Change</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.addrPrompt} onPress={() => setFormOpen(true)} testID="cart-address-add" activeOpacity={0.85}>
+          <TouchableOpacity style={styles.addrPrompt} onPress={openAddressPicker} testID="cart-address-add" activeOpacity={0.85}>
             <View style={styles.addrIcon}><Ionicons name="location-outline" size={18} color={colors.brand} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.addrName}>Add a shipping address</Text>
@@ -542,6 +602,16 @@ export default function Cart() {
         </TouchableOpacity>
       </View>
 
+      {/* v1.0.94 (Build #17a) — saved-address picker */}
+      <AddressPickerModal
+        visible={pickerOpen}
+        loading={savedLoading}
+        entries={savedAddresses || []}
+        onPick={pickSavedAddress}
+        onEnterNew={() => { setPickerOpen(false); setFormOpen(true); }}
+        onManage={() => { setPickerOpen(false); pushFromTab(router, "/(tabs)/(more)/me/addresses"); }}
+        onCancel={() => setPickerOpen(false)}
+      />
       <AddressFormModal visible={formOpen} initial={address} onCancel={() => setFormOpen(false)} onSave={saveAddress} />
     </SafeAreaView>
   );
@@ -556,6 +626,129 @@ function formatAddress(a: NestWpAddress): string {
 // Minimal local address form — collects the fields the backend needs to compute
 // real carrier rates. Persisted locally by the caller; not sent to the server
 // until a quote / checkout.
+// v1.0.94 (Build #17a) — saved-address picker modal. Renders a bottom
+// sheet listing entries from /me/addresses, with the default entry
+// pinned at the top. "Enter a new address" falls through to the
+// existing AddressFormModal; "Manage addresses" navigates to the full
+// CRUD screen at /(tabs)/(more)/me/addresses.
+function AddressPickerModal({
+  visible,
+  loading,
+  entries,
+  onPick,
+  onEnterNew,
+  onManage,
+  onCancel,
+}: {
+  visible: boolean;
+  loading: boolean;
+  entries: NestAddressBookEntry[];
+  onPick: (e: NestAddressBookEntry) => void;
+  onEnterNew: () => void;
+  onManage: () => void;
+  onCancel: () => void;
+}) {
+  const sorted = React.useMemo(
+    () => [...entries].sort((a, b) => (a.is_default === b.is_default ? 0 : a.is_default ? -1 : 1)),
+    [entries],
+  );
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onCancel}>
+      <View style={pickerStyles.backdrop}>
+        <View style={pickerStyles.sheet}>
+          <View style={pickerStyles.handle} />
+          <View style={pickerStyles.header}>
+            <Text style={pickerStyles.title}>Choose an address</Text>
+            <TouchableOpacity onPress={onCancel} accessibilityLabel="Close" testID="cart-picker-close">
+              <Ionicons name="close" size={22} color={colors.onSurface} />
+            </TouchableOpacity>
+          </View>
+          {loading ? (
+            <View style={{ paddingVertical: spacing.xl }}>
+              <ActivityIndicator color={colors.brand} />
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={{ paddingBottom: spacing.md }}>
+              {sorted.map((e) => {
+                const name = [e.first_name, e.last_name].filter(Boolean).join(" ") || e.label || "Recipient";
+                const line1 = [e.address_1, e.address_2].filter(Boolean).join(", ");
+                const line2 = `${e.city}, ${e.state} ${e.postcode}`;
+                return (
+                  <TouchableOpacity
+                    key={e.id}
+                    style={pickerStyles.row}
+                    onPress={() => onPick(e)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Ship to ${name} at ${line1}`}
+                    testID={`cart-picker-row-${e.id}`}
+                  >
+                    <View style={pickerStyles.rowIcon}>
+                      <Ionicons name="location" size={18} color={colors.brand} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <Text style={pickerStyles.rowLabel}>{e.label || "Address"}</Text>
+                        {e.is_default ? <Text style={pickerStyles.badge}>Default</Text> : null}
+                      </View>
+                      <Text style={pickerStyles.rowName}>{name}</Text>
+                      <Text style={pickerStyles.rowLine} numberOfLines={2}>{line1}</Text>
+                      <Text style={pickerStyles.rowLine}>{line2}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={pickerStyles.rowAction}
+                onPress={onEnterNew}
+                accessibilityRole="button"
+                accessibilityLabel="Enter a new address"
+                testID="cart-picker-new"
+              >
+                <View style={pickerStyles.rowIcon}>
+                  <Ionicons name="add" size={18} color={colors.brand} />
+                </View>
+                <Text style={pickerStyles.rowActionText}>Enter a new address</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={pickerStyles.rowAction}
+                onPress={onManage}
+                accessibilityRole="button"
+                accessibilityLabel="Manage saved addresses"
+                testID="cart-picker-manage"
+              >
+                <View style={pickerStyles.rowIcon}>
+                  <Ionicons name="settings-outline" size={18} color={colors.brand} />
+                </View>
+                <Text style={pickerStyles.rowActionText}>Manage saved addresses</Text>
+                <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const pickerStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "#0007", justifyContent: "flex-end" },
+  sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg, maxHeight: "80%" },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong, alignSelf: "center", marginBottom: spacing.sm },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
+  title: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  rowIcon: { width: 36, height: 36, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
+  rowLabel: { fontSize: 12, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5 },
+  badge: { fontSize: 10, fontWeight: "800", color: colors.brand, backgroundColor: colors.brand + "15", paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, overflow: "hidden" },
+  rowName: { fontSize: 15, fontWeight: "700", color: colors.onSurface, marginTop: 2 },
+  rowLine: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 1 },
+  rowAction: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  rowActionText: { flex: 1, fontSize: 15, fontWeight: "700", color: colors.brandDark },
+});
+
 function AddressFormModal({
   visible,
   initial,

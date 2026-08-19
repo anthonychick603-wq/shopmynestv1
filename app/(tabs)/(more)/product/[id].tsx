@@ -65,6 +65,13 @@ export default function ProductDetail() {
 
   useEffect(() => { load(); }, [load]);
 
+  // v1.0.94 (Build #18a) — track this view in the buyer's recently-viewed
+  // list. Best-effort: silently ignore failures (guest users, offline).
+  useEffect(() => {
+    if (!user || !id) return;
+    nest.trackRecentlyViewed(id).catch(() => { /* silent */ });
+  }, [user, id]);
+
   const price = product?.sale_price ?? product?.price ?? 0;
   const onSale = product?.sale_price != null && product.sale_price < (product.price ?? 0);
 

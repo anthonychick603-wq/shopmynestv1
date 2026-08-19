@@ -298,16 +298,33 @@ export const nest = {
   getFollowing: () => request<NestFollowedShop[]>("marketplace", "/following"),
   // v1.0.93 (Build #14) — buyer alert preferences. Currently the price-drop
   // opt-in toggle backing the switch on Favorites. Extend as needed.
-  getPreferences: () => request<{ price_drop_alerts: boolean }>("marketplace", "/me/preferences"),
-  setPreferences: (patch: { price_drop_alerts?: boolean }) =>
-    request<{ price_drop_alerts: boolean }>("marketplace", "/me/preferences", { method: "PUT", body: patch }),
+  // v3.7.121 (Build #17b) — push preferences center. All 5 categories
+  // are returned; older servers only return price_drop_alerts and the
+  // rest default to true on the client.
+  getPreferences: () => request<NestMePreferences>("marketplace", "/me/preferences"),
+  setPreferences: (patch: Partial<NestMePreferences>) =>
+    request<NestMePreferences>("marketplace", "/me/preferences", { method: "PUT", body: patch }),
   reportProduct: (id: number | string, reason: string, details: string) =>
     request<{ success: boolean; report_id: number }>("marketplace", `/products/${id}/report`, { method: "POST", body: { reason, details } }),
+
+  // v3.7.121 (Build #18a) — recently viewed. GET returns hydrated
+  // NestProductRaw rows; POST bumps a product to the front of the MRU
+  // list. Silent-fail is fine on the client — tracking is best-effort.
+  getRecentlyViewed: (limit = 20) =>
+    request<{ items: NestProductRaw[] }>("marketplace", "/me/recently-viewed", { query: { limit } }),
+  trackRecentlyViewed: (productId: number | string) =>
+    request<{ ok: boolean; count: number }>("marketplace", "/me/recently-viewed", { method: "POST", body: { product_id: Number(productId) } }),
+  clearRecentlyViewed: () =>
+    request<{ ok: boolean }>("marketplace", "/me/recently-viewed", { method: "DELETE" }),
 
   // Orders
   getBuyerOrders: (query?: Record<string, unknown>) =>
     request<{ orders: NestOrderRaw[]; page: number; total: number; total_pages: number }>("marketplace", "/orders", { query }),
   getBuyerOrder: (id: number | string) => request<NestOrderRaw>("marketplace", `/orders/${id}`),
+  // v3.7.121 (Build #16) — buyer-initiated cancel. 409 means the order is
+  // already shipped / paid / closed; 403 means the caller isn't the buyer.
+  cancelBuyerOrder: (id: number | string, reason?: string) =>
+    request<NestOrderRaw>("marketplace", `/orders/${id}/cancel`, { method: "POST", body: reason ? { reason } : {} }),
   getOrderRefund: (id: number | string) =>
     request<NestRefundStatus>("marketplace", `/orders/${id}/refund`),
   requestOrderRefund: (id: number | string, payload: { reason: string; details?: string }) =>
@@ -844,6 +861,15 @@ export type NestCouponWritePayload = {
 };
 
 // v3.7.119 (Build #11)
+// v3.7.121 (Build #17b) — buyer push preferences returned by /me/preferences.
+export type NestMePreferences = {
+  orders?: boolean;
+  messages?: boolean;
+  price_drop_alerts?: boolean;
+  follows?: boolean;
+  promos?: boolean;
+};
+
 export type NestAddressBookEntry = {
   id: string;
   label: string;
@@ -1099,6 +1125,17 @@ export type NestOrderRaw = {
   customer_note?: string;
   refund?: NestRefundStatus;
   reviewable?: { can_review: boolean; seller_ids: number[] };
+  // v3.7.121 (Build #16) — per-step timestamps for the order timeline.
+  // Fields go null when the corresponding step hasn't happened yet.
+  timeline?: {
+    placed: string | null;
+    paid: string | null;
+    shipped: string | null;
+    delivered: string | null;
+  };
+  // v3.7.121 (Build #16) — true only when the buyer can outright cancel
+  // (pending/on-hold, no shipments). Paid orders route to refund instead.
+  cancellable?: boolean;
 };
 
 export type NestOrderTrackingRow = {

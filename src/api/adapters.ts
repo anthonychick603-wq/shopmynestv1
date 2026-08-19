@@ -182,7 +182,12 @@ export function toOrder(o: NestOrderRaw): Order {
     contact_email: (o.billing as any)?.email,
     created_at: o.date_created,
     paid_at: o.date_paid,
+    // v3.7.121 (Build #16) — shipped_at is the earliest per-seller ship
+    // timestamp on the order (aggregate). Fall back to any tracking row
+    // shipped_at when the server hasn't been upgraded yet.
+    shipped_at: o.timeline?.shipped || (o.tracking || []).map((r) => r.shipped_at || "").filter(Boolean).sort()[0] || undefined,
     completed_at: o.date_completed,
+    cancellable: !!o.cancellable,
   };
 }
 
