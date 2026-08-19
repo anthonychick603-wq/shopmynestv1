@@ -171,9 +171,8 @@ export default function SellerDashboard() {
         {badge ? (
           <View style={{ marginBottom: spacing.lg }}>
             <SellerBadge badge={badge} proSeller={proSeller} />
-            {!proSeller ? (
-              <Text style={styles.proHint}>Pro Sellers get a reduced platform fee and priority placement. Managed from your web dashboard.</Text>
-            ) : null}
+            {/* v1.0.78 — Pro Seller upsell copy removed. Reduced platform fee is
+                not an active offer, so the badge stands on its own. */}
           </View>
         ) : null}
 
@@ -541,7 +540,6 @@ const styles = StyleSheet.create({
   prodMetaDot: { fontSize: 12, color: colors.onSurfaceMuted },
   prodMetaOos: { color: colors.error, fontWeight: "700" },
   prodMetaLow: { color: colors.warning, fontWeight: "700" },
-  proHint: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: spacing.sm },
   prodActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   iconBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
   actionGrid: {
