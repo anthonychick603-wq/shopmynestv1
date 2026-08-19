@@ -18,8 +18,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     // Best-effort log; a Sentry / Bugsnag hook can be wired in here later.
-    // eslint-disable-next-line no-console
-    console.warn("[ErrorBoundary]", error?.message, info?.componentStack?.slice(0, 500));
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn("[ErrorBoundary]", error?.message, info?.componentStack?.slice(0, 500));
+    }
   }
 
   reset = () => this.setState({ error: null });
