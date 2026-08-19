@@ -69,6 +69,13 @@ export default function Cart() {
   const [quotedShipping, setQuotedShipping] = React.useState<number | null>(null);
   // Set from create-intent when the server had to change the picked rate.
   const [shippingOverride, setShippingOverride] = React.useState<number | null>(null);
+  // v1.0.92 — coupon input. The typed value only becomes an applied code once
+  // the buyer taps Apply, so an accidental keystroke does not requote the cart.
+  const [couponInput, setCouponInput] = React.useState("");
+  const [appliedCoupon, setAppliedCoupon] = React.useState<string | null>(null);
+  const [couponDiscount, setCouponDiscount] = React.useState<number>(0);
+  const [couponFreeShipping, setCouponFreeShipping] = React.useState(false);
+  const [couponError, setCouponError] = React.useState<string | null>(null);
 
   const itemsForApi = React.useMemo(
     () =>
@@ -134,11 +141,29 @@ export default function Cart() {
     setDebugReason(null);
     setShippingOverride(null);
     nest
-      .quoteCheckout(itemsForApi, address)
+      .quoteCheckout(itemsForApi, address, appliedCoupon ?? undefined)
       .then((q) => {
         if (cancelled) return;
         setQuoteToken(q.quote_token ?? null);
         setQuotedShipping(typeof q.shipping === "number" ? q.shipping : null);
+        // Reflect the server's decision about the applied coupon (it may reject
+        // the code, e.g. minimum-not-met, expired, or a seller-scoped coupon
+        // against a cart with no matching items).
+        if (appliedCoupon && q.coupon) {
+          if (q.coupon.valid) {
+            setCouponDiscount(q.coupon.discount || 0);
+            setCouponFreeShipping(!!q.coupon.free_shipping);
+            setCouponError(null);
+          } else {
+            setCouponDiscount(0);
+            setCouponFreeShipping(false);
+            setCouponError(q.coupon.reason || "Coupon can't be applied.");
+          }
+        } else if (!appliedCoupon) {
+          setCouponDiscount(0);
+          setCouponFreeShipping(false);
+          setCouponError(null);
+        }
         // The backend sends `debug_reason` whenever it fell back to the flat
         // estimate (live rates unavailable / incomplete address), in which case
         // `shipping_rates` holds no real carrier choices. Treat a reason OR an
@@ -170,7 +195,7 @@ export default function Cart() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsSig captures item changes
-  }, [user, address, itemsSig]);
+  }, [user, address, itemsSig, appliedCoupon]);
 
   const saveAddress = async (a: NestWpAddress) => {
     setAddress(a);
@@ -211,7 +236,8 @@ export default function Cart() {
   else if (selectedRate) shippingAmount = selectedRate.amount;
   else if (address && ratesError) shippingAmount = quotedShipping ?? flatEstimate(cart.subtotal);
   else shippingAmount = null;
-  const displayTotal = cart.subtotal + (shippingAmount ?? 0);
+  const displayShipping = couponFreeShipping ? 0 : (shippingAmount ?? 0);
+  const displayTotal = Math.max(0, cart.subtotal - couponDiscount + displayShipping);
 
   let shippingRowLabel = "Shipping";
   let shippingRowValue: string;
@@ -241,6 +267,9 @@ export default function Cart() {
         shipping_method_id: selectedRateId ?? undefined,
         quote_token: quoteToken ?? undefined,
         checkout_token: checkoutTokenFor(`${itemsSig}|${addressSig}`),
+        // v1.0.92 — the server re-validates the code and only applies a
+        // discount if it's still redeemable, so a stale code is a no-op.
+        ...(appliedCoupon ? { coupon_code: appliedCoupon } : {}),
       });
 
       if (!intent.client_secret || !intent.publishable_key) {
@@ -425,9 +454,67 @@ export default function Cart() {
           </View>
         ) : null}
 
+        <View style={styles.couponCard}>
+          <Text style={styles.couponLabel}>Promo code</Text>
+          {appliedCoupon ? (
+            <View style={styles.couponAppliedRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.couponAppliedCode}>{appliedCoupon}</Text>
+                <Text style={styles.couponAppliedMeta}>
+                  {couponFreeShipping ? "Free shipping" : `-$${couponDiscount.toFixed(2)}`}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.tap();
+                  setAppliedCoupon(null);
+                  setCouponInput("");
+                  setCouponDiscount(0);
+                  setCouponFreeShipping(false);
+                  setCouponError(null);
+                  startNewCheckoutAttempt();
+                }}
+                accessibilityLabel="Remove coupon"
+                style={styles.couponRemoveBtn}
+              >
+                <Text style={styles.couponRemoveText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.couponInputRow}>
+              <TextInput
+                value={couponInput}
+                onChangeText={t => { setCouponInput(t); if (couponError) setCouponError(null); }}
+                placeholder="Enter code"
+                placeholderTextColor={colors.onSurfaceMuted}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                style={styles.couponInput}
+              />
+              <TouchableOpacity
+                onPress={() => {
+                  const code = couponInput.trim().toUpperCase();
+                  if (!code) return;
+                  haptics.press();
+                  setAppliedCoupon(code);
+                  startNewCheckoutAttempt();
+                }}
+                style={styles.couponApplyBtn}
+                accessibilityLabel="Apply coupon"
+              >
+                <Text style={styles.couponApplyText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {couponError ? <Text style={styles.couponError}>{couponError}</Text> : null}
+        </View>
+
         <View style={styles.summary}>
           <SummaryRow label="Subtotal" value={`$${cart.subtotal.toFixed(2)}`} />
-          <SummaryRow label={shippingRowLabel} value={shippingRowValue} />
+          {couponDiscount > 0 ? (
+            <SummaryRow label={`Discount${appliedCoupon ? ` (${appliedCoupon})` : ""}`} value={`-$${couponDiscount.toFixed(2)}`} />
+          ) : null}
+          <SummaryRow label={shippingRowLabel} value={couponFreeShipping ? "Free" : shippingRowValue} />
           <SummaryRow label="Tax" value="Calculated at checkout" />
           <View style={styles.divider} />
           <SummaryRow label="Estimated total" value={`$${displayTotal.toFixed(2)}`} bold />
@@ -613,6 +700,18 @@ const styles = StyleSheet.create({
   rateAmount: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
   rateFallback: { fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 18 },
   rateDebug: { fontSize: 10, color: colors.onSurfaceMuted, lineHeight: 14, marginTop: 4 },
+  couponCard: { marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, ...shadows.card },
+  couponLabel: { fontSize: 13, fontWeight: "700", color: colors.onSurface, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
+  couponInputRow: { flexDirection: "row", gap: 8 },
+  couponInput: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10, color: colors.onSurface, backgroundColor: colors.surface },
+  couponApplyBtn: { paddingHorizontal: 16, justifyContent: "center", backgroundColor: colors.brand, borderRadius: radius.sm },
+  couponApplyText: { color: colors.onBrand, fontWeight: "700" },
+  couponAppliedRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  couponAppliedCode: { fontSize: 15, fontWeight: "700", color: colors.onSurface },
+  couponAppliedMeta: { color: colors.success, marginTop: 2, fontWeight: "600" },
+  couponRemoveBtn: { paddingHorizontal: 12, paddingVertical: 8 },
+  couponRemoveText: { color: colors.onSurfaceMuted, fontWeight: "600" },
+  couponError: { color: colors.error, marginTop: 8 },
   summary: { marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, ...shadows.card },
   divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.sm },
   secure: { textAlign: "center", color: colors.onSurfaceMuted, marginTop: spacing.md, marginHorizontal: spacing.lg, fontSize: 12 },

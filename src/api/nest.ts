@@ -565,8 +565,8 @@ export const nest = {
   // Native Stripe PaymentSheet checkout (nest-native/v1).
   // Passing a destination address unlocks real live carrier rates (shipping_rates);
   // without one the server returns the historical flat estimate only.
-  quoteCheckout: (items: { product_id: number; quantity: number; variation_id?: number }[], shippingAddress: NestWpAddress | null) =>
-    request<NestQuoteRaw>("checkout", "/checkout/quote", { method: "POST", body: { items, shipping_address: shippingAddress } }),
+  quoteCheckout: (items: { product_id: number; quantity: number; variation_id?: number }[], shippingAddress: NestWpAddress | null, couponCode?: string) =>
+    request<NestQuoteRaw>("checkout", "/checkout/quote", { method: "POST", body: { items, shipping_address: shippingAddress, coupon_code: couponCode || undefined } }),
   // Creates the WC order + Stripe PaymentIntent (and Customer + ephemeral key)
   // straight from the current cart items. Returns everything PaymentSheet needs.
   // The server re-computes shipping from shipping_address + shipping_method_id and
@@ -582,12 +582,64 @@ export const nest = {
     // order already stamped with this token and reuses it (and its PaymentIntent)
     // instead of creating a duplicate.
     checkout_token?: string;
+    coupon_code?: string;
   }) =>
     request<NestPaymentIntentRaw>("checkout", "/checkout/create-intent", { method: "POST", body: payload, timeoutMs: 45000 }),
   // Best-effort confirmation after PaymentSheet succeeds. The Stripe webhook is
   // the source of truth, so callers should not block navigation on this.
   completeCheckout: (payload: { order_id: number; payment_intent_id: string }) =>
     request<{ ok: boolean; status?: string; order_id: number; payment_status?: string }>("checkout", "/checkout/complete", { method: "POST", body: payload }),
+
+  // v3.7.119 (Build #8) — save attributes + per-variation price/stock for a product.
+  saveProductVariations: (
+    productId: number | string,
+    payload: {
+      attributes: { name: string; options: string[] }[];
+      variations: { variation_id?: number; attributes: Record<string, string>; price: number; stock: number; sku?: string }[];
+    }
+  ) =>
+    request<{ attributes: NestProductAttributeRaw[]; variations: NestProductVariationRaw[]; warnings?: string[] }>(
+      "marketplace",
+      `/seller/products/${productId}/variations`,
+      { method: "PUT", body: payload }
+    ),
+
+  // v3.7.119 (Build #10) — coupons.
+  listSellerCoupons: () =>
+    request<{ items: NestCoupon[] }>("marketplace", "/seller/coupons"),
+  createSellerCoupon: (payload: NestCouponWritePayload) =>
+    request<NestCoupon>("marketplace", "/seller/coupons", { method: "POST", body: payload }),
+  updateSellerCoupon: (id: number, payload: NestCouponWritePayload) =>
+    request<NestCoupon>("marketplace", `/seller/coupons/${id}`, { method: "PUT", body: payload }),
+  deleteSellerCoupon: (id: number) =>
+    request<{ success: boolean }>("marketplace", `/seller/coupons/${id}`, { method: "DELETE" }),
+  listAdminCoupons: () =>
+    request<{ items: NestCoupon[] }>("marketplace", "/admin/coupons"),
+  createAdminCoupon: (payload: NestCouponWritePayload) =>
+    request<NestCoupon>("marketplace", "/admin/coupons", { method: "POST", body: payload }),
+  updateAdminCoupon: (id: number, payload: NestCouponWritePayload) =>
+    request<NestCoupon>("marketplace", `/admin/coupons/${id}`, { method: "PUT", body: payload }),
+  deleteAdminCoupon: (id: number) =>
+    request<{ success: boolean }>("marketplace", `/admin/coupons/${id}`, { method: "DELETE" }),
+  applyCoupon: (code: string, items: { product_id: number; quantity: number; variation_id?: number }[]) =>
+    request<{ coupon: NestCoupon; subtotal: number; eligible: number; discount: number; free_shipping: boolean }>(
+      "marketplace",
+      "/coupons/apply",
+      { method: "POST", body: { code, items } }
+    ),
+
+  // v3.7.119 (Build #9-lite) — product reviews list.
+  getProductReviews: (productId: number | string, query?: { page?: number; per_page?: number }) =>
+    request<NestSellerReviewsPage>("marketplace", `/products/${productId}/reviews`, { query: query || {} }),
+
+  // v3.7.119 (Build #11) — buyer address book (multi-address).
+  listAddressBook: () => request<{ items: NestAddressBookEntry[] }>("marketplace", "/me/addresses"),
+  createAddress: (payload: NestAddressBookWrite) =>
+    request<NestAddressBookEntry>("marketplace", "/me/addresses", { method: "POST", body: payload }),
+  updateAddress: (id: string, payload: NestAddressBookWrite) =>
+    request<NestAddressBookEntry>("marketplace", `/me/addresses/${id}`, { method: "PUT", body: payload }),
+  deleteAddress: (id: string) =>
+    request<{ success: boolean }>("marketplace", `/me/addresses/${id}`, { method: "DELETE" }),
 
   // -------------------------------------------------------------------------
   // Trust & Growth Suite (nest-trust/v1) — favorites, personalized feed,
@@ -735,6 +787,52 @@ export type NestSellerReviewsPage = {
   page: number;
   total_pages: number;
 };
+
+// v3.7.119 (Build #10)
+export type NestCouponScope = "seller" | "site";
+export type NestCouponDiscountType = "percent" | "fixed_cart" | "fixed_product";
+export type NestCoupon = {
+  id: number;
+  code: string;
+  discount_type: NestCouponDiscountType;
+  amount: number;
+  description: string;
+  minimum_amount: number;
+  usage_limit: number;
+  usage_count: number;
+  expires_at: string;
+  free_shipping: boolean;
+  seller_id: number;
+  scope: NestCouponScope;
+};
+export type NestCouponWritePayload = {
+  code: string;
+  discount_type: NestCouponDiscountType;
+  amount: number;
+  description?: string;
+  minimum_amount?: number;
+  usage_limit?: number;
+  expires_at?: string;
+  free_shipping?: boolean;
+};
+
+// v3.7.119 (Build #11)
+export type NestAddressBookEntry = {
+  id: string;
+  label: string;
+  first_name: string;
+  last_name: string;
+  company: string;
+  address_1: string;
+  address_2: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+  phone: string;
+  is_default: boolean;
+};
+export type NestAddressBookWrite = Partial<Omit<NestAddressBookEntry, "id">>;
 
 export type NestCategoryRaw = { id: number; name: string; slug: string; count?: number; parent?: number; image?: string };
 
@@ -1106,6 +1204,14 @@ export type NestQuoteRaw = {
   // Present when live rates failed and the flat estimate fallback was used;
   // a short diagnostic string for the site owner.
   debug_reason?: string;
+  // v3.7.119 (Build #10) — present when a coupon_code was supplied.
+  coupon?: {
+    code: string;
+    discount: number;
+    free_shipping: boolean;
+    valid: boolean;
+    reason: string;
+  };
 };
 
 export type NestPaymentIntentRaw = {

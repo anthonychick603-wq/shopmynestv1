@@ -137,6 +137,7 @@ export default function Account() {
           <Row icon="chatbubble-ellipses-outline" label="Messages" onPress={() => pushFromTab(router, "/messages")} testID="acc-messages" />
           <Row icon="heart-outline" label="Favorites" onPress={() => pushFromTab(router, "/favorites")} testID="acc-favorites" />
           <Row icon="notifications-circle-outline" label="Saved searches" onPress={() => pushFromTab(router, "/saved-searches")} testID="acc-saved-searches" />
+          <Row icon="home-outline" label="Address book" onPress={() => pushFromTab(router, "/me/addresses")} testID="acc-addresses" />
           <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} testID="acc-disputes" />
         </Section>
 
@@ -145,6 +146,7 @@ export default function Account() {
             <>
               <Row icon="storefront-outline" label="My Nest" onPress={() => pushFromTab(router, "/seller/dashboard")} testID="acc-seller-dashboard" />
               <Row icon="cube-outline" label="Add new product" onPress={() => pushFromTab(router, "/seller/product-form")} testID="acc-add-product" />
+              <Row icon="pricetag-outline" label="Coupons" onPress={() => pushFromTab(router, "/seller/coupons")} testID="acc-seller-coupons" />
               <Row icon="cloud-upload-outline" label="Import products from CSV" onPress={() => pushFromTab(router, "/seller/import")} testID="acc-import-products" />
             </>
           ) : user.seller_application_status === "pending" ? (
@@ -157,6 +159,7 @@ export default function Account() {
         {isAdmin ? (
           <Section title="Admin">
             <Row icon="settings-outline" label="Admin controls" onPress={() => pushFromTab(router, "/admin")} testID="acc-admin" />
+            <Row icon="pricetag-outline" label="Site-wide coupons" onPress={() => pushFromTab(router, "/admin/coupons")} testID="acc-admin-coupons" />
           </Section>
         ) : null}
 

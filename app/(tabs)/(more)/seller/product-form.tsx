@@ -327,6 +327,20 @@ export default function ProductForm() {
 
           <Button title={isEdit ? "Save changes" : "Create listing"} onPress={() => { haptics.press(); submit(); }} loading={busy} testID="pf-submit" style={{ marginTop: spacing.md }} />
 
+          {/* v1.0.92 (Build #8) — open the variations editor for saved listings. */}
+          {isEdit && id ? (
+            <TouchableOpacity
+              onPress={() => { haptics.tap(); router.push({ pathname: "/seller/product-variations", params: { id: String(id) } } as never); }}
+              style={styles.duplicateBtn}
+              testID="pf-variations"
+              accessibilityRole="button"
+              accessibilityLabel="Manage variations"
+            >
+              <Ionicons name="options-outline" size={18} color={colors.brand} />
+              <Text style={styles.duplicateBtnText}>Manage variations</Text>
+            </TouchableOpacity>
+          ) : null}
+
           {/* v1.0.64 (Build #3) — duplicate button. Only shown when editing an
               existing listing; creates a draft copy on the server and pushes
               the form for the new draft. */}
