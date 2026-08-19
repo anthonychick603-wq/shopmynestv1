@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -56,7 +56,8 @@ export default function NewDispute() {
         <Text style={styles.topTitle}>Open a dispute</Text>
         <View style={styles.topBtn} />
       </View>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         <View style={styles.infoCard}>
           <Ionicons name="shield-checkmark" size={20} color={colors.brand} />
           <Text style={styles.infoText}>Buyer protection holds the seller's payout while we review. Most issues resolve faster if you message the seller first.</Text>
@@ -94,6 +95,7 @@ export default function NewDispute() {
 
         <Button title="Submit dispute" onPress={() => { haptics.press(); submit(); }} loading={submitting} testID="dispute-submit" style={{ marginTop: spacing.lg }} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

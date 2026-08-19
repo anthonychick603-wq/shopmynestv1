@@ -10,7 +10,7 @@
  * (and short tagline), POST /seller/profile, then bounce back.
  */
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -68,6 +68,7 @@ export default function ShopSettings() {
         about: about.trim(),
       });
       setProfile(p);
+      haptics.success();
       toast.success("Shop settings saved");
       // Land the seller back on the dashboard so the readiness card
       // re-fetches with the new name marked complete.
@@ -93,6 +94,7 @@ export default function ShopSettings() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
         keyboardShouldPersistTaps="handled"
@@ -139,6 +141,7 @@ export default function ShopSettings() {
 
         <Button title="Save shop settings" onPress={() => { haptics.press(); save(); }} loading={saving} testID="shop-settings-save" />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

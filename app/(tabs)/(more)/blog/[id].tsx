@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
@@ -22,6 +21,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { BlogPostMenu } from "@/src/components/BlogPostMenu";
+import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
@@ -179,7 +179,7 @@ export default function BlogPostDetail() {
                 <View style={styles.postCard} testID={`blog-post-${post.id}`}>
                   <View style={styles.postHead}>
                     {post.author.profile_photo ? (
-                      <Image source={{ uri: post.author.profile_photo }} style={styles.postAvatar} />
+                      <AppImage source={{ uri: post.author.profile_photo }} style={styles.postAvatar} fallbackIcon="person-outline" />
                     ) : (
                       <View style={[styles.postAvatar, styles.avatarFallback]}>
                         <Ionicons name="person" size={16} color={colors.onSurface} />
@@ -200,7 +200,7 @@ export default function BlogPostDetail() {
                     />
                   </View>
                   {post.caption ? <Text style={styles.postCaption}>{stripHtml(post.caption)}</Text> : null}
-                  {post.image ? <Image source={{ uri: post.image }} style={styles.postImage} /> : null}
+                  {post.image ? <AppImage source={{ uri: post.image }} style={styles.postImage} fallbackIcon="image-outline" /> : null}
                   <View style={styles.commentsHeader}>
                     {/* v1.0.55 — heart on the blog detail screen mirrors the
                         Fresh from the Nest card. Only rendered when the user
@@ -288,7 +288,7 @@ function CommentRow({ comment }: { comment: NestBlogCommentRaw }) {
   return (
     <View style={styles.row} testID={`blog-comment-${comment.id}`}>
       {comment.author?.avatar ? (
-        <Image source={{ uri: comment.author.avatar }} style={styles.avatar} />
+        <AppImage source={{ uri: comment.author.avatar }} style={styles.avatar} fallbackIcon="person-outline" />
       ) : (
         <View style={[styles.avatar, styles.avatarFallback]}><Ionicons name="leaf" size={16} color={colors.brand} /></View>
       )}

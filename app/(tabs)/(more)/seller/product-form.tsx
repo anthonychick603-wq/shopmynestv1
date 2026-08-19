@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -219,9 +219,11 @@ export default function ProductForm() {
 
       if (isEdit && id) {
         await nest.updateProduct(id, payload);
+        haptics.success();
         toast.success("Listing updated");
       } else {
         await nest.createProduct(payload);
+        haptics.success();
         toast.success("Listing created");
       }
       safeBack(router, "/(tabs)/seller/dashboard");

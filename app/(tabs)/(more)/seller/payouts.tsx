@@ -55,9 +55,11 @@ export default function Payouts() {
         {
           text: "Request",
           onPress: async () => {
+            haptics.press();
             setBusy(true);
             try {
               await nest.requestPayout();
+              haptics.success();
               toast.success("Payout requested");
               await load();
             } catch (e) {

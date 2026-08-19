@@ -1,7 +1,6 @@
 import React from "react";
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -28,6 +27,7 @@ import { storage } from "@/src/utils/storage";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { CartSkeleton } from "@/src/components/CartSkeleton";
+import { AppImage } from "@/src/components/AppImage";
 
 // Where the buyer's destination address is persisted locally (reused across sessions).
 const SHIPPING_ADDRESS_KEY = "nest.checkout.shipping_address";
@@ -344,7 +344,7 @@ export default function Cart() {
 
         {cart.items.map((it, idx) => (
           <View key={`${it.product_id}-${idx}`} style={styles.item}>
-            <Image source={{ uri: it.product.images[0] }} style={styles.itemImg} />
+            <AppImage source={{ uri: it.product.images[0] }} style={styles.itemImg} fallbackIcon="image-outline" />
             <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
               <Text style={styles.itemTitle} numberOfLines={2}>{it.product.title}</Text>
               <Text style={styles.itemSeller}>by {it.product.seller?.name ?? "My Nest"}</Text>

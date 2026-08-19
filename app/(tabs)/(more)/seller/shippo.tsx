@@ -76,10 +76,12 @@ export default function SellerShippoConnect() {
           text: "Disconnect",
           style: "destructive",
           onPress: async () => {
+            haptics.warning();
             setDisconnecting(true);
             try {
               const res = await nest.disconnectShippo();
               setStatus(res.status);
+              haptics.success();
               toast.success("Shippo disconnected");
             } catch (e) {
               setError(e instanceof ApiError ? e.friendly : "Could not disconnect Shippo.");

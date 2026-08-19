@@ -69,10 +69,12 @@ export default function SellerListings() {
         {
           text: "Duplicate",
           onPress: async () => {
+            haptics.press();
             setDuplicatingId(p.id);
             try {
               const raw = await nest.duplicateProduct(p.id);
               const copy = toProduct(raw);
+              haptics.success();
               toast.success("Draft copy created");
               router.push(`/seller/product-form?id=${copy.id}`);
             } catch (e) {

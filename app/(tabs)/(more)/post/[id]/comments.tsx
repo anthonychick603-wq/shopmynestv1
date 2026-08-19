@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
@@ -20,6 +19,7 @@ import { nest, ApiError, type NestPostCommentRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
@@ -168,7 +168,7 @@ function CommentRow({ comment }: { comment: NestPostCommentRaw }) {
   return (
     <View style={styles.row} testID={`comment-${comment.id}`}>
       {comment.author?.avatar ? (
-        <Image source={{ uri: comment.author.avatar }} style={styles.avatar} />
+        <AppImage source={{ uri: comment.author.avatar }} style={styles.avatar} fallbackIcon="person-outline" />
       ) : (
         <View style={[styles.avatar, styles.avatarFallback]}><Ionicons name="leaf" size={16} color={colors.brand} /></View>
       )}
