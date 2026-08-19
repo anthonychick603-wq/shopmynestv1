@@ -1,5 +1,7 @@
-import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import type { NativeSyntheticEvent, TextLayoutEventData } from "react-native";
+import { haptics } from "@/src/utils/haptics";
 import { AppImage } from "@/src/components/AppImage";
 import { BlogPostMenu } from "@/src/components/BlogPostMenu";
 import { Ionicons } from "@expo/vector-icons";
@@ -40,6 +42,20 @@ export function BlogPostCard({
   onDeleted?: (id: string) => void;
 }) {
   const caption = stripHtml(post.caption);
+  // v1.0.84 — clamp caption to 4 lines, then reveal a "See more" toggle.
+  // We measure a hidden copy of the full caption once (onTextLayout) to know
+  // if the content actually overflows 4 lines. If it doesn't overflow, no
+  // toggle is rendered; if it does, tapping toggles between the clamped and
+  // expanded state. Wrapped in stopPropagation so the row's outer
+  // TouchableOpacity still opens the detail screen for taps elsewhere.
+  const [overflows, setOverflows] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [measured, setMeasured] = useState(false);
+  const onCaptionTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
+    if (measured) return;
+    setMeasured(true);
+    if ((e.nativeEvent.lines?.length ?? 0) > 4) setOverflows(true);
+  };
   return (
     <View style={styles.card} testID={`blog-card-${post.id}`}>
       <View style={styles.head}>
@@ -72,7 +88,40 @@ export function BlogPostCard({
         </View>
       </View>
 
-      {caption ? <Text style={styles.caption}>{caption}</Text> : null}
+      {caption ? (
+        <View>
+          {/* Hidden measurement copy: renders once, off-screen, to detect
+              whether the caption exceeds 4 lines. Not shown to the user. */}
+          {!measured ? (
+            <Text
+              style={[styles.caption, styles.captionMeasure]}
+              onTextLayout={onCaptionTextLayout}
+              accessible={false}
+              importantForAccessibility="no"
+              pointerEvents="none"
+            >
+              {caption}
+            </Text>
+          ) : null}
+          <Text
+            style={styles.caption}
+            numberOfLines={overflows && !expanded ? 4 : undefined}
+          >
+            {caption}
+          </Text>
+          {overflows ? (
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation?.(); haptics.tap(); setExpanded((v) => !v); }}
+              hitSlop={8}
+              testID={`blog-card-toggle-${post.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={expanded ? "Collapse post" : "Show full post"}
+            >
+              <Text style={styles.seeMore}>{expanded ? "See less" : "See more"}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
       {post.image ? <AppImage source={{ uri: post.image }} style={styles.image} fallbackIcon="image-outline" /> : null}
       {/* v1.0.54 - surface the comment count so buyers can see there's a
           conversation on this post. Tapping the card takes them to the
@@ -142,6 +191,8 @@ const styles = StyleSheet.create({
   statusPill: { backgroundColor: colors.yellow, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
   statusText: { fontSize: 10, fontWeight: "800", color: colors.onBrand, letterSpacing: 0.5 },
   caption: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
+  captionMeasure: { position: "absolute", opacity: 0, left: 0, right: 0, top: 0 },
+  seeMore: { fontSize: 13, color: colors.brand, fontWeight: "700", marginTop: 6 },
   image: { width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, marginTop: spacing.md },
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   metaGroup: { flexDirection: "row", alignItems: "center", gap: spacing.md },
