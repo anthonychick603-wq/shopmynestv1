@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import { nest, type NestSellerListItem } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { AppImage } from "@/src/components/AppImage";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
 import { shareSeller } from "@/src/utils/share";
@@ -74,7 +75,7 @@ export default function AllShops() {
                 <Ionicons name="share-outline" size={16} color={colors.onSurface} />
               </TouchableOpacity>
               {item.avatar ? (
-                <Image source={{ uri: item.avatar }} style={styles.avatar} />
+                <AppImage source={{ uri: item.avatar }} style={styles.avatar} fallbackIcon="storefront-outline" />
               ) : (
                 <View style={[styles.avatar, styles.avatarPh]}>
                   <Ionicons name="storefront-outline" size={28} color={colors.onSurfaceMuted} />

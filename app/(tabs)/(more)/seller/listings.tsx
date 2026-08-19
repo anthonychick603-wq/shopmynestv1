@@ -11,6 +11,7 @@ import type { Product } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
+import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
@@ -113,7 +114,7 @@ export default function SellerListings() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); edit(item); }} activeOpacity={0.85} testID={`listing-${item.id}`} accessibilityRole="button" accessibilityLabel={`Edit ${decodeEntities(item.title)}`}>
-              <Image source={{ uri: item.images?.[0] }} style={styles.rowImg} />
+              <AppImage source={{ uri: item.images?.[0] }} style={styles.rowImg} fallbackIcon="pricetag-outline" />
               <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{decodeEntities(item.title)}</Text>
                 <Text style={styles.rowMeta}>Stock: {item.stock} · ${item.price.toFixed(2)}</Text>

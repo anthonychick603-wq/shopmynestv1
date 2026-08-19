@@ -13,6 +13,7 @@ import type { Category, Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { EmptyState } from "@/src/components/EmptyState";
+import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
@@ -300,7 +301,7 @@ export default function Browse() {
                 testID={`shop-${s.id}`}
               >
                 {s.avatar ? (
-                  <Image source={{ uri: s.avatar }} style={styles.shopAvatar} />
+                  <AppImage source={{ uri: s.avatar }} style={styles.shopAvatar} fallbackIcon="storefront-outline" />
                 ) : (
                   <View style={[styles.shopAvatar, styles.shopAvatarPlaceholder]}>
                     <Ionicons name="storefront-outline" size={22} color={colors.onSurfaceMuted} />

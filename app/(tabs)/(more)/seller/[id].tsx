@@ -20,6 +20,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { shareSeller } from "@/src/utils/share";
@@ -119,7 +120,7 @@ export default function SellerProfile() {
             <View style={styles.header}>
               <View style={styles.profileRow}>
                 {seller?.avatar ? (
-                  <Image source={{ uri: seller.avatar }} style={styles.avatar} />
+                  <AppImage source={{ uri: seller.avatar }} style={styles.avatar} fallbackIcon="storefront-outline" />
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback]}><Ionicons name="leaf" size={28} color={colors.brand} /></View>
                 )}
@@ -228,7 +229,7 @@ function ReviewRow({ row }: { row: NestSellerReviewRaw }) {
     <View style={reviewStyles.card}>
       <View style={reviewStyles.headerRow}>
         {row.reviewer?.avatar ? (
-          <Image source={{ uri: row.reviewer.avatar }} style={reviewStyles.avatar} />
+          <AppImage source={{ uri: row.reviewer.avatar }} style={reviewStyles.avatar} fallbackIcon="person-outline" />
         ) : (
           <View style={[reviewStyles.avatar, reviewStyles.avatarFallback]}><Ionicons name="person" size={16} color={colors.onSurfaceMuted} /></View>
         )}

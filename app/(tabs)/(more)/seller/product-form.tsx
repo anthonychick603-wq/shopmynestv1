@@ -14,6 +14,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
@@ -271,7 +272,7 @@ export default function ProductForm() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.photo} onPress={() => { haptics.tap(); pickImage(); }} testID="pf-photo" accessibilityRole="button" accessibilityLabel="Pick product photo">
             {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.photoImg} />
+              <AppImage source={{ uri: imageUrl }} style={styles.photoImg} fallbackIcon="image-outline" />
             ) : (
               <View style={styles.photoEmpty}>
                 <Ionicons name="camera-outline" size={28} color={colors.onSurfaceMuted} />

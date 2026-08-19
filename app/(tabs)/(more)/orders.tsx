@@ -12,6 +12,7 @@ import type { Order } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AppImage } from "@/src/components/AppImage";
+import { OrderListSkeleton } from "@/src/components/OrderListSkeleton";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -44,7 +45,7 @@ export default function Orders() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top onBack={() => safeBack(router, "/(tabs)/account")} />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><ActivityIndicator color={colors.brand} /></View>
+        <OrderListSkeleton count={4} />
       </SafeAreaView>
     );
   }

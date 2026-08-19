@@ -8,6 +8,7 @@ import { nest, type NestSellerReviewRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { EmptyState } from "@/src/components/EmptyState";
+import { AppImage } from "@/src/components/AppImage";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -116,7 +117,7 @@ function ReviewRow({ row }: { row: NestSellerReviewRaw }) {
     <View style={reviewStyles.card}>
       <View style={reviewStyles.headerRow}>
         {row.reviewer?.avatar ? (
-          <Image source={{ uri: row.reviewer.avatar }} style={reviewStyles.avatar} />
+          <AppImage source={{ uri: row.reviewer.avatar }} style={reviewStyles.avatar} fallbackIcon="person-outline" />
         ) : (
           <View style={[reviewStyles.avatar, reviewStyles.avatarFallback]}><Ionicons name="person" size={18} color={colors.onSurfaceMuted} /></View>
         )}

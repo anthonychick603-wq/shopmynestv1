@@ -10,6 +10,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
+import { BlogPostSkeleton } from "@/src/components/BlogPostSkeleton";
 import { BlogPostCard } from "@/src/components/BlogPostCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
@@ -101,7 +102,7 @@ export default function Favorites() {
             </TouchableOpacity>
           </View>
           {loading ? (
-            tab === "items" ? <ProductGridSkeleton count={4} /> : <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+            tab === "items" ? <ProductGridSkeleton count={4} /> : <BlogPostSkeleton count={3} />
           ) : tab === "items" ? (
             <FlatList
               data={items}

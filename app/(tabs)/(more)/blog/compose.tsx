@@ -11,6 +11,7 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
+import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 
@@ -102,7 +103,7 @@ export default function BlogComposer() {
 
           <TouchableOpacity style={styles.photo} onPress={pickImage} testID="blog-compose-photo">
             {localImage ? (
-              <Image source={{ uri: localImage.uri }} style={styles.photoImg} />
+              <AppImage source={{ uri: localImage.uri }} style={styles.photoImg} fallbackIcon="image-outline" />
             ) : (
               <View style={styles.photoEmpty}>
                 <Ionicons name="image-outline" size={26} color={colors.onSurfaceMuted} />

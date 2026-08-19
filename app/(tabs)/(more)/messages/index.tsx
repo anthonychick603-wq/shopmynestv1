@@ -7,6 +7,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { nest, type NestConversationRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { AppImage } from "@/src/components/AppImage";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
@@ -105,7 +106,7 @@ export default function MessagesInbox() {
                 testID={`msg-row-${item.user.id}`}
               >
                 {item.user.avatar ? (
-                  <Image source={{ uri: item.user.avatar }} style={styles.avatar} />
+                  <AppImage source={{ uri: item.user.avatar }} style={styles.avatar} fallbackIcon="person-outline" />
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback]}><Ionicons name="leaf" size={22} color={colors.brand} /></View>
                 )}

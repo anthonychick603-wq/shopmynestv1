@@ -14,6 +14,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AppImage } from "@/src/components/AppImage";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
@@ -108,7 +109,7 @@ export default function Account() {
             testID="acc-change-avatar"
           >
             {user.profile_photo ? (
-              <Image source={{ uri: user.profile_photo }} style={styles.avatarLarge} />
+              <AppImage source={{ uri: user.profile_photo }} style={styles.avatarLarge} fallbackIcon="person-outline" />
             ) : (
               <View style={styles.avatarLarge}>
                 <Ionicons name="person" size={40} color={colors.brand} />
