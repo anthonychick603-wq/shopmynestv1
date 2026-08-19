@@ -256,7 +256,7 @@ export default function Browse() {
         <View style={styles.recentBlock}>
           <View style={styles.recentHeader}>
             <Text style={styles.recentTitle}>Recent searches</Text>
-            <TouchableOpacity onPress={() => { clearRecentSearches().then(() => setRecent([])); }} testID="recent-clear">
+            <TouchableOpacity onPress={() => { clearRecentSearches().then(() => setRecent([])); }} testID="recent-clear" accessibilityRole="button" accessibilityLabel="Clear recent searches">
               <Text style={styles.recentClear}>Clear</Text>
             </TouchableOpacity>
           </View>
@@ -265,6 +265,8 @@ export default function Browse() {
               <TouchableOpacity
                 key={q}
                 style={styles.recentChip}
+                accessibilityRole="button"
+                accessibilityLabel={`Search for ${q}`}
                 onPress={() => { setSearch(q); commitSearch(q); }}
                 testID={`recent-${q}`}
               >
@@ -293,7 +295,7 @@ export default function Browse() {
         <View style={styles.shopsBlock}>
           <View style={styles.shopsHeader}>
             <Text style={styles.shopsTitle}>Discover shops</Text>
-            <TouchableOpacity onPress={() => pushFromTab(router, "/(tabs)/(more)/shops")} testID="shops-see-all">
+            <TouchableOpacity onPress={() => pushFromTab(router, "/(tabs)/(more)/shops")} testID="shops-see-all" accessibilityRole="button" accessibilityLabel="See all shops">
               <Text style={styles.shopsSeeAll}>See all</Text>
             </TouchableOpacity>
           </View>
@@ -302,6 +304,8 @@ export default function Browse() {
               <TouchableOpacity
                 key={s.id}
                 style={styles.shopCard}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${s.store_name || s.display_name || "shop"}`}
                 onPress={() => pushFromTab(router, `/(tabs)/(more)/seller/${s.id}`)}
                 testID={`shop-${s.id}`}
               >
@@ -326,7 +330,7 @@ export default function Browse() {
         <Text style={styles.count}>{total} items</Text>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           {hasAnyCriteria ? (
-            <TouchableOpacity style={[styles.controlBtn, styles.saveAlertBtn]} onPress={onSaveAlert} disabled={savingAlert} testID="btn-save-alert">
+            <TouchableOpacity style={[styles.controlBtn, styles.saveAlertBtn]} onPress={onSaveAlert} disabled={savingAlert} testID="btn-save-alert" accessibilityRole="button" accessibilityLabel={savingAlert ? "Saving alert" : "Save search as alert"}>
               <Ionicons name={savingAlert ? "hourglass-outline" : "notifications-outline"} size={16} color={colors.onBrand} />
               <Text style={[styles.controlText, { color: colors.onBrand }]}>{savingAlert ? "Saving…" : "Save alert"}</Text>
             </TouchableOpacity>
@@ -374,11 +378,11 @@ export default function Browse() {
       )}
 
       <Modal visible={sortOpen} transparent animationType="fade" onRequestClose={() => setSortOpen(false)}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setSortOpen(false)}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setSortOpen(false)} accessibilityRole="button" accessibilityLabel="Close sort options">
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>Sort by</Text>
             {(Object.keys(SORT_LABEL) as SortKey[]).map((k) => (
-              <TouchableOpacity key={k} onPress={() => { haptics.tap(); setSort(k); setSortOpen(false); }} style={styles.sortRow} testID={`sort-${k || 'newest'}`}>
+              <TouchableOpacity key={k} onPress={() => { haptics.tap(); setSort(k); setSortOpen(false); }} style={styles.sortRow} testID={`sort-${k || 'newest'}`} accessibilityRole="button" accessibilityLabel={`Sort by ${SORT_LABEL[k]}${sort === k ? ", selected" : ""}`}>
                 <Text style={{ color: colors.onSurface, fontSize: 15 }}>{SORT_LABEL[k]}</Text>
                 {sort === k ? <Ionicons name="checkmark" size={20} color={colors.brand} /> : null}
               </TouchableOpacity>
@@ -388,7 +392,7 @@ export default function Browse() {
       </Modal>
 
       <Modal visible={filterOpen} transparent animationType="fade" onRequestClose={() => setFilterOpen(false)}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setFilterOpen(false)}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setFilterOpen(false)} accessibilityRole="button" accessibilityLabel="Close filters">
           <ScrollView style={styles.sheet} contentContainerStyle={{ paddingBottom: spacing.md }} onStartShouldSetResponder={() => true}>
             <Text style={styles.sheetTitle}>Filters</Text>
 
@@ -401,6 +405,8 @@ export default function Browse() {
                     key={t.slug}
                     onPress={() => { haptics.tap(); setCondition(selected ? undefined : t.slug); }}
                     style={[styles.attrChip, selected && styles.attrChipSelected]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Condition: ${t.label}${selected ? ", selected" : ""}`}
                     testID={`filter-condition-${t.slug}`}
                   >
                     <Text style={[styles.attrChipText, selected && { color: colors.onBrand }]}>{t.label}</Text>
@@ -431,7 +437,13 @@ export default function Browse() {
 
 function CategoryChip({ label, selected, onPress, testID }: { label: string; selected: boolean; onPress: () => void; testID?: string }) {
   return (
-    <TouchableOpacity onPress={onPress} testID={testID} style={[styles.chip, selected && styles.chipSelected]}>
+    <TouchableOpacity
+      onPress={onPress}
+      testID={testID}
+      style={[styles.chip, selected && styles.chipSelected]}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} category${selected ? ", selected" : ""}`}
+    >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </TouchableOpacity>
   );

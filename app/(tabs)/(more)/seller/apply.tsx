@@ -30,16 +30,22 @@ export default function ApplySeller() {
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // v1.0.95 — cancel guard so quickly backing out of the apply screen
+  // doesn't setState on an unmounted tree.
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const [s, cs] = await Promise.all([nest.getSellerApplicationStatus(), nest.getCategories()]);
+        if (cancelled) return;
         setStatus(s.status || "none");
         setCategories(cs.map(toCategory));
       } catch {
+        if (cancelled) return;
         setStatus("none");
       }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const submit = async () => {

@@ -34,7 +34,11 @@ export default function RecentlyViewedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [clearing, setClearing] = useState(false);
 
+  // v1.0.95 — signed-out users used to hit /me/recently-viewed and get a
+  // 401 toast on mount. Gate the fetch on `user` and render the same auth-
+  // required empty state that favorites.tsx uses.
   const load = useCallback(async () => {
+    if (!user) { setLoading(false); setRefreshing(false); return; }
     try {
       const res = await nest.getRecentlyViewed(20);
       setItems((res.items || []).map(toProduct));
@@ -44,7 +48,7 @@ export default function RecentlyViewedScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -100,7 +104,18 @@ export default function RecentlyViewedScreen() {
           <CartHeaderButton />
         </View>
       </View>
-      {loading ? (
+      {!user ? (
+        <View style={{ flex: 1, padding: spacing.lg }}>
+          {/* v1.0.95 — auth-required state; matches favorites.tsx pattern. */}
+          <EmptyState
+            icon="person-outline"
+            title="Sign in to see recently viewed"
+            message="We keep your last 20 products so you can pick up where you left off."
+            actionLabel="Sign in"
+            onAction={() => router.push("/(auth)/login")}
+          />
+        </View>
+      ) : loading ? (
         <View style={{ padding: spacing.lg }}>
           <ProductGridSkeleton count={6} />
         </View>

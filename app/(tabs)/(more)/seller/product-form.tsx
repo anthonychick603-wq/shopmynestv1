@@ -84,13 +84,19 @@ export default function ProductForm() {
     return map;
   }, [categories]);
 
+  // v1.0.95 — cancel guard: quickly navigating away from the edit form
+  // used to fire setState after unmount when the product/shipping fetches
+  // resolved.
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const cs = await nest.getCategories().catch(() => []);
+        if (cancelled) return;
         setCategories(cs.map(toCategory));
         if (isEdit && id) {
           const p = await nest.getProduct(id);
+          if (cancelled) return;
           setTitle(p.name ? decode(p.name) : "");
           setDescription(p.description || p.short_description || "");
           setPrice(p.price != null ? String(p.price) : "");
@@ -100,6 +106,7 @@ export default function ProductForm() {
           // Pre-fill the size selector + dimensions from stored shipping meta so an
           // edit reflects (and re-sends) the product's real package size.
           const ship = await nest.getProductShipping(id).then((r) => r.shipping).catch(() => null);
+          if (cancelled) return;
           if (ship) {
             setPackageSize(ship.package_size);
             if (ship.weight_oz) setWeightOz(ship.weight_oz);
@@ -109,14 +116,16 @@ export default function ProductForm() {
           }
         }
       } catch (e) {
+        if (cancelled) return;
         // Without this the rejection was unhandled and the user was left on an
         // "Edit listing" form with every field blank.
         toast.error(e instanceof ApiError ? e.friendly : "Could not load this listing.");
         safeBack(router, "/(tabs)/seller/dashboard");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable
   }, [id, isEdit]);
 
@@ -125,16 +134,20 @@ export default function ProductForm() {
   // gate unknown and defers to the re-check inside submit().
   useEffect(() => {
     if (isEdit) return;
+    let cancelled = false;
     (async () => {
       try {
         const s = await nest.getStripeConnectStatus();
+        if (cancelled) return;
         setPayoutsEnabled(s.payouts_enabled);
       } catch {
+        if (cancelled) return;
         setPayoutsEnabled(null);
       } finally {
-        setGateChecking(false);
+        if (!cancelled) setGateChecking(false);
       }
     })();
+    return () => { cancelled = true; };
   }, [isEdit]);
 
   const pickImage = async () => {

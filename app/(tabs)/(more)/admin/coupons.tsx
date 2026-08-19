@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { nest, ApiError, type NestCoupon } from "@/src/api/nest";
 import { colors, radius, spacing } from "@/src/theme";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { Fab } from "@/src/components/Fab";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
@@ -102,13 +103,11 @@ export default function AdminCouponsScreen() {
         />
       )}
 
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 24 + insets.bottom }]}
-        onPress={() => { haptics.tap(); router.push({ pathname: "/seller/coupon-edit", params: { scope: "admin" } } as never); }}
+      {/* v1.0.95 — shared <Fab /> replaces the local duplicated fab style. */}
+      <Fab
+        onPress={() => router.push({ pathname: "/seller/coupon-edit", params: { scope: "admin" } } as never)}
         accessibilityLabel="New coupon"
-      >
-        <Ionicons name="add" size={26} color={colors.onBrand} />
-      </TouchableOpacity>
+      />
     </SafeAreaView>
   );
 }
@@ -122,5 +121,4 @@ const styles = StyleSheet.create({
   card: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm },
   code: { fontSize: 16, fontWeight: "700", color: colors.onSurface },
   meta: { color: colors.onSurfaceMuted, marginTop: 2 },
-  fab: { position: "absolute", right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 3 },
 });

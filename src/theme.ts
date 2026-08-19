@@ -31,6 +31,27 @@ export const spacing = {
 
 export const radius = { sm: 8, md: 16, lg: 24, pill: 999 } as const;
 
+// v1.0.95 — shared status color language across pills, badges, and cards.
+// Historically StatusPill and RefundStatusCard picked slightly different
+// amber/red tones for the same conceptual state, so a buyer looking at
+// their order screen saw a "pending" pill in one hue next to a "requested"
+// refund badge in another. Consuming these tokens keeps status semantics
+// visually consistent everywhere.
+export const statusPalette = {
+  // Waiting for the platform / seller / buyer to take an action.
+  waiting:  { bg: "#FFEED9", fg: "#8A4B10" },
+  // In motion — shipped, in transit, or being processed by a third party.
+  inMotion: { bg: "#E7EEF7", fg: "#2F5AA3" },
+  // Terminal success — delivered, paid, refund completed.
+  done:     { bg: "#DFF3E3", fg: "#2A6B3A" },
+  // Terminal failure or negative outcome — cancelled, denied, refunded.
+  error:    { bg: "#F8D7DA", fg: "#8B2E36" },
+  // Neutral fallback when no other state matches.
+  neutral:  { bg: "#F1EEE7", fg: "#6B6558" },
+} as const;
+
+export type StatusTone = keyof typeof statusPalette;
+
 export const shadows = {
   card: {
     shadowColor: "#3E2723",

@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { nest, ApiError, type NestAddressBookEntry } from "@/src/api/nest";
 import { colors, radius, spacing } from "@/src/theme";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { Fab } from "@/src/components/Fab";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
@@ -103,13 +104,11 @@ export default function AddressBookScreen() {
         />
       )}
 
-      <TouchableOpacity
-        style={[styles.fab, { bottom: 24 + insets.bottom }]}
-        onPress={() => { haptics.tap(); router.push("/me/address-edit" as never); }}
+      {/* v1.0.95 — shared <Fab /> replaces the local duplicated fab style. */}
+      <Fab
+        onPress={() => router.push("/me/address-edit" as never)}
         accessibilityLabel="New address"
-      >
-        <Ionicons name="add" size={26} color={colors.onBrand} />
-      </TouchableOpacity>
+      />
     </SafeAreaView>
   );
 }
@@ -125,5 +124,4 @@ const styles = StyleSheet.create({
   label: { fontSize: 16, fontWeight: "700", color: colors.onSurface },
   badge: { color: colors.brand, fontSize: 12, fontWeight: "600", backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   line: { color: colors.onSurfaceMuted, marginTop: 2 },
-  fab: { position: "absolute", right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 3 },
 });

@@ -31,7 +31,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 
 import { nest, ApiError, type NestRefundStatus, type NestRefundState } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, shadows, spacing, statusPalette } from "@/src/theme";
 import { Input } from "@/src/components/Input";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
@@ -51,15 +51,18 @@ const REASONS: { key: string; label: string }[] = [
   { key: "other", label: "Something else" },
 ];
 
+// v1.0.95 — refund badge tone now comes from the shared statusPalette so
+// this badge and the order-status pill next to it read as the same color
+// language (waiting/inMotion/done/error/neutral).
 function badgeColorFor(state: NestRefundState): { bg: string; fg: string; icon: keyof typeof Ionicons.glyphMap } {
   switch (state) {
-    case "requested":  return { bg: "#FFF4E5", fg: "#8A4B00", icon: "time-outline" };
-    case "approved":   return { bg: "#E8F1FF", fg: "#1F4EA1", icon: "checkmark-circle-outline" };
-    case "processing": return { bg: "#E8F1FF", fg: "#1F4EA1", icon: "sync-outline" };
-    case "completed":  return { bg: "#E8F6EC", fg: "#1D6F3C", icon: "checkmark-done-outline" };
-    case "denied":     return { bg: "#FCE8E8", fg: "#8A1F1F", icon: "close-circle-outline" };
+    case "requested":  return { ...statusPalette.waiting,  icon: "time-outline" };
+    case "approved":   return { ...statusPalette.inMotion, icon: "checkmark-circle-outline" };
+    case "processing": return { ...statusPalette.inMotion, icon: "sync-outline" };
+    case "completed":  return { ...statusPalette.done,     icon: "checkmark-done-outline" };
+    case "denied":     return { ...statusPalette.error,    icon: "close-circle-outline" };
     case "none":
-    default:           return { bg: "#F1EEE7", fg: "#6B6558", icon: "receipt-outline" };
+    default:           return { ...statusPalette.neutral,  icon: "receipt-outline" };
   }
 }
 

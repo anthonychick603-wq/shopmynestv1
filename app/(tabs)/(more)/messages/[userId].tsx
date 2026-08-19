@@ -192,15 +192,22 @@ export default function MessageThread() {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  // v1.0.95 — cancel guard so backing out mid-fetch doesn't setState on
+  // an unmounted conversation.
+  const cancelRef = useRef({ cancelled: false });
+  useEffect(() => () => { cancelRef.current.cancelled = true; }, []);
+
   const load = useCallback(async () => {
     if (!user || !otherId) return;
     try {
       const rows = await nest.getConversation(otherId, 200);
+      if (cancelRef.current.cancelled) return;
       setMessages(Array.isArray(rows) ? rows : []);
     } catch (e: any) {
+      if (cancelRef.current.cancelled) return;
       toast.error(e?.friendly || "Could not load conversation.");
     } finally {
-      setLoading(false);
+      if (!cancelRef.current.cancelled) setLoading(false);
     }
   }, [user, otherId]);
 
