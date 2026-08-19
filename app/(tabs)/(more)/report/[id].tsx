@@ -32,13 +32,16 @@ export default function ReportItem() {
   const [busy, setBusy] = useState(false);
 
   const isBlog = type === "blog_post";
-  const headerTitle = isBlog ? "Report post" : "Report item";
+  const isBlogComment = type === "blog_comment";
+  const headerTitle = isBlogComment ? "Report comment" : isBlog ? "Report post" : "Report item";
 
   const submit = async () => {
     if (!reason) return toast.error("Please choose a reason");
     setBusy(true);
     try {
-      if (isBlog) {
+      if (isBlogComment) {
+        await nest.reportBlogComment(id!, reason, details);
+      } else if (isBlog) {
         await nest.reportBlogPost(id!, reason, details);
       } else {
         await nest.reportProduct(id!, reason, details);

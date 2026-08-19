@@ -238,6 +238,16 @@ export const nest = {
       method: "POST",
       body: { content },
     }),
+  // v1.0.81 — blog comment edit / delete / report (added server-side in MNU 3.7.112)
+  updateBlogComment: (id: number | string, content: string) =>
+    request<NestBlogCommentRaw>("marketplace", `/blog/comments/${id}`, {
+      method: "PUT",
+      body: { content },
+    }),
+  deleteBlogComment: (id: number | string) =>
+    request<{ success: boolean; id: number }>("marketplace", `/blog/comments/${id}`, { method: "DELETE" }),
+  reportBlogComment: (id: number | string, reason: string, details: string) =>
+    request<{ success: boolean; report_id: number }>("marketplace", `/blog/comments/${id}/report`, { method: "POST", body: { reason, details } }),
   // v1.0.55 — blog post favorites (added server-side in MNU 3.7.98). Mirrors
   // the trust-suite product favorites shape so the mobile FavoritesContext
   // can hold both sets in the same way.

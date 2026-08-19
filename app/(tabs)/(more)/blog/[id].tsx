@@ -21,6 +21,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { BlogPostMenu } from "@/src/components/BlogPostMenu";
+import { BlogCommentMenu } from "@/src/components/BlogCommentMenu";
 import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
@@ -80,6 +81,9 @@ export default function BlogPostDetail() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  // v1.0.81 — when set, the composer becomes an edit-in-place field targeting
+  // the given comment id. Cancel resets it back to a new-comment composer.
+  const [editingId, setEditingId] = useState<string | number | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -116,16 +120,44 @@ export default function BlogPostDetail() {
     if (content.length > MAX_LENGTH) return toast.error(`Comments can be up to ${MAX_LENGTH} characters.`);
     setSending(true);
     try {
-      const created = await nest.createBlogPostComment(id!, content);
-      setComments((prev) => [...prev, created]);
-      setDraft("");
-      toast.success("Comment posted");
+      if (editingId !== null) {
+        const updated = await nest.updateBlogComment(editingId, content);
+        setComments((prev) => prev.map((c) => (String(c.id) === String(editingId) ? updated : c)));
+        setEditingId(null);
+        setDraft("");
+        toast.success("Comment updated");
+      } else {
+        const created = await nest.createBlogPostComment(id!, content);
+        setComments((prev) => [...prev, created]);
+        setDraft("");
+        toast.success("Comment posted");
+      }
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.friendly : "Could not post your comment.");
+      toast.error(e instanceof ApiError ? e.friendly : editingId !== null ? "Could not update your comment." : "Could not post your comment.");
     } finally {
       setSending(false);
     }
   };
+
+  // v1.0.81 — menu callbacks. Edit swaps the composer into edit mode with
+  // the current text pre-filled. Delete removes the row locally after the
+  // server confirms it (BlogCommentMenu handles the network + toast).
+  const startEditComment = useCallback((commentId: string | number, current: string) => {
+    setEditingId(commentId);
+    setDraft(current);
+  }, []);
+  const cancelEdit = () => {
+    haptics.tap();
+    setEditingId(null);
+    setDraft("");
+  };
+  const removeCommentLocal = useCallback((commentId: string | number) => {
+    setComments((prev) => prev.filter((c) => String(c.id) !== String(commentId)));
+    if (editingId !== null && String(editingId) === String(commentId)) {
+      setEditingId(null);
+      setDraft("");
+    }
+  }, [editingId]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -233,7 +265,13 @@ export default function BlogPostDetail() {
                 </View>
               ) : null
             }
-            renderItem={({ item }) => <CommentRow comment={item} />}
+            renderItem={({ item }) => (
+              <CommentRow
+                comment={item}
+                onEdit={startEditComment}
+                onDeleted={removeCommentLocal}
+              />
+            )}
             ListEmptyComponent={
               !loading ? (
                 <EmptyState
@@ -249,11 +287,23 @@ export default function BlogPostDetail() {
 
         {user ? (
           <View style={[styles.composer, { paddingBottom: spacing.sm }]}>
+            {editingId !== null ? (
+              <TouchableOpacity
+                onPress={cancelEdit}
+                style={styles.cancelEditBtn}
+                testID="blog-comments-cancel-edit"
+                accessibilityRole="button"
+                accessibilityLabel="Cancel edit"
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={20} color={colors.onSurface} />
+              </TouchableOpacity>
+            ) : null}
             <TextInput
               style={styles.input}
               value={draft}
               onChangeText={setDraft}
-              placeholder="Add a comment…"
+              placeholder={editingId !== null ? "Edit your comment…" : "Add a comment…"}
               placeholderTextColor={colors.onSurfaceMuted}
               multiline
               maxLength={MAX_LENGTH}
@@ -265,10 +315,14 @@ export default function BlogPostDetail() {
               disabled={!draft.trim() || sending}
               testID="blog-comments-send"
               accessibilityRole="button"
-              accessibilityLabel="Send comment"
+              accessibilityLabel={editingId !== null ? "Save changes" : "Send comment"}
               accessibilityState={{ disabled: !draft.trim() || sending }}
             >
-              {sending ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
+              {sending ? (
+                <ActivityIndicator color={colors.onBrand} size="small" />
+              ) : (
+                <Ionicons name={editingId !== null ? "checkmark" : "send"} size={18} color={colors.onBrand} />
+              )}
             </TouchableOpacity>
           </View>
         ) : (
@@ -284,7 +338,15 @@ export default function BlogPostDetail() {
   );
 }
 
-function CommentRow({ comment }: { comment: NestBlogCommentRaw }) {
+function CommentRow({
+  comment,
+  onEdit,
+  onDeleted,
+}: {
+  comment: NestBlogCommentRaw;
+  onEdit: (commentId: string | number, current: string) => void;
+  onDeleted: (commentId: string | number) => void;
+}) {
   return (
     <View style={styles.row} testID={`blog-comment-${comment.id}`}>
       {comment.author?.avatar ? (
@@ -295,7 +357,19 @@ function CommentRow({ comment }: { comment: NestBlogCommentRaw }) {
       <View style={{ flex: 1 }}>
         <View style={styles.rowHead}>
           <Text style={styles.author} numberOfLines={1}>{comment.author?.name || "Someone"}</Text>
-          <Text style={styles.date}>{timeAgo(comment.created_at)}</Text>
+          <View style={styles.rowHeadRight}>
+            <Text style={styles.date}>{timeAgo(comment.created_at)}</Text>
+            {/* v1.0.81 — 3-dot menu on every comment. Author (or admin) sees
+                edit + delete; other logged-in viewers see report; signed-out
+                viewers get a sign-in nudge from the sheet. */}
+            <BlogCommentMenu
+              commentId={comment.id}
+              authorId={comment.author?.id ?? 0}
+              content={comment.content}
+              onEdit={onEdit}
+              onDeleted={onDeleted}
+            />
+          </View>
         </View>
         <Text style={styles.content}>{comment.content}</Text>
       </View>
@@ -324,6 +398,7 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceTertiary },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
   rowHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  rowHeadRight: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   author: { fontSize: 14, fontWeight: "800", color: colors.onSurface, flexShrink: 1 },
   date: { fontSize: 12, color: colors.onSurfaceMuted },
   content: { fontSize: 14, color: colors.onSurface, lineHeight: 20, marginTop: 2 },
@@ -331,6 +406,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, maxHeight: 120, minHeight: 44, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, color: colors.onSurface, fontSize: 14, ...shadows.card },
   sendBtn: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   sendBtnDisabled: { opacity: 0.5 },
+  cancelEditBtn: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   signIn: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border, backgroundColor: colors.surface },
   signInText: { flex: 1, fontSize: 14, color: colors.onSurfaceMuted },
   signInBtn: { backgroundColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
