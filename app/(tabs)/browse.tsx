@@ -59,9 +59,11 @@ export default function Browse() {
   const [brand, setBrand] = useState("");
   const [appliedAttrs, setAppliedAttrs] = useState<{ condition?: string; size?: string; brand?: string }>({});
   const [categories, setCategories] = useState<Category[]>([]);
-  // v1.0.44 — Discover shops row. Active sellers (product_count > 0) first,
-  // then by product count descending. Fails silently — the row just doesn’t
+  // v1.0.44 — Discover shops row. Sorted by product count descending so the
+  // most active shops surface first. Fails silently — the row just doesn't
   // render if the endpoint 500s or the seller list is empty.
+  // v1.0.83 — show ALL shops here (no product_count > 0 filter) and pull the
+  // full seller list so the horizontal strip is the complete directory.
   const [shops, setShops] = useState<NestSellerListItem[]>([]);
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -76,13 +78,29 @@ export default function Browse() {
 
   useEffect(() => {
     nest.getCategories().then((cs) => setCategories(cs.map(toCategory))).catch(() => {});
-    nest
-      .getSellers({ per_page: 20 })
-      .then((res) => {
-        const sorted = [...(res.items || [])].sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
-        setShops(sorted.filter((s) => (s.product_count ?? 0) > 0));
-      })
-      .catch(() => setShops([]));
+    // v1.0.83 — pull the full seller directory so the horizontal strip shows
+    // every shop. The server caps per_page at 100, so we fetch page 1 and then
+    // walk any remaining pages in the background. Fails silently — the row
+    // just doesn't render if the endpoint errors or returns nothing.
+    (async () => {
+      try {
+        const first = await nest.getSellers({ per_page: 100, page: 1 });
+        const collected: NestSellerListItem[] = [...(first.items || [])];
+        const totalPages = Math.max(1, first.total_pages ?? 1);
+        for (let p = 2; p <= totalPages; p++) {
+          try {
+            const next = await nest.getSellers({ per_page: 100, page: p });
+            collected.push(...(next.items || []));
+          } catch {
+            break;
+          }
+        }
+        const sorted = collected.sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
+        setShops(sorted);
+      } catch {
+        setShops([]);
+      }
+    })();
     loadRecentSearches().then(setRecent);
   }, []);
 
