@@ -117,7 +117,8 @@ export function BlogPostCard({
               <Ionicons name="share-outline" size={14} color={colors.onSurfaceMuted} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.metaCta}>View</Text>
+          {/* v1.0.81 — dropped the "View" label; the whole card is tappable
+              and takes the viewer to the post detail + comments. */}
         </View>
       ) : null}
       {footer}
@@ -146,5 +147,4 @@ const styles = StyleSheet.create({
   metaGroup: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   metaChip: { flexDirection: "row", alignItems: "center", gap: 6 },
   metaText: { fontSize: 12, color: colors.onSurfaceMuted, fontWeight: "700" },
-  metaCta: { fontSize: 12, color: colors.brand, fontWeight: "800", letterSpacing: 0.2 },
 });
