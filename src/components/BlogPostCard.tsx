@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type { NativeSyntheticEvent, TextLayoutEventData } from "react-native";
-import { haptics } from "@/src/utils/haptics";
 import { AppImage } from "@/src/components/AppImage";
 import { BlogPostMenu } from "@/src/components/BlogPostMenu";
 import { Ionicons } from "@expo/vector-icons";
@@ -42,14 +41,12 @@ export function BlogPostCard({
   onDeleted?: (id: string) => void;
 }) {
   const caption = stripHtml(post.caption);
-  // v1.0.84 — clamp caption to 4 lines, then reveal a "See more" toggle.
-  // We measure a hidden copy of the full caption once (onTextLayout) to know
-  // if the content actually overflows 4 lines. If it doesn't overflow, no
-  // toggle is rendered; if it does, tapping toggles between the clamped and
-  // expanded state. Wrapped in stopPropagation so the row's outer
-  // TouchableOpacity still opens the detail screen for taps elsewhere.
+  // v1.0.84 — clamp caption to 4 lines on the card. v1.0.85 — tapping
+  // "See more" falls through to the card's outer TouchableOpacity, which
+  // already opens the post detail screen. We only need to know whether the
+  // caption actually overflows 4 lines so we can decide whether to show the
+  // link; we measure a hidden copy once via onTextLayout.
   const [overflows, setOverflows] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const [measured, setMeasured] = useState(false);
   const onCaptionTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
     if (measured) return;
@@ -105,20 +102,18 @@ export function BlogPostCard({
           ) : null}
           <Text
             style={styles.caption}
-            numberOfLines={overflows && !expanded ? 4 : undefined}
+            numberOfLines={overflows ? 4 : undefined}
           >
             {caption}
           </Text>
           {overflows ? (
-            <TouchableOpacity
-              onPress={(e) => { e.stopPropagation?.(); haptics.tap(); setExpanded((v) => !v); }}
-              hitSlop={8}
-              testID={`blog-card-toggle-${post.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={expanded ? "Collapse post" : "Show full post"}
+            <Text
+              style={styles.seeMore}
+              accessibilityLabel="See more"
+              testID={`blog-card-see-more-${post.id}`}
             >
-              <Text style={styles.seeMore}>{expanded ? "See less" : "See more"}</Text>
-            </TouchableOpacity>
+              See more
+            </Text>
           ) : null}
         </View>
       ) : null}
