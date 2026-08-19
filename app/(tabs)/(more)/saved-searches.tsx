@@ -18,6 +18,7 @@ import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 export default function SavedSearchesScreen() {
   const insets = useSafeAreaInsets();
@@ -84,7 +85,7 @@ export default function SavedSearchesScreen() {
     const summary = summariseQuery(item);
     return (
       <View style={styles.row}>
-        <TouchableOpacity style={styles.rowMain} onPress={() => onOpen(item)} testID={`saved-search-${item.id}`}>
+        <TouchableOpacity style={styles.rowMain} onPress={() => { haptics.tap(); onOpen(item); }} testID={`saved-search-${item.id}`}>
           <Ionicons name="search-outline" size={18} color={colors.onSurfaceMuted} />
           <View style={{ flex: 1 }}>
             <Text style={styles.label} numberOfLines={1}>{item.label}</Text>
@@ -98,7 +99,7 @@ export default function SavedSearchesScreen() {
           thumbColor={colors.surface}
           testID={`saved-search-toggle-${item.id}`}
         />
-        <TouchableOpacity onPress={() => onDelete(item)} style={styles.delBtn} testID={`saved-search-delete-${item.id}`}>
+        <TouchableOpacity onPress={() => { haptics.warning(); onDelete(item); }} style={styles.delBtn} testID={`saved-search-delete-${item.id}`} accessibilityRole="button" accessibilityLabel={`Delete saved search ${item.label}`} hitSlop={10}>
           <Ionicons name="trash-outline" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
       </View>
@@ -108,7 +109,7 @@ export default function SavedSearchesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="saved-searches-back" accessibilityRole="button" accessibilityLabel="Go back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.topBtn} testID="saved-searches-back" accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Saved searches</Text>

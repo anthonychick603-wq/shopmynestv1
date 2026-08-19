@@ -16,6 +16,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { statusStyle, statusLabel, isResolved } from "@/src/utils/disputeStatus";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 export default function DisputeDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -85,7 +86,7 @@ export default function DisputeDetail() {
             <Text style={styles.statusLabel}>{statusLabel(dispute.status)}</Text>
             <Text style={styles.statusSub}>Dispute #{dispute.id} · Order #{dispute.order_id}</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push(`/order/${dispute.order_id}`)} testID="dispute-view-order">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.push(`/order/${dispute.order_id}`); }} testID="dispute-view-order">
             <Text style={styles.viewOrder}>View order</Text>
           </TouchableOpacity>
         </View>
@@ -126,14 +127,14 @@ export default function DisputeDetail() {
               style={styles.textarea}
               testID="dispute-response"
             />
-            <Button title="Send response" onPress={respond} loading={working} testID="dispute-respond-submit" style={{ marginTop: spacing.sm }} />
+            <Button title="Send response" onPress={() => { haptics.press(); respond(); }} loading={working} testID="dispute-respond-submit" style={{ marginTop: spacing.sm }} />
           </View>
         ) : null}
 
         {!isSeller && dispute.can_escalate && !isResolved(dispute.status) && dispute.status !== "escalated" ? (
           <View style={styles.actionBlock}>
             <Text style={styles.escalateHint}>Not resolved yet? You can ask My Nest to step in and review.</Text>
-            <Button title="Escalate to My Nest" variant="outline" onPress={escalate} loading={working} testID="dispute-escalate" />
+            <Button title="Escalate to My Nest" variant="outline" onPress={() => { haptics.warning(); escalate(); }} loading={working} testID="dispute-escalate" />
           </View>
         ) : null}
       </ScrollView>
@@ -144,7 +145,7 @@ export default function DisputeDetail() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Dispute</Text>
       <CartHeaderButton />
     </View>

@@ -86,7 +86,7 @@ export default function Orders() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Your orders</Text>
       <CartHeaderButton />
     </View>

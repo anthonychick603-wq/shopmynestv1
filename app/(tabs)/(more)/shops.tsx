@@ -12,6 +12,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { shareSeller } from "@/src/utils/share";
 
 export default function AllShops() {
@@ -41,7 +42,7 @@ export default function AllShops() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)"); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>All shops</Text>
@@ -60,12 +61,12 @@ export default function AllShops() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 40, paddingTop: spacing.md, gap: spacing.md }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => router.push(`/(tabs)/(more)/seller/${item.id}`)} testID={`shop-full-${item.id}`}>
+            <TouchableOpacity style={styles.card} onPress={() => { haptics.tap(); router.push(`/(tabs)/(more)/seller/${item.id}`); }} testID={`shop-full-${item.id}`}>
               {/* v1.0.56 - share icon in the corner opens the share sheet with
                   the shop's tagline + public shop URL. Stops propagation so
                   tapping it doesn't also navigate into the shop. */}
               <TouchableOpacity
-                onPress={(e) => { e.stopPropagation?.(); shareSeller({ id: item.id, store_name: item.store_name || item.display_name, tagline: item.tagline, shop_url: item.shop_url }); }}
+                onPress={(e) => { e.stopPropagation?.(); haptics.tap(); shareSeller({ id: item.id, store_name: item.store_name || item.display_name, tagline: item.tagline, shop_url: item.shop_url }); }}
                 hitSlop={8}
                 style={styles.shareBtn}
                 testID={`shop-share-${item.id}`}

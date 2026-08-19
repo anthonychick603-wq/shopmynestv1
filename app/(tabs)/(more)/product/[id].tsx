@@ -108,10 +108,10 @@ export default function ProductDetail() {
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="product-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <TouchableOpacity style={styles.topBtn} onPress={onFav} testID="product-favorite">
+          <TouchableOpacity style={styles.topBtn} onPress={onFav} testID="product-favorite" accessibilityRole="button" accessibilityLabel={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"} hitSlop={8}>
             <Ionicons name={isFavorite(product.id) ? "heart" : "heart-outline"} size={20} color={isFavorite(product.id) ? colors.error : colors.onSurface} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.topBtn} onPress={doShare} testID="product-share"><Ionicons name="share-outline" size={20} color={colors.onSurface} /></TouchableOpacity>
+          <TouchableOpacity style={styles.topBtn} onPress={doShare} testID="product-share" accessibilityRole="button" accessibilityLabel="Share this listing" hitSlop={8}><Ionicons name="share-outline" size={20} color={colors.onSurface} /></TouchableOpacity>
           <CartHeaderButton />
         </View>
       </View>

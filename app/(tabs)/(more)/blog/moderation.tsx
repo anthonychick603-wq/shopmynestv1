@@ -13,6 +13,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 type Status = "pending" | "approved" | "rejected";
 const TABS: Status[] = ["pending", "approved", "rejected"];
@@ -89,7 +90,7 @@ export default function BlogModeration() {
         {TABS.map((t) => (
           <TouchableOpacity
             key={t}
-            onPress={() => setStatus(t)}
+            onPress={() => { haptics.tap(); setStatus(t); }}
             style={[styles.tab, status === t && styles.tabActive]}
             testID={`blog-moderation-tab-${t}`}
           >
@@ -127,7 +128,7 @@ export default function BlogModeration() {
                   <View style={styles.actions}>
                     <TouchableOpacity
                       style={[styles.action, styles.approve]}
-                      onPress={() => moderate(item.id, "approve")}
+                      onPress={() => { haptics.success(); moderate(item.id, "approve"); }}
                       disabled={acting === item.id}
                       testID={`blog-moderation-approve-${item.id}`}
                     >
@@ -135,7 +136,7 @@ export default function BlogModeration() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.action, styles.reject]}
-                      onPress={() => moderate(item.id, "reject")}
+                      onPress={() => { haptics.warning(); moderate(item.id, "reject"); }}
                       disabled={acting === item.id}
                       testID={`blog-moderation-reject-${item.id}`}
                     >
@@ -158,7 +159,7 @@ export default function BlogModeration() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="blog-moderation-back" accessibilityRole="button" accessibilityLabel="Go back">
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="blog-moderation-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Blog moderation</Text>

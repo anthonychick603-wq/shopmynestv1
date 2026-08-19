@@ -99,6 +99,9 @@ export default function SellerProfile() {
               onPress={() => { haptics.tap(); shareSeller({ id: seller.id, store_name: seller.store_name, tagline: seller.tagline, about: seller.about }); }}
               style={styles.topBtn}
               testID="seller-share"
+              accessibilityRole="button"
+              accessibilityLabel="Share this shop"
+              hitSlop={8}
             >
               <Ionicons name="share-outline" size={20} color={colors.onSurface} />
             </TouchableOpacity>

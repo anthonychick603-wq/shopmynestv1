@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { haptics } from "@/src/utils/haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -45,7 +46,7 @@ export default function Register() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
-            <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} testID="register-back" accessibilityRole="button" accessibilityLabel="Close">
+            <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)"); }} testID="register-back" accessibilityRole="button" accessibilityLabel="Close" hitSlop={8}>
               <Ionicons name="close" size={26} color={colors.onSurface} />
             </TouchableOpacity>
           </View>
@@ -108,7 +109,7 @@ export default function Register() {
           {err ? <Text style={styles.err}>{err}</Text> : null}
 
           <Button title="Create account" onPress={submit} loading={loading} testID="register-submit" style={{ marginTop: spacing.md }} />
-          <TouchableOpacity onPress={() => router.replace("/(auth)/login")} style={{ marginTop: spacing.lg }} testID="register-goto-login">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/login"); }} style={{ marginTop: spacing.lg }} testID="register-goto-login">
             <Text style={styles.link}>Already have an account? Sign in</Text>
           </TouchableOpacity>
         </ScrollView>

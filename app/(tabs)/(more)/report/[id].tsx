@@ -10,6 +10,7 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 const REASONS = [
   { id: "prohibited", label: "Prohibited item" },
@@ -55,14 +56,14 @@ export default function ReportItem() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)"); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
           <Text style={styles.topTitle}>{headerTitle}</Text>
           <View style={styles.topBtn} />
         </View>
         <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
           <Text style={styles.body}>{"Tell us what's wrong — our team will review your report."}</Text>
           {REASONS.map((r) => (
-            <TouchableOpacity key={r.id} onPress={() => setReason(r.id)} style={[styles.row, reason === r.id && styles.rowActive]} testID={`report-reason-${r.id}`}>
+            <TouchableOpacity key={r.id} onPress={() => { haptics.tap(); setReason(r.id); }} style={[styles.row, reason === r.id && styles.rowActive]} testID={`report-reason-${r.id}`}>
               <Ionicons name={reason === r.id ? "radio-button-on" : "radio-button-off"} size={22} color={reason === r.id ? colors.brand : colors.onSurfaceMuted} />
               <Text style={styles.rowLabel}>{r.label}</Text>
             </TouchableOpacity>
@@ -70,7 +71,7 @@ export default function ReportItem() {
           <View style={{ marginTop: spacing.md }}>
             <Input label="Additional details (optional)" value={details} onChangeText={setDetails} multiline testID="report-explain" style={{ height: 120, textAlignVertical: "top" }} />
           </View>
-          <Button title="Submit report" onPress={submit} loading={busy} testID="report-submit" />
+          <Button title="Submit report" onPress={() => { haptics.press(); submit(); }} loading={busy} testID="report-submit" />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -9,6 +9,7 @@ import { colors, radius, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 const REASONS: { slug: string; label: string }[] = [
   { slug: "not_arrived", label: "Item never arrived" },
@@ -51,7 +52,7 @@ export default function NewDispute() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="new-dispute-close" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.topBtn} testID="new-dispute-close" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Open a dispute</Text>
         <View style={styles.topBtn} />
       </View>
@@ -68,7 +69,7 @@ export default function NewDispute() {
         {REASONS.map((r) => {
           const selected = reason === r.slug;
           return (
-            <TouchableOpacity key={r.slug} style={[styles.reasonRow, selected && styles.reasonRowSelected]} onPress={() => setReason(r.slug)} testID={`dispute-reason-${r.slug}`}>
+            <TouchableOpacity key={r.slug} style={[styles.reasonRow, selected && styles.reasonRowSelected]} onPress={() => { haptics.tap(); setReason(r.slug); }} testID={`dispute-reason-${r.slug}`}>
               <Text style={[styles.reasonText, selected && { color: colors.brand, fontWeight: "800" }]}>{r.label}</Text>
               <Ionicons name={selected ? "radio-button-on" : "radio-button-off"} size={20} color={selected ? colors.brand : colors.onSurfaceMuted} />
             </TouchableOpacity>
@@ -86,12 +87,12 @@ export default function NewDispute() {
           testID="dispute-description"
         />
 
-        <TouchableOpacity style={styles.checkRow} onPress={() => setContacted((c) => !c)} testID="dispute-contacted">
+        <TouchableOpacity style={styles.checkRow} onPress={() => { haptics.tap(); setContacted((c) => !c); }} testID="dispute-contacted">
           <Ionicons name={contacted ? "checkbox" : "square-outline"} size={22} color={contacted ? colors.brand : colors.onSurfaceMuted} />
           <Text style={styles.checkText}>I already contacted the seller about this</Text>
         </TouchableOpacity>
 
-        <Button title="Submit dispute" onPress={submit} loading={submitting} testID="dispute-submit" style={{ marginTop: spacing.lg }} />
+        <Button title="Submit dispute" onPress={() => { haptics.press(); submit(); }} loading={submitting} testID="dispute-submit" style={{ marginTop: spacing.lg }} />
       </ScrollView>
     </SafeAreaView>
   );

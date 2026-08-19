@@ -11,6 +11,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 // Format an ISO/MySQL UTC timestamp as a relative label (e.g. "3m", "2h", "Yesterday", "Mar 4").
 function formatRelative(iso: string): string {
@@ -61,7 +62,7 @@ export default function MessagesInbox() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="messages-back" accessibilityRole="button" accessibilityLabel="Go back">
+          <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.topBtn} testID="messages-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Messages</Text>
@@ -80,7 +81,7 @@ export default function MessagesInbox() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="messages-back" accessibilityRole="button" accessibilityLabel="Go back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.topBtn} testID="messages-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Messages</Text>
@@ -102,7 +103,7 @@ export default function MessagesInbox() {
             return (
               <TouchableOpacity
                 style={styles.row}
-                onPress={() => router.push({ pathname: "/messages/[userId]", params: { userId: String(item.user.id), name } })}
+                onPress={() => { haptics.tap(); router.push({ pathname: "/messages/[userId]", params: { userId: String(item.user.id), name } }); }}
                 testID={`msg-row-${item.user.id}`}
               >
                 {item.user.avatar ? (

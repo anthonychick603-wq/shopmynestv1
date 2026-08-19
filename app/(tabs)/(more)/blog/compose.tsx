@@ -15,6 +15,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 import { stripHtml } from "@/src/utils/html";
 
 export default function BlogComposer() {
@@ -31,7 +32,9 @@ export default function BlogComposer() {
   const [existingImage, setExistingImage] = useState<string | null>(null);
   const [localImage, setLocalImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  // v1.0.79 — removed the "submitted" interstitial. Blog posts auto-approve
+  // (MNU v3.7.109+) so "Sent for review / an admin needs to approve" was
+  // factually wrong. Post → toast → jump back to the blog index.
   const [loadingPost, setLoadingPost] = useState(isEdit);
 
   useEffect(() => {
@@ -93,7 +96,8 @@ export default function BlogComposer() {
         form.append("image", { uri, name, type } as unknown as Blob);
       }
       await nest.createBlogPost(form);
-      setSubmitted(true);
+      toast.success("Posted");
+      safeBack(router, "/(tabs)/(more)/blog");
     } catch (e) {
       toast.error(e instanceof ApiError ? e.friendly : isEdit ? "Could not save your changes." : "Could not submit your post.");
     } finally {
@@ -128,22 +132,6 @@ export default function BlogComposer() {
     );
   }
 
-  if (submitted) {
-    return (
-      <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => safeBack(router, "/(tabs)")} />
-        <EmptyState
-          icon="hourglass-outline"
-          title="Sent for review"
-          message="Thanks for posting. An admin needs to approve it before it appears on the blog, so it isn't visible yet."
-          actionLabel="Done"
-          onAction={() => safeBack(router, "/(tabs)")}
-          testID="blog-compose-pending"
-        />
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top onBack={() => safeBack(router, "/(tabs)")} title={isEdit ? "Edit post" : "New post"} />
@@ -171,7 +159,7 @@ export default function BlogComposer() {
               </View>
             ) : null
           ) : (
-            <TouchableOpacity style={styles.photo} onPress={pickImage} testID="blog-compose-photo">
+            <TouchableOpacity style={styles.photo} onPress={() => { haptics.tap(); pickImage(); }} testID="blog-compose-photo" accessibilityRole="button" accessibilityLabel={localImage ? "Change photo" : "Add a photo"}>
               {localImage ? (
                 <AppImage source={{ uri: localImage.uri }} style={styles.photoImg} fallbackIcon="image-outline" />
               ) : (
@@ -185,7 +173,7 @@ export default function BlogComposer() {
 
           <Button
             title={isEdit ? "Save changes" : "Post to the Nest"}
-            onPress={submit}
+            onPress={() => { haptics.press(); submit(); }}
             loading={busy}
             testID="blog-compose-submit"
             style={{ marginTop: spacing.md }}
@@ -199,7 +187,7 @@ export default function BlogComposer() {
 function Top({ onBack, title = "New post" }: { onBack: () => void; title?: string }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="blog-compose-back" accessibilityRole="button" accessibilityLabel="Go back">
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="blog-compose-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>{title}</Text>

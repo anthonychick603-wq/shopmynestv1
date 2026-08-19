@@ -15,6 +15,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 export default function PostComposer() {
   const insets = useSafeAreaInsets();
@@ -87,7 +88,7 @@ export default function PostComposer() {
               testID="compose-content"
             />
 
-            <TouchableOpacity style={styles.photo} onPress={pickImage} testID="compose-photo">
+            <TouchableOpacity style={styles.photo} onPress={() => { haptics.tap(); pickImage(); }} testID="compose-photo" accessibilityRole="button" accessibilityLabel={localImage ? "Change photo" : "Add a photo"}>
               {localImage ? (
                 <AppImage source={{ uri: localImage.uri }} style={styles.photoImg} fallbackIcon="image-outline" />
               ) : (
@@ -98,7 +99,7 @@ export default function PostComposer() {
               )}
             </TouchableOpacity>
 
-            <Button title="Post" onPress={submit} loading={busy} testID="compose-submit" style={{ marginTop: spacing.md }} />
+            <Button title="Post" onPress={() => { haptics.press(); submit(); }} loading={busy} testID="compose-submit" style={{ marginTop: spacing.md }} />
           </ScrollView>
         </KeyboardAvoidingView>
       )}
@@ -109,7 +110,7 @@ export default function PostComposer() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="compose-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="compose-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>New post</Text>
       <CartHeaderButton />
     </View>

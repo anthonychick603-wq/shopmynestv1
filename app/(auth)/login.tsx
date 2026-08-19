@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { haptics } from "@/src/utils/haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -41,7 +42,7 @@ export default function Login() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
-            <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} testID="login-back" accessibilityRole="button" accessibilityLabel="Close">
+            <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)"); }} testID="login-back" accessibilityRole="button" accessibilityLabel="Close" hitSlop={8}>
               <Ionicons name="close" size={26} color={colors.onSurface} />
             </TouchableOpacity>
           </View>
@@ -78,10 +79,10 @@ export default function Login() {
           />
           {err ? <Text style={styles.err}>{err}</Text> : null}
           <Button title="Sign in" onPress={submit} loading={loading} testID="login-submit" style={{ marginTop: spacing.md }} />
-          <TouchableOpacity onPress={() => router.replace("/(auth)/register")} style={{ marginTop: spacing.lg }} testID="login-goto-register">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/register"); }} style={{ marginTop: spacing.lg }} testID="login-goto-register">
             <Text style={styles.link}>New here? Create an account</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(`${SITE}/wp-login.php?action=lostpassword`)} style={{ marginTop: spacing.sm }} testID="login-forgot" accessibilityLabel="Forgot password" accessibilityRole="button">
+          <TouchableOpacity onPress={() => { haptics.tap(); WebBrowser.openBrowserAsync(`${SITE}/wp-login.php?action=lostpassword`); }} style={{ marginTop: spacing.sm }} testID="login-forgot" accessibilityLabel="Forgot password" accessibilityRole="button">
             <Text style={styles.linkMuted}>Forgot password?</Text>
           </TouchableOpacity>
 

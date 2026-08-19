@@ -107,6 +107,9 @@ export default function Account() {
             disabled={uploadingPhoto}
             style={styles.avatarWrap}
             testID="acc-change-avatar"
+            accessibilityRole="button"
+            accessibilityLabel={uploadingPhoto ? "Uploading profile photo" : "Change profile photo"}
+            accessibilityState={{ disabled: uploadingPhoto }}
           >
             {user.profile_photo ? (
               <AppImage source={{ uri: user.profile_photo }} style={styles.avatarLarge} fallbackIcon="person-outline" />

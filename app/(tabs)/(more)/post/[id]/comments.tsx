@@ -23,6 +23,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { haptics } from "@/src/utils/haptics";
 
 const MAX_LENGTH = 2000;
 
@@ -140,9 +141,12 @@ export default function PostComments() {
             />
             <TouchableOpacity
               style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
-              onPress={submit}
+              onPress={() => { haptics.press(); submit(); }}
               disabled={!draft.trim() || sending}
               testID="comments-send"
+              accessibilityRole="button"
+              accessibilityLabel="Send comment"
+              accessibilityState={{ disabled: !draft.trim() || sending }}
             >
               {sending ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
             </TouchableOpacity>
@@ -150,7 +154,7 @@ export default function PostComments() {
         ) : (
           <View style={[styles.signIn, { paddingBottom: spacing.sm }]}>
             <Text style={styles.signInText}>Sign in to join the conversation.</Text>
-            <TouchableOpacity style={styles.signInBtn} onPress={() => router.push("/(auth)/login")} testID="comments-signin">
+            <TouchableOpacity style={styles.signInBtn} onPress={() => { haptics.tap(); router.push("/(auth)/login"); }} testID="comments-signin">
               <Text style={styles.signInBtnText}>Sign in</Text>
             </TouchableOpacity>
           </View>
@@ -182,7 +186,7 @@ function CommentRow({ comment }: { comment: NestPostCommentRaw }) {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="comments-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="comments-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Comments</Text>
       <CartHeaderButton />
     </View>

@@ -502,6 +502,9 @@ export default function MessageThread() {
             onPress={onSend}
             disabled={!canSend}
             testID="thread-send"
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+            accessibilityState={{ disabled: !canSend }}
           >
             {sending ? (
               <ActivityIndicator color={colors.onBrand} />
@@ -536,7 +539,7 @@ export default function MessageThread() {
                     <TouchableOpacity
                       style={[styles.viewerNav, { left: 16 }]}
                       onPress={() => setViewer({ ...viewer, index: viewer.index - 1 })}
-                      testID="viewer-prev" accessibilityRole="button" accessibilityLabel="Go back">
+                      testID="viewer-prev" accessibilityRole="button" accessibilityLabel="Previous photo">
                       <Ionicons name="chevron-back" size={26} color="#fff" />
                     </TouchableOpacity>
                   ) : null}
@@ -545,6 +548,8 @@ export default function MessageThread() {
                       style={[styles.viewerNav, { right: 16 }]}
                       onPress={() => setViewer({ ...viewer, index: viewer.index + 1 })}
                       testID="viewer-next"
+                      accessibilityRole="button"
+                      accessibilityLabel="Next photo"
                     >
                       <Ionicons name="chevron-forward" size={26} color="#fff" />
                     </TouchableOpacity>

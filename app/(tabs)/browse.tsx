@@ -237,7 +237,7 @@ export default function Browse() {
             testID="browse-search-input"
           />
           {search ? (
-            <TouchableOpacity onPress={() => { setSearch(""); setSubmitted(""); }}>
+            <TouchableOpacity onPress={() => { setSearch(""); setSubmitted(""); }} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={10}>
               <Ionicons name="close-circle" size={18} color={colors.onSurfaceMuted} />
             </TouchableOpacity>
           ) : null}

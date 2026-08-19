@@ -64,7 +64,7 @@ export default function CreateTab() {
               icon="storefront-outline"
               title="Build your Nest"
               body="Tell us about your shop and what you make."
-              onPress={() => pushFromTab(router, "/seller/apply")}
+              onPress={() => { haptics.press(); pushFromTab(router, "/seller/apply"); }}
               testID="create-apply-seller"
             />
             {user.seller_application_status === "rejected" ? (

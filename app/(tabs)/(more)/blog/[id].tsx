@@ -142,6 +142,9 @@ export default function BlogPostDetail() {
               onPress={() => { haptics.tap(); shareBlogPost(post); }}
               style={styles.topBtn}
               testID="blog-detail-share"
+              accessibilityRole="button"
+              accessibilityLabel="Share this post"
+              hitSlop={8}
             >
               <Ionicons name="share-outline" size={20} color={colors.onSurface} />
             </TouchableOpacity>
@@ -209,6 +212,8 @@ export default function BlogPostDetail() {
                         hitSlop={8}
                         style={styles.metaChip}
                         testID={`blog-detail-favorite-${post.id}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={isBlogFavorite(post.id) ? "Remove from favorites" : "Add to favorites"}
                       >
                         <Ionicons
                           name={isBlogFavorite(post.id) ? "heart" : "heart-outline"}
@@ -259,6 +264,9 @@ export default function BlogPostDetail() {
               onPress={() => { haptics.press(); submit(); }}
               disabled={!draft.trim() || sending}
               testID="blog-comments-send"
+              accessibilityRole="button"
+              accessibilityLabel="Send comment"
+              accessibilityState={{ disabled: !draft.trim() || sending }}
             >
               {sending ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
             </TouchableOpacity>
