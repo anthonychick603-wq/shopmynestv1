@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
-import { nest, type NestSellerRaw, type NestSellerReviewRaw } from "@/src/api/nest";
+import { nest, ApiError, type NestSellerRaw, type NestSellerReviewRaw } from "@/src/api/nest";
 import { toPost, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Post, Product, SellerBadge as SellerBadgeType } from "@/src/types";
@@ -45,6 +45,11 @@ export default function SellerProfile() {
   const [reviewTotal, setReviewTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.93 (Build #13) — follow state is derived from /sellers/{id} and
+  // toggled optimistically so the button feels instant. On failure we roll
+  // back and surface a toast, matching the pattern used by favorites.
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +61,7 @@ export default function SellerProfile() {
       nest.getSellerReviews(id!, { per_page: 3 }).catch(() => ({ items: [], total: 0, average: 0, page: 1, total_pages: 0 })),
     ]);
     setSeller(sellerRes);
+    setIsFollowing(!!sellerRes?.is_following);
     setBadge(badgeRes as SellerBadgeType | null);
     setProSeller(!!proRes?.pro_seller);
     setProducts((prodRes.items || []).map(toProduct));
@@ -140,6 +146,32 @@ export default function SellerProfile() {
               {user && seller && String(id) !== String(user.id) ? (
                 <View style={styles.actionsRow}>
                   <TouchableOpacity
+                    style={[styles.followBtn, isFollowing && styles.followBtnActive]}
+                    onPress={async () => {
+                      if (followBusy) return;
+                      haptics.tap();
+                      const next = !isFollowing;
+                      setIsFollowing(next);
+                      setFollowBusy(true);
+                      try {
+                        if (next) await nest.followSeller(id!);
+                        else await nest.unfollowSeller(id!);
+                      } catch (e) {
+                        setIsFollowing(!next);
+                        toast.error(e instanceof ApiError ? e.friendly : "Couldn't update follow.");
+                      } finally {
+                        setFollowBusy(false);
+                      }
+                    }}
+                    testID="seller-follow"
+                    accessibilityLabel={isFollowing ? "Unfollow this shop" : "Follow this shop"}
+                  >
+                    <Ionicons name={isFollowing ? "checkmark" : "add"} size={16} color={isFollowing ? colors.brand : colors.onBrand} />
+                    <Text style={[styles.followBtnText, isFollowing && styles.followBtnTextActive]}>
+                      {isFollowing ? "Following" : "Follow"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={styles.messageBtn}
                     onPress={() => { haptics.tap(); router.push({ pathname: "/messages/[userId]", params: { userId: String(id), name: storeName } }); }}
                     testID="seller-message"
@@ -217,6 +249,10 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.lg, flexWrap: "wrap" },
   messageBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, backgroundColor: colors.brand, borderRadius: radius.pill },
   messageBtnText: { color: colors.onBrand, fontWeight: "700", fontSize: 13 },
+  followBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, backgroundColor: colors.brand, borderRadius: radius.pill },
+  followBtnActive: { backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.borderStrong },
+  followBtnText: { color: colors.onBrand, fontWeight: "700", fontSize: 13 },
+  followBtnTextActive: { color: colors.brand },
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   seeAllReviews: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
   seeAllReviewsText: { color: colors.brand, fontWeight: "700", fontSize: 14 },

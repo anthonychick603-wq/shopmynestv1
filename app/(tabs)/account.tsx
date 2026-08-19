@@ -135,8 +135,9 @@ export default function Account() {
         <Section title="Shopping">
           <Row icon="bag-check-outline" label="Orders" onPress={() => pushFromTab(router, "/orders")} testID="acc-orders" />
           <Row icon="chatbubble-ellipses-outline" label="Messages" onPress={() => pushFromTab(router, "/messages")} testID="acc-messages" />
-          <Row icon="heart-outline" label="Favorites" onPress={() => pushFromTab(router, "/favorites")} testID="acc-favorites" />
+          <Row icon="bookmark-outline" label="Favorites" onPress={() => pushFromTab(router, "/favorites")} testID="acc-favorites" />
           <Row icon="notifications-circle-outline" label="Saved searches" onPress={() => pushFromTab(router, "/saved-searches")} testID="acc-saved-searches" />
+          <Row icon="heart-outline" label="Shops you follow" onPress={() => pushFromTab(router, "/following")} testID="acc-following" />
           <Row icon="home-outline" label="Address book" onPress={() => pushFromTab(router, "/me/addresses")} testID="acc-addresses" />
           <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} testID="acc-disputes" />
         </Section>

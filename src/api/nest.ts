@@ -291,6 +291,16 @@ export const nest = {
     request<NestPaginated<NestProductRaw>>("marketplace", `/sellers/${id}/products`, { query, auth: false }),
   followSeller: (id: number | string) => request<{ ok: boolean }>("marketplace", `/sellers/${id}/follow`, { method: "POST" }),
   unfollowSeller: (id: number | string) => request<{ ok: boolean }>("marketplace", `/sellers/${id}/follow`, { method: "DELETE" }),
+  // v1.0.93 (Build #13) — list of shops the current user follows. The server
+  // returns a flat array (not paginated); we keep the raw shape here and
+  // adapt in the screen so we can reuse the same avatar/name/rating fields
+  // ProductCard already knows.
+  getFollowing: () => request<NestFollowedShop[]>("marketplace", "/following"),
+  // v1.0.93 (Build #14) — buyer alert preferences. Currently the price-drop
+  // opt-in toggle backing the switch on Favorites. Extend as needed.
+  getPreferences: () => request<{ price_drop_alerts: boolean }>("marketplace", "/me/preferences"),
+  setPreferences: (patch: { price_drop_alerts?: boolean }) =>
+    request<{ price_drop_alerts: boolean }>("marketplace", "/me/preferences", { method: "PUT", body: patch }),
   reportProduct: (id: number | string, reason: string, details: string) =>
     request<{ success: boolean; report_id: number }>("marketplace", `/products/${id}/report`, { method: "POST", body: { reason, details } }),
 
@@ -411,6 +421,8 @@ export const nest = {
   // (plugin v3.7.118 /seller/analytics).
   getSellerAnalytics: (range: 7 | 30 | 90 = 30) =>
     request<SellerAnalytics>("marketplace", "/seller/analytics", { query: { range } }),
+  exportSellerAnalytics: (range: 7 | 30 | 90 = 30) =>
+    request<SellerAnalyticsExport>("marketplace", "/seller/analytics/export", { query: { range } }),
   // v3.7.93 — one-screen seller readiness checklist (Stripe Connect, ship-from,
   // shop name, first product). See MNU_Seller_Readiness::build on the plugin.
   getSellerReadiness: () => request<NestSellerReadiness>("marketplace", "/seller/readiness"),
@@ -745,6 +757,9 @@ export type NestSellerRaw = {
   followers?: number;
   rating?: number;
   review_count?: number;
+  // v1.0.93 (Build #13) — whether the current user follows this shop; used
+  // by the shop detail screen to seed the Follow/Unfollow CTA state.
+  is_following?: boolean;
   // GET /sellers/{id} now also returns that seller's most recent posts.
   posts?: NestFeedItemRaw[];
 };
@@ -761,6 +776,18 @@ export type NestSellerListItem = {
   is_following?: boolean;
   product_count?: number;
   // v3.7.103 - server now returns cached aggregates on every seller list row.
+  rating?: number;
+  review_count?: number;
+  shop_url?: string;
+};
+
+// v3.7.119 — /following response row. Mirrors TNM_Social::following_list().
+export type NestFollowedShop = {
+  id: number;
+  store_name?: string;
+  avatar?: string;
+  follower_count?: number;
+  product_count?: number;
   rating?: number;
   review_count?: number;
   shop_url?: string;
@@ -921,6 +948,23 @@ export type SellerAnalytics = {
   total_net: number;
   top_products: Array<{ id: number; name: string; image: string; gross: number }>;
   pending_payout: number;
+  // v3.7.120 (Build #15) — previous window baseline for compare deltas.
+  compare?: {
+    prev_total_gross: number;
+    prev_orders_count: number;
+    delta_gross: number;
+    delta_orders: number;
+    pct_gross: number | null;
+    pct_orders: number | null;
+  };
+};
+
+// v3.7.120 (Build #15) — CSV export envelope.
+export type SellerAnalyticsExport = {
+  range: 7 | 30 | 90;
+  filename: string;
+  csv: string;
+  rows: number;
 };
 
 // v1.0.90 — marketplace-wide orders row (plugin v3.7.117 /admin/orders).

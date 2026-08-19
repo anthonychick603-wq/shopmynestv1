@@ -9,8 +9,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { format, parseISO } from "date-fns";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
 
 import { nest, ApiError, type SellerAnalytics } from "@/src/api/nest";
+import { toast } from "@/src/components/Toast";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
@@ -35,6 +38,28 @@ export default function SellerAnalytics() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // v1.0.93 (Build #15) — CSV export state; export is a one-off action so
+  // we only track a busy flag, not a full request lifecycle.
+  const [exporting, setExporting] = useState(false);
+
+  const onExport = useCallback(async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const res = await nest.exportSellerAnalytics(range);
+      const target = `${FileSystem.cacheDirectory}${res.filename}`;
+      await FileSystem.writeAsStringAsync(target, res.csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(target, { mimeType: "text/csv", dialogTitle: "Export orders", UTI: "public.comma-separated-values-text" });
+      } else {
+        toast.success(`Saved ${res.filename}`);
+      }
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.friendly : "Couldn't export orders.");
+    } finally {
+      setExporting(false);
+    }
+  }, [exporting, range]);
 
   const load = useCallback(async (next: Range) => {
     setLoading(true);
@@ -102,10 +127,39 @@ export default function SellerAnalytics() {
             />
           }
         >
-          <Text style={styles.sectionLabel}>Revenue (net)</Text>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionLabel}>Revenue (net)</Text>
+            <TouchableOpacity
+              onPress={() => { haptics.tap(); onExport(); }}
+              disabled={exporting}
+              style={styles.exportBtn}
+              testID="analytics-export"
+              accessibilityRole="button"
+              accessibilityLabel="Export orders as CSV"
+            >
+              <Ionicons name={exporting ? "time-outline" : "download-outline"} size={14} color={colors.brand} />
+              <Text style={styles.exportBtnText}>{exporting ? "Exporting…" : "Export CSV"}</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.chartCard}>
             <Text style={styles.chartTotal}>${data.total_net.toFixed(2)}</Text>
             <Text style={styles.chartHint}>${data.total_gross.toFixed(2)} gross · ${data.total_fees.toFixed(2)} platform fees</Text>
+            {data.compare ? (
+              <View style={styles.compareRow}>
+                <CompareChip
+                  label="vs prior"
+                  delta={data.compare.delta_gross}
+                  pct={data.compare.pct_gross}
+                  format="currency"
+                />
+                <CompareChip
+                  label="orders"
+                  delta={data.compare.delta_orders}
+                  pct={data.compare.pct_orders}
+                  format="count"
+                />
+              </View>
+            ) : null}
             <RevenueBars series={data.revenue} />
           </View>
 
@@ -199,6 +253,41 @@ function Kpi({ label, value, icon, tone }: { label: string; value: string; icon:
   );
 }
 
+// v1.0.93 (Build #15) — small delta pill used under the revenue headline
+// to compare the current window to the previous same-length window.
+// pct=null means the previous window had zero baseline; render — instead
+// of an unbounded percentage.
+function CompareChip({
+  label,
+  delta,
+  pct,
+  format,
+}: {
+  label: string;
+  delta: number;
+  pct: number | null;
+  format: "currency" | "count";
+}) {
+  const positive = delta > 0;
+  const negative = delta < 0;
+  const tone = positive ? colors.success : negative ? colors.error : colors.onSurfaceMuted;
+  const glyph = positive ? "arrow-up" : negative ? "arrow-down" : "remove";
+  const magnitude = Math.abs(delta);
+  const primary =
+    format === "currency"
+      ? `${positive ? "+" : negative ? "-" : ""}$${magnitude.toFixed(2)}`
+      : `${positive ? "+" : negative ? "-" : ""}${magnitude}`;
+  const pctText = pct == null ? "—" : `${Math.abs(pct).toFixed(1)}%`;
+  return (
+    <View style={styles.compareChip}>
+      <Ionicons name={glyph as any} size={12} color={tone} />
+      <Text style={[styles.compareValue, { color: tone }]}>{primary}</Text>
+      <Text style={styles.comparePct}>{pctText}</Text>
+      <Text style={styles.compareLabel}>{label}</Text>
+    </View>
+  );
+}
+
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
@@ -249,4 +338,14 @@ const styles = StyleSheet.create({
   productImg: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
   productName: { fontSize: 13, fontWeight: "700", color: colors.onSurface },
   productMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+
+  // v1.0.93 (Build #15) — header row with the CSV export chip inline.
+  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  exportBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.brand + "1a", borderWidth: 1, borderColor: colors.brand + "33" },
+  exportBtnText: { fontSize: 12, fontWeight: "800", color: colors.brand },
+  compareRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
+  compareChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
+  compareValue: { fontSize: 12, fontWeight: "800" },
+  comparePct: { fontSize: 11, color: colors.onSurfaceMuted, fontWeight: "700" },
+  compareLabel: { fontSize: 11, color: colors.onSurfaceMuted, marginLeft: 2 },
 });

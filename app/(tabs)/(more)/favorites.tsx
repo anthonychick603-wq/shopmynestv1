@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -35,6 +35,11 @@ export default function Favorites() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("items");
+  // v1.0.93 (Build #14) — price-drop alerts toggle. We treat this as a
+  // best-effort setting: if the fetch fails we assume enabled (matches
+  // the server-side default) so the UI never blocks on a bad network.
+  const [priceDropAlerts, setPriceDropAlerts] = useState(true);
+  const [priceDropBusy, setPriceDropBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +58,31 @@ export default function Favorites() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load the current price-drop opt-in state on mount. Best-effort: on
+  // failure we leave the default of "on" so the toggle still reflects
+  // the server behavior.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    nest.getPreferences()
+      .then((p) => { if (!cancelled) setPriceDropAlerts(!!p.price_drop_alerts); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const onTogglePriceDrop = async (next: boolean) => {
+    setPriceDropAlerts(next);
+    setPriceDropBusy(true);
+    try {
+      await nest.setPreferences({ price_drop_alerts: next });
+    } catch {
+      setPriceDropAlerts(!next);
+      toast.error("Couldn't save your preference.");
+    } finally {
+      setPriceDropBusy(false);
+    }
+  };
 
   // Keep the visible list in sync when a heart is toggled off here.
   useEffect(() => {
@@ -101,6 +131,22 @@ export default function Favorites() {
               </Text>
             </TouchableOpacity>
           </View>
+          {tab === "items" ? (
+            <View style={styles.alertRow} testID="favorites-price-drop-row">
+              <View style={{ flex: 1 }}>
+                <Text style={styles.alertTitle}>Price-drop alerts</Text>
+                <Text style={styles.alertSub}>Get notified when a shop lowers the price on an item you saved.</Text>
+              </View>
+              <Switch
+                value={priceDropAlerts}
+                onValueChange={(v) => { haptics.tap(); onTogglePriceDrop(v); }}
+                disabled={priceDropBusy}
+                trackColor={{ true: colors.brand, false: colors.borderStrong }}
+                thumbColor={colors.onBrand}
+                testID="favorites-price-drop-switch"
+              />
+            </View>
+          ) : null}
           {loading ? (
             tab === "items" ? <ProductGridSkeleton count={4} /> : <BlogPostSkeleton count={3} />
           ) : tab === "items" ? (
@@ -185,4 +231,7 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: colors.brand },
   tabText: { fontSize: 14, fontWeight: "800", color: colors.onSurfaceMuted },
   tabTextActive: { color: colors.onBrand },
+  alertRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginHorizontal: spacing.lg, marginBottom: spacing.md, padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
+  alertTitle: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
+  alertSub: { marginTop: 2, fontSize: 12, color: colors.onSurfaceMuted },
 });
