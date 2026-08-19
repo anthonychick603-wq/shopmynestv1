@@ -93,6 +93,9 @@ export default function BlogModeration() {
             onPress={() => { haptics.tap(); setStatus(t); }}
             style={[styles.tab, status === t && styles.tabActive]}
             testID={`blog-moderation-tab-${t}`}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: status === t }}
+            accessibilityLabel={`${t.charAt(0).toUpperCase() + t.slice(1)} posts${status === t ? ", selected" : ""}`}
           >
             <Text style={[styles.tabText, status === t && styles.tabTextActive]}>{t.toUpperCase()}</Text>
           </TouchableOpacity>
@@ -131,6 +134,9 @@ export default function BlogModeration() {
                       onPress={() => { haptics.success(); moderate(item.id, "approve"); }}
                       disabled={acting === item.id}
                       testID={`blog-moderation-approve-${item.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Approve post: ${item.caption ? item.caption.slice(0, 50) : "untitled"}`}
+                      accessibilityState={{ disabled: acting === item.id }}
                     >
                       <Text style={styles.approveText}>Approve</Text>
                     </TouchableOpacity>
@@ -139,6 +145,9 @@ export default function BlogModeration() {
                       onPress={() => { haptics.warning(); moderate(item.id, "reject"); }}
                       disabled={acting === item.id}
                       testID={`blog-moderation-reject-${item.id}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Reject post: ${item.caption ? item.caption.slice(0, 50) : "untitled"}`}
+                      accessibilityState={{ disabled: acting === item.id }}
                     >
                       <Text style={styles.rejectText}>Reject</Text>
                     </TouchableOpacity>

@@ -116,6 +116,9 @@ export default function Favorites() {
               style={[styles.tab, tab === "items" && styles.tabActive]}
               onPress={() => { haptics.tap(); setTab("items"); }}
               testID="favorites-tab-items"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === "items" }}
+              accessibilityLabel={`Items tab${items.length > 0 ? `, ${items.length} saved` : ""}${tab === "items" ? ", selected" : ""}`}
             >
               <Text style={[styles.tabText, tab === "items" && styles.tabTextActive]}>
                 Items {items.length > 0 ? `(${items.length})` : ""}
@@ -125,6 +128,9 @@ export default function Favorites() {
               style={[styles.tab, tab === "posts" && styles.tabActive]}
               onPress={() => { haptics.tap(); setTab("posts"); }}
               testID="favorites-tab-posts"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === "posts" }}
+              accessibilityLabel={`Posts tab${blogPosts.length > 0 ? `, ${blogPosts.length} saved` : ""}${tab === "posts" ? ", selected" : ""}`}
             >
               <Text style={[styles.tabText, tab === "posts" && styles.tabTextActive]}>
                 Posts {blogPosts.length > 0 ? `(${blogPosts.length})` : ""}
@@ -203,6 +209,8 @@ export default function Favorites() {
                     });
                   }}
                   testID={`favorites-blog-open-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open blog post: ${item.caption ? item.caption.slice(0, 50) : "untitled"}`}
                 >
                   <BlogPostCard
                     post={item}

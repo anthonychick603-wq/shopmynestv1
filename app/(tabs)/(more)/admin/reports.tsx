@@ -90,6 +90,9 @@ export default function AdminReports() {
             onPress={() => { haptics.tap(); setStatus(t); }}
             style={[styles.tab, status === t && styles.tabActive]}
             testID={`admin-reports-tab-${t}`}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: status === t }}
+            accessibilityLabel={`${t.charAt(0).toUpperCase() + t.slice(1)} reports${status === t ? ", selected" : ""}`}
           >
             <Text style={[styles.tabText, status === t && styles.tabTextActive]}>{t.toUpperCase()}</Text>
           </TouchableOpacity>
@@ -177,6 +180,9 @@ function ReportRow({ report, status, acting, onResolve, onDismiss }: { report: A
             onPress={onResolve}
             disabled={acting}
             testID={`admin-report-resolve-${report.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Resolve report #${report.id}`}
+            accessibilityState={{ disabled: acting }}
           >
             <Text style={styles.resolveText}>Resolve</Text>
           </TouchableOpacity>
@@ -185,6 +191,9 @@ function ReportRow({ report, status, acting, onResolve, onDismiss }: { report: A
             onPress={onDismiss}
             disabled={acting}
             testID={`admin-report-dismiss-${report.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={`Dismiss report #${report.id}`}
+            accessibilityState={{ disabled: acting }}
           >
             <Text style={styles.dismissText}>Dismiss</Text>
           </TouchableOpacity>
