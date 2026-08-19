@@ -47,7 +47,7 @@ export default function AdminDashboard() {
   if (user?.role !== "admin") {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => safeBack(router, "/(tabs)")} />
+        <Top onBack={() => safeBack(router, "/(tabs)/account")} />
         <EmptyState
           icon="lock-closed-outline"
           title="Not available"
@@ -60,7 +60,7 @@ export default function AdminDashboard() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => safeBack(router, "/(tabs)")} />
+      <Top onBack={() => safeBack(router, "/(tabs)/account")} />
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 40 }}
@@ -88,15 +88,49 @@ export default function AdminDashboard() {
         ) : (
           <>
             <View style={styles.tileRow}>
-              <StatTile label="Pending posts" value={stats?.pending_blog_posts ?? 0} icon="newspaper-outline" tint={colors.warning} />
-              <StatTile label="Pending reports" value={stats?.pending_reports ?? 0} icon="flag-outline" tint={colors.error} />
+              <StatTile
+                label="Pending posts"
+                value={stats?.pending_blog_posts ?? 0}
+                icon="newspaper-outline"
+                tint={colors.warning}
+                onPress={() => pushFromTab(router, "/blog/moderation")}
+                testID="admin-tile-pending-posts"
+              />
+              <StatTile
+                label="Pending reports"
+                value={stats?.pending_reports ?? 0}
+                icon="flag-outline"
+                tint={colors.error}
+                onPress={() => pushFromTab(router, "/admin/reports")}
+                testID="admin-tile-pending-reports"
+              />
             </View>
             <View style={styles.tileRow}>
-              <StatTile label="Sellers" value={stats?.sellers_total ?? 0} icon="storefront-outline" tint={colors.brand} />
-              <StatTile label="Products" value={stats?.products_total ?? 0} icon="cube-outline" tint={colors.brand} />
+              <StatTile
+                label="Sellers"
+                value={stats?.sellers_total ?? 0}
+                icon="storefront-outline"
+                tint={colors.brand}
+                onPress={() => pushFromTab(router, "/shops")}
+                testID="admin-tile-sellers"
+              />
+              <StatTile
+                label="Products"
+                value={stats?.products_total ?? 0}
+                icon="cube-outline"
+                tint={colors.brand}
+                onPress={() => router.replace("/(tabs)/browse" as any)}
+                testID="admin-tile-products"
+              />
             </View>
             <View style={styles.tileRow}>
-              <StatTile label="Orders (7d)" value={stats?.orders_7d ?? 0} icon="bag-check-outline" tint={colors.success} full />
+              <StatTile
+                label="Orders (7d)"
+                value={stats?.orders_7d ?? 0}
+                icon="bag-check-outline"
+                tint={colors.success}
+                full
+              />
             </View>
 
             <Text style={styles.sectionTitle}>Moderation</Text>
@@ -150,14 +184,49 @@ function Top({ onBack }: { onBack: () => void }) {
   );
 }
 
-function StatTile({ label, value, icon, tint, full = false }: { label: string; value: number; icon: React.ComponentProps<typeof Ionicons>["name"]; tint: string; full?: boolean }) {
-  return (
-    <View style={[styles.tile, full && styles.tileFull]}>
+function StatTile({
+  label,
+  value,
+  icon,
+  tint,
+  full = false,
+  onPress,
+  testID,
+}: {
+  label: string;
+  value: number;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  tint: string;
+  full?: boolean;
+  onPress?: () => void;
+  testID?: string;
+}) {
+  const content = (
+    <>
       <View style={[styles.tileIcon, { backgroundColor: tint + "22" }]}>
         <Ionicons name={icon} size={20} color={tint} />
       </View>
       <Text style={styles.tileValue}>{value.toLocaleString()}</Text>
       <Text style={styles.tileLabel}>{label}</Text>
+    </>
+  );
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        style={[styles.tile, full && styles.tileFull]}
+        onPress={() => { haptics.tap(); onPress(); }}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value.toLocaleString()}`}
+        testID={testID}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <View style={[styles.tile, full && styles.tileFull]} testID={testID}>
+      {content}
     </View>
   );
 }

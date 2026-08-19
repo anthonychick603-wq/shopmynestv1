@@ -68,7 +68,7 @@ export default function AdminReports() {
   if (user?.role !== "admin") {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => safeBack(router, "/(tabs)")} />
+        <Top onBack={() => safeBack(router, "/admin")} />
         <EmptyState
           icon="lock-closed-outline"
           title="Not available"
@@ -81,7 +81,7 @@ export default function AdminReports() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => safeBack(router, "/(tabs)")} />
+      <Top onBack={() => safeBack(router, "/admin")} />
 
       <View style={styles.tabs}>
         {TABS.map((t) => (
