@@ -78,29 +78,16 @@ export default function Browse() {
 
   useEffect(() => {
     nest.getCategories().then((cs) => setCategories(cs.map(toCategory))).catch(() => {});
-    // v1.0.83 — pull the full seller directory so the horizontal strip shows
-    // every shop. The server caps per_page at 100, so we fetch page 1 and then
-    // walk any remaining pages in the background. Fails silently — the row
-    // just doesn't render if the endpoint errors or returns nothing.
-    (async () => {
-      try {
-        const first = await nest.getSellers({ per_page: 100, page: 1 });
-        const collected: NestSellerListItem[] = [...(first.items || [])];
-        const totalPages = Math.max(1, first.total_pages ?? 1);
-        for (let p = 2; p <= totalPages; p++) {
-          try {
-            const next = await nest.getSellers({ per_page: 100, page: p });
-            collected.push(...(next.items || []));
-          } catch {
-            break;
-          }
-        }
-        const sorted = collected.sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
-        setShops(sorted);
-      } catch {
-        setShops([]);
-      }
-    })();
+    // v1.0.83 — show the first 25 shops here (sorted by product count desc);
+    // "See all" opens the searchable directory. Fails silently — the row just
+    // doesn't render if the endpoint errors or returns nothing.
+    nest
+      .getSellers({ per_page: 25, page: 1 })
+      .then((res) => {
+        const sorted = [...(res.items || [])].sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
+        setShops(sorted.slice(0, 25));
+      })
+      .catch(() => setShops([]));
     loadRecentSearches().then(setRecent);
   }, []);
 
