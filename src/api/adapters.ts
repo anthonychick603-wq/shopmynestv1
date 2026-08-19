@@ -70,12 +70,18 @@ export function toUser(u: NestUserRaw): NestUser {
     email: u.email,
     name: displayName,
     profile_photo: u.photo_url || u.avatar || null,
-    // The backend deliberately reports is_seller=false for admins/shop managers
-    // (they are not vendors for ownership/fees/payouts) while still granting them
-    // every seller REST route via is_approved_seller. Without the "admin" case
-    // they would collapse to "customer" and be locked out of the seller screens,
-    // which all gate on role "seller" or "admin".
-    role: u.is_seller ? "seller" : u.is_approved_seller ? "admin" : "customer",
+    // v1.0.88 — backend now sends an explicit is_admin flag (plugin v3.7.115).
+    // Previously we derived role from is_seller || is_approved_seller, which
+    // collapsed admin+seller accounts to "seller" and hid the admin drawer.
+    // Prefer the explicit flag; keep the legacy derivation as a fallback for
+    // older backends that don't send is_admin yet.
+    role: u.is_admin === true
+      ? "admin"
+      : u.is_seller
+      ? "seller"
+      : u.is_approved_seller
+      ? "admin"
+      : "customer",
     is_approved_seller: u.is_approved_seller === true,
     seller_id: u.seller_id != null ? String(u.seller_id) : null,
     followed_sellers: [],

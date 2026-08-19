@@ -651,6 +651,9 @@ export type NestUserRaw = {
   last_name?: string;
   avatar?: string;
   is_seller?: boolean;
+  // v1.0.88 — explicit admin flag (plugin v3.7.115). True for site admins /
+  // shop managers only; NOT set for regular approved sellers.
+  is_admin?: boolean;
   // True for approved sellers AND for site admins/store managers, mirroring the
   // backend's seller permission gate. This is the only "can manage the store"
   // signal the API exposes to the app.
