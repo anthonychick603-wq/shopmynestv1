@@ -43,15 +43,20 @@ export function BlogPostCard({
   const caption = stripHtml(post.caption);
   // v1.0.84 — clamp caption to 4 lines on the card. v1.0.85 — tapping
   // "See more" falls through to the card's outer TouchableOpacity, which
-  // already opens the post detail screen. We only need to know whether the
-  // caption actually overflows 4 lines so we can decide whether to show the
-  // link; we measure a hidden copy once via onTextLayout.
+  // already opens the post detail screen. v1.0.87 — clamp the visible Text
+  // unconditionally and measure it via onTextLayout to decide whether to
+  // show the "See more" affordance. The old hidden-measurement Text was
+  // absolutely positioned and never reliably fired onTextLayout, so the
+  // clamp appeared to be a no-op on real devices.
   const [overflows, setOverflows] = useState(false);
-  const [measured, setMeasured] = useState(false);
   const onCaptionTextLayout = (e: NativeSyntheticEvent<TextLayoutEventData>) => {
-    if (measured) return;
-    setMeasured(true);
-    if ((e.nativeEvent.lines?.length ?? 0) > 4) setOverflows(true);
+    const lineCount = e.nativeEvent.lines?.length ?? 0;
+    // With numberOfLines=4, RN reports up to 4 lines; a 4-line report means
+    // either an exact fit OR a truncated 5+ line caption. Fall back to a
+    // char-count heuristic to catch the truncated case: >200 chars packed
+    // into 4 lines almost always means the caption was clipped.
+    if (lineCount >= 4 && caption.length > 200) setOverflows(true);
+    else if (lineCount > 4) setOverflows(true);
   };
   return (
     <View style={styles.card} testID={`blog-card-${post.id}`}>
@@ -87,22 +92,11 @@ export function BlogPostCard({
 
       {caption ? (
         <View>
-          {/* Hidden measurement copy: renders once, off-screen, to detect
-              whether the caption exceeds 4 lines. Not shown to the user. */}
-          {!measured ? (
-            <Text
-              style={[styles.caption, styles.captionMeasure]}
-              onTextLayout={onCaptionTextLayout}
-              accessible={false}
-              importantForAccessibility="no"
-              pointerEvents="none"
-            >
-              {caption}
-            </Text>
-          ) : null}
           <Text
             style={styles.caption}
-            numberOfLines={overflows ? 4 : undefined}
+            numberOfLines={4}
+            ellipsizeMode="tail"
+            onTextLayout={onCaptionTextLayout}
           >
             {caption}
           </Text>
@@ -186,7 +180,6 @@ const styles = StyleSheet.create({
   statusPill: { backgroundColor: colors.yellow, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
   statusText: { fontSize: 10, fontWeight: "800", color: colors.onBrand, letterSpacing: 0.5 },
   caption: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
-  captionMeasure: { position: "absolute", opacity: 0, left: 0, right: 0, top: 0 },
   seeMore: { fontSize: 13, color: colors.brand, fontWeight: "700", marginTop: 6 },
   image: { width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, marginTop: spacing.md },
   metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
