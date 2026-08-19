@@ -79,6 +79,7 @@ export default function Account() {
   }
 
   const isSeller = user.role === "seller" || user.role === "admin";
+  const isAdmin = user.role === "admin";
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -152,6 +153,12 @@ export default function Account() {
             <Row icon="storefront-outline" label="Build your Nest" onPress={() => pushFromTab(router, "/seller/apply")} testID="acc-become-seller" />
           )}
         </Section>
+
+        {isAdmin ? (
+          <Section title="Admin">
+            <Row icon="settings-outline" label="Admin controls" onPress={() => pushFromTab(router, "/admin")} testID="acc-admin" />
+          </Section>
+        ) : null}
 
         <Section title="Preferences">
           <Row icon="notifications-outline" label="Notifications" onPress={() => router.push("/(tabs)/alerts")} testID="acc-notifs" />

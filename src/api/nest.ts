@@ -226,6 +226,21 @@ export const nest = {
     request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/approve`, { method: "POST" }),
   rejectBlogPost: (id: number | string) =>
     request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/reject`, { method: "POST" }),
+
+  // v1.0.86 — admin console (plugin v3.7.114). Owner-only surfaces powering
+  // the in-app admin drawer; all four routes reject non-admins with 403.
+  adminStats: () => request<AdminStats>("marketplace", "/admin/stats"),
+  adminListReports: (query?: { status?: "pending" | "resolved" | "dismissed"; page?: number; per_page?: number }) =>
+    request<{ items: AdminReport[]; page: number; total: number; total_pages: number; status: string }>(
+      "marketplace",
+      "/admin/reports",
+      { query },
+    ),
+  adminResolveReport: (id: number | string) =>
+    request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/resolve`, { method: "POST" }),
+  adminDismissReport: (id: number | string) =>
+    request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/dismiss`, { method: "POST" }),
+
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
     request<{ comments: NestBlogCommentRaw[]; total: number; pages: number }>(
@@ -746,6 +761,33 @@ export type NestFeedItemRaw = {
   comments?: number;
   stock_status?: string;
   stock_quantity?: number | null;
+};
+
+// v1.0.86 — admin console shapes (plugin v3.7.114).
+export type AdminStats = {
+  pending_blog_posts: number;
+  pending_reports: number;
+  sellers_total: number;
+  products_total: number;
+  orders_7d: number;
+  refreshed_at: string;
+};
+
+export type AdminReport = {
+  id: number;
+  kind: string;
+  status: "pending" | "resolved" | "dismissed";
+  reason: string;
+  created_at: string;
+  reporter: { id: number; name: string } | null;
+  subject_label: string;
+  subject_body: string;
+  subject_url: string;
+  blog_post_id: number | null;
+  blog_comment_id: number | null;
+  product_id: number | null;
+  resolved_by: { id: number; name: string } | null;
+  resolved_at: string | null;
 };
 
 export type NestBlogPostRaw = {
