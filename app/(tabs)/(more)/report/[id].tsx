@@ -21,17 +21,27 @@ const REASONS = [
 ] as const;
 
 export default function ReportItem() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // v1.0.76 — `type` selects which endpoint we hit. Default remains
+  // "product" so all existing product-report entry points keep working with
+  // no changes; blog posts pass `?type=blog_post` from the 3-dot menu.
+  const { id, type } = useLocalSearchParams<{ id: string; type?: string }>();
   const router = useRouter();
   const [reason, setReason] = useState<string | null>(null);
   const [details, setDetails] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const isBlog = type === "blog_post";
+  const headerTitle = isBlog ? "Report post" : "Report item";
+
   const submit = async () => {
     if (!reason) return toast.error("Please choose a reason");
     setBusy(true);
     try {
-      await nest.reportProduct(id!, reason, details);
+      if (isBlog) {
+        await nest.reportBlogPost(id!, reason, details);
+      } else {
+        await nest.reportProduct(id!, reason, details);
+      }
       toast.success("Thanks — our team will review.");
       safeBack(router, "/(tabs)");
     } catch (e) {
@@ -46,7 +56,7 @@ export default function ReportItem() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <View style={styles.top}>
           <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
-          <Text style={styles.topTitle}>Report item</Text>
+          <Text style={styles.topTitle}>{headerTitle}</Text>
           <View style={styles.topBtn} />
         </View>
         <ScrollView contentContainerStyle={{ padding: spacing.lg }}>

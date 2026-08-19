@@ -1,11 +1,12 @@
-import React, { useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import { nest, ApiError } from "@/src/api/nest";
+import { toBlogPost } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
@@ -14,16 +15,55 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { stripHtml } from "@/src/utils/html";
 
 export default function BlogComposer() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  // v1.0.76 — same route serves both "new" and "edit". Presence of ?edit=<id>
+  // switches to caption-edit mode: prefill from the server (or last-known feed
+  // data if it was passed in), PUT on submit, jump back to the detail screen.
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const isEdit = !!edit;
 
   const [caption, setCaption] = useState("");
+  const [existingImage, setExistingImage] = useState<string | null>(null);
   const [localImage, setLocalImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [loadingPost, setLoadingPost] = useState(isEdit);
+
+  useEffect(() => {
+    if (!isEdit || !edit) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingPost(true);
+      try {
+        // v1.0.76 — the public feed already returns the post via a single
+        // /blog/posts?ids= filter, but the mobile client keeps that as a
+        // list call. Simplest: fetch a page of the user's own posts and
+        // pick the one that matches. If the API grows a /blog/posts/:id
+        // GET we can swap this out.
+        const list = await nest.getBlogPosts({ per_page: 100 });
+        const raw = list.items.find((p) => String(p.id) === String(edit));
+        if (!raw) {
+          if (!cancelled) toast.error("Post not found.");
+          if (!cancelled) safeBack(router, "/(tabs)");
+          return;
+        }
+        const post = toBlogPost(raw);
+        if (cancelled) return;
+        setCaption(stripHtml(post.caption));
+        setExistingImage(post.image ?? null);
+      } catch (e) {
+        if (!cancelled) toast.error(e instanceof ApiError ? e.friendly : "Could not load post.");
+      } finally {
+        if (!cancelled) setLoadingPost(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, edit, router]);
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -36,6 +76,14 @@ export default function BlogComposer() {
     if (!caption.trim()) return toast.error("Write a caption for your post.");
     setBusy(true);
     try {
+      if (isEdit && edit) {
+        // v1.0.76 — caption-only edit. Image edit is deferred: the composer
+        // shows the existing image as a read-only preview in edit mode.
+        await nest.updateBlogPost(edit, { caption: caption.trim() });
+        toast.success("Post updated");
+        safeBack(router, `/(tabs)/(more)/blog/${edit}`);
+        return;
+      }
       const form = new FormData();
       form.append("caption", caption.trim());
       if (localImage) {
@@ -47,7 +95,7 @@ export default function BlogComposer() {
       await nest.createBlogPost(form);
       setSubmitted(true);
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.friendly : "Could not submit your post.");
+      toast.error(e instanceof ApiError ? e.friendly : isEdit ? "Could not save your changes." : "Could not submit your post.");
     } finally {
       setBusy(false);
     }
@@ -65,6 +113,17 @@ export default function BlogComposer() {
           onAction={() => router.replace("/(auth)/login")}
           testID="blog-compose-signed-out"
         />
+      </SafeAreaView>
+    );
+  }
+
+  if (loadingPost) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={() => safeBack(router, "/(tabs)")} title="Edit post" />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color={colors.brand} />
+        </View>
       </SafeAreaView>
     );
   }
@@ -87,10 +146,14 @@ export default function BlogComposer() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <Top onBack={() => safeBack(router, "/(tabs)")} />
+      <Top onBack={() => safeBack(router, "/(tabs)")} title={isEdit ? "Edit post" : "New post"} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-          <Text style={styles.note}>Posts are reviewed by an admin before they appear on the blog.</Text>
+          {!isEdit ? (
+            <Text style={styles.note}>Share what you’re nesting today — your post appears in Fresh from the Nest as soon as you submit.</Text>
+          ) : (
+            <Text style={styles.note}>You can update the caption. Photo changes aren’t supported yet — delete the post and re-post if you need a new photo.</Text>
+          )}
 
           <Input
             label="Post"
@@ -101,31 +164,45 @@ export default function BlogComposer() {
             testID="blog-compose-caption"
           />
 
-          <TouchableOpacity style={styles.photo} onPress={pickImage} testID="blog-compose-photo">
-            {localImage ? (
-              <AppImage source={{ uri: localImage.uri }} style={styles.photoImg} fallbackIcon="image-outline" />
-            ) : (
-              <View style={styles.photoEmpty}>
-                <Ionicons name="image-outline" size={26} color={colors.onSurfaceMuted} />
-                <Text style={styles.photoText}>Add a photo (optional)</Text>
+          {isEdit ? (
+            existingImage ? (
+              <View style={styles.photo} testID="blog-compose-existing-photo">
+                <AppImage source={{ uri: existingImage }} style={styles.photoImg} fallbackIcon="image-outline" />
               </View>
-            )}
-          </TouchableOpacity>
+            ) : null
+          ) : (
+            <TouchableOpacity style={styles.photo} onPress={pickImage} testID="blog-compose-photo">
+              {localImage ? (
+                <AppImage source={{ uri: localImage.uri }} style={styles.photoImg} fallbackIcon="image-outline" />
+              ) : (
+                <View style={styles.photoEmpty}>
+                  <Ionicons name="image-outline" size={26} color={colors.onSurfaceMuted} />
+                  <Text style={styles.photoText}>Add a photo (optional)</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
 
-          <Button title="Submit for review" onPress={submit} loading={busy} testID="blog-compose-submit" style={{ marginTop: spacing.md }} />
+          <Button
+            title={isEdit ? "Save changes" : "Post to the Nest"}
+            onPress={submit}
+            loading={busy}
+            testID="blog-compose-submit"
+            style={{ marginTop: spacing.md }}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-function Top({ onBack }: { onBack: () => void }) {
+function Top({ onBack, title = "New post" }: { onBack: () => void; title?: string }) {
   return (
     <View style={styles.top}>
       <TouchableOpacity onPress={onBack} style={styles.topBtn} testID="blog-compose-back" accessibilityRole="button" accessibilityLabel="Go back">
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
-      <Text style={styles.topTitle}>New post</Text>
+      <Text style={styles.topTitle}>{title}</Text>
       <View style={{ width: 40 }} />
     </View>
   );

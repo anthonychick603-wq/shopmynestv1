@@ -207,6 +207,19 @@ export const nest = {
   // Multipart: `caption` + optional `image` file part.
   createBlogPost: (formData: FormData) =>
     request<NestBlogPostRaw>("marketplace", "/blog/posts", { method: "POST", formData, timeoutMs: 60000 }),
+  // v1.0.76 — author edit + delete + non-author report. Server checks live
+  // in class-mnu-blog.php (MNU 3.7.110); the mobile UI still gates the
+  // menu items client-side so the sheet never offers actions the API will
+  // 403 on. Caption-only edit (JSON PUT). Image edit is intentionally
+  // deferred; the composer prefills the existing image but treats it as a
+  // read-only preview during edit. A later patch can add multipart PUT if
+  // we hear demand.
+  updateBlogPost: (id: number | string, payload: { caption?: string; remove_image?: boolean }) =>
+    request<{ success: boolean; post: NestBlogPostRaw }>("marketplace", `/blog/posts/${id}`, { method: "PUT", body: payload }),
+  deleteBlogPost: (id: number | string) =>
+    request<{ success: boolean; id: number }>("marketplace", `/blog/posts/${id}`, { method: "DELETE" }),
+  reportBlogPost: (id: number | string, reason: string, details: string) =>
+    request<{ success: boolean; report_id: number }>("marketplace", `/blog/posts/${id}/report`, { method: "POST", body: { reason, details } }),
   getBlogModerationPosts: (query?: { status?: "pending" | "approved" | "rejected"; page?: number; per_page?: number }) =>
     request<NestBlogPostsRaw>("marketplace", "/blog/moderation/posts", { query }),
   approveBlogPost: (id: number | string) =>

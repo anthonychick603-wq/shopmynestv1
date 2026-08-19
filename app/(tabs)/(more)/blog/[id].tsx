@@ -21,6 +21,7 @@ import { toBlogPost } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { BlogPostMenu } from "@/src/components/BlogPostMenu";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
@@ -185,6 +186,15 @@ export default function BlogPostDetail() {
                       <Text style={styles.postAuthor} numberOfLines={1}>{post.author.name || "My Nest member"}</Text>
                       {post.date ? <Text style={styles.postDate}>{timeAgo(post.date)}</Text> : null}
                     </View>
+                    {/* v1.0.76 — 3-dot menu. Author sees edit/delete; everyone
+                        else logged in sees report. Signed-out viewers still
+                        see the button but the sheet nudges them to sign in. */}
+                    <BlogPostMenu
+                      postId={post.id}
+                      authorId={post.author.id}
+                      onDeleted={() => safeBack(router, "/(tabs)/(more)/blog")}
+                      testID="blog-detail-menu"
+                    />
                   </View>
                   {post.caption ? <Text style={styles.postCaption}>{stripHtml(post.caption)}</Text> : null}
                   {post.image ? <Image source={{ uri: post.image }} style={styles.postImage} /> : null}

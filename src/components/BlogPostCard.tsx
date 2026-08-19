@@ -1,6 +1,7 @@
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { AppImage } from "@/src/components/AppImage";
+import { BlogPostMenu } from "@/src/components/BlogPostMenu";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -28,11 +29,15 @@ export function BlogPostCard({
   footer,
   isFavorite,
   onToggleFavorite,
+  onDeleted,
 }: {
   post: BlogPost;
   footer?: React.ReactNode;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  /** v1.0.76 — called after a successful in-menu delete so the parent list
+   *  can remove the row without a full refetch. */
+  onDeleted?: (id: string) => void;
 }) {
   const caption = stripHtml(post.caption);
   return (
@@ -54,6 +59,17 @@ export function BlogPostCard({
             <Text style={styles.statusText}>{post.status.toUpperCase()}</Text>
           </View>
         ) : null}
+        {/* v1.0.76 — 3-dot menu. Wrapped in a stopPropagation View so tapping
+            the menu does not also open the detail screen through the card's
+            outer TouchableOpacity. */}
+        <View onStartShouldSetResponder={() => true}>
+          <BlogPostMenu
+            postId={post.id}
+            authorId={post.author.id}
+            onDeleted={() => onDeleted?.(post.id)}
+            testID={`blog-card-menu-${post.id}`}
+          />
+        </View>
       </View>
 
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
