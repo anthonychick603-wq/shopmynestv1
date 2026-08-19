@@ -2,7 +2,7 @@
   "expo": {
     "name": "ShopMyNest",
     "slug": "the-nest-marketplace",
-    "version": "1.0.98",
+    "version": "1.0.99",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -13,7 +13,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.thenest.marketplace",
+      "bundleIdentifier": "com.shopmynest",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Upload product photos to your shop"
       }
@@ -24,8 +24,8 @@
         "backgroundColor": "#FFF8EF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.thenest.marketplace",
-      "versionCode": 64,
+      "package": "com.shopmynest",
+      "versionCode": 65,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"

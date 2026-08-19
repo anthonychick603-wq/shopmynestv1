@@ -36,7 +36,7 @@ keystore means you can never update the app under this package name again.
 Google does not allow the *first* artifact for a new package to arrive via API, so
 `eas submit` cannot create the listing. For the first release:
 
-1. Create the app in the Play Console under package `com.thenest.marketplace`.
+1. Create the app in the Play Console under package `com.shopmynest`.
 2. Upload the `.aab` from `eas build` by hand.
 3. Complete the Play Console questionnaires (Data safety, content rating, target audience,
    privacy policy URL). Data safety must declare the photo-library access and the account
