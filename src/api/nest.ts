@@ -43,8 +43,15 @@ function friendlyFor(status: number, code: string, message: string): string {
     return "Shipping tax couldn't be calculated right now — retry in a moment.";
   }
   if (status === 402) return "We could not complete your payment. Your cart has been saved.";
+  // v1.0.102 — invalid_json means the server returned non-JSON (WP fatal,
+  // proxy error page, host maintenance HTML). None of that is fit to show
+  // the user; collapse to the same generic sorry copy 5xx uses regardless
+  // of the numeric status, since even a 200 response can be a fatal page.
+  if (code === "invalid_json") {
+    return "The website is having trouble responding. Please try again.";
+  }
   if (status >= 500) {
-    const hasSpecific = code !== "invalid_json" && !!message && !/^HTTP \d+$/.test(message);
+    const hasSpecific = !!message && !/^HTTP \d+$/.test(message);
     return hasSpecific ? message : "The website is having trouble responding. Please try again.";
   }
   return message || "Something went wrong. Please try again.";
@@ -123,7 +130,17 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
     try {
       data = text ? JSON.parse(text) : null;
     } catch {
-      throw new ApiError(text.slice(0, 200) || "Bad response", res.status, "invalid_json");
+      // v1.0.102 — the WordPress fatal-error template ships raw HTML+CSS,
+      // and internal testing surfaced it dumped into an EmptyState card
+      // ("We couldn't load analytics" → followed by wpcomsh-fatal CSS
+      // rules). Never render server HTML as an error message. Use the
+      // status line only — friendlyFor turns 5xx into a generic sorry
+      // message and 4xx into a status-based fallback below.
+      const looksLikeHtml = /^\s*<(?:!doctype|html|head|body|style|script|div)\b/i.test(text);
+      const message = looksLikeHtml || !text
+        ? `HTTP ${res.status}`
+        : text.slice(0, 200);
+      throw new ApiError(message, res.status, "invalid_json");
     }
     if (!res.ok) {
       throw new ApiError(data?.message || data?.error || `HTTP ${res.status}`, res.status, data?.code || "request_failed", data);
