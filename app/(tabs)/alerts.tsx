@@ -16,6 +16,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { routeForPush } from "@/src/hooks/use-notification-routing";
 
 const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
   new_order_for_seller: "bag-check-outline",
@@ -63,6 +64,10 @@ export default function Alerts() {
   useEffect(() => { load(); }, [load]);
 
   const markAllRead = async () => {
+    // v1.0.107 — optimistic flip so the badge/count updates immediately even
+    // if the server round-trip is slow. On failure we surface the error AND
+    // reload from server, which will restore the true state.
+    setItems((prev) => prev.map((n) => (n.read ? n : { ...n, read: true })));
     try {
       await nest.markNotificationsRead();
       load();
@@ -72,8 +77,43 @@ export default function Alerts() {
       // silence; the list would then still show unread on next load and
       // they'd think the button was broken. Now we surface it.
       toast.error(e instanceof ApiError ? e.friendly : "Couldn’t mark alerts as read");
+      load();
     }
   };
+
+  // v1.0.107 — tapping a row now (a) marks that single notification read
+  // optimistically, (b) POSTs the read to the server, and (c) navigates to
+  // the target described by the notification metadata. The route mapping is
+  // shared with push tap handling via routeForPush() so both entry points
+  // land in the same place for the same notification type.
+  const onRowPress = useCallback(
+    async (item: NotificationItem) => {
+      haptics.tap();
+      if (!item.read) {
+        setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
+        const numericId = Number(item.id);
+        if (Number.isFinite(numericId) && numericId > 0) {
+          nest.markNotificationsRead([numericId]).catch(() => {
+            // Rollback if the server rejected it — better to show the true
+            // state than a stale optimistic one.
+            setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: false } : n)));
+          });
+        }
+      }
+      const meta = (item.meta ?? {}) as Record<string, unknown>;
+      const path = routeForPush({
+        type: item.type,
+        order_id: meta.order_id as number | string | undefined,
+        object_id: meta.object_id as number | string | undefined,
+        object_type: meta.object_type as string | undefined,
+        actor_id: meta.actor_id as number | string | undefined,
+      });
+      if (path && path !== "/alerts") {
+        pushFromTab(router, path);
+      }
+    },
+    [router],
+  );
 
   if (!user) {
     return (
@@ -123,7 +163,14 @@ export default function Alerts() {
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 100 }}
         ListEmptyComponent={<EmptyState icon="notifications-outline" title="You're all caught up" message="No notifications yet. New orders and updates will land here." testID="alerts-empty" />}
         renderItem={({ item }) => (
-          <View style={[styles.row, !item.read && styles.rowUnread]} testID={`alert-${item.id}`}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onRowPress(item)}
+            style={[styles.row, !item.read && styles.rowUnread]}
+            testID={`alert-${item.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}. ${item.body}`}
+          >
             <View style={styles.rowIcon}><Ionicons name={ICON_FOR[item.type] ?? "notifications-outline"} size={20} color={colors.brand} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle}>{item.title}</Text>
@@ -131,7 +178,7 @@ export default function Alerts() {
               <Text style={styles.rowTime}>{formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</Text>
             </View>
             {!item.read ? <View style={styles.dot} /> : null}
-          </View>
+          </TouchableOpacity>
         )}
       />
     </SafeAreaView>
