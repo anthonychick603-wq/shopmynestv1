@@ -163,21 +163,28 @@ export default function Alerts() {
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 100 }}
         ListEmptyComponent={<EmptyState icon="notifications-outline" title="You're all caught up" message="No notifications yet. New orders and updates will land here." testID="alerts-empty" />}
         renderItem={({ item }) => (
+          // v1.0.110 — rows now read visually as buttons: a chevron on the
+          // right signals navigation, the whole card has an explicit press
+          // state (activeOpacity 0.6 + accessibilityRole 'button'), and
+          // empty body text is collapsed so a shipped-order row doesn't
+          // leave dead vertical space that made the card feel static.
           <TouchableOpacity
-            activeOpacity={0.7}
+            activeOpacity={0.6}
             onPress={() => onRowPress(item)}
             style={[styles.row, !item.read && styles.rowUnread]}
             testID={`alert-${item.id}`}
             accessibilityRole="button"
-            accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}. ${item.body}`}
+            accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}${item.body ? ". " + item.body : ""}`}
+            accessibilityHint="Opens details"
           >
             <View style={styles.rowIcon}><Ionicons name={ICON_FOR[item.type] ?? "notifications-outline"} size={20} color={colors.brand} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle}>{item.title}</Text>
-              <Text style={styles.rowBody}>{item.body}</Text>
+              {item.body ? <Text style={styles.rowBody}>{item.body}</Text> : null}
               <Text style={styles.rowTime}>{formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</Text>
             </View>
             {!item.read ? <View style={styles.dot} /> : null}
+            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} style={styles.chev} />
           </TouchableOpacity>
         )}
       />
@@ -197,4 +204,5 @@ const styles = StyleSheet.create({
   rowBody: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
   rowTime: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6 },
+  chev: { marginLeft: spacing.sm, alignSelf: "center" },
 });
