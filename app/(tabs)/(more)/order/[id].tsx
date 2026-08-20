@@ -108,6 +108,17 @@ export default function OrderDetail() {
 
   if (loading) return <SafeAreaView style={styles.safe}><OrderDetailSkeleton /></SafeAreaView>;
 
+  // v1.0.108 — a seller-buyer account (Anthony) viewing an order they
+  // BOUGHT (as the customer_id on the order) must always see the buyer
+  // view, even if getSellerOrders happens to return this order id back
+  // to them. Anthony saw #3529 render as SellerOrderScreen with a
+  // fulfillment card and "Your earnings" because a stale/erroneous
+  // `_tnm_seller_ids` stamp put his own uid on the CSV even though he
+  // had no line items to ship. The plugin (v3.7.122.14) also filters
+  // this out server-side, but gate on identity here so older bridges
+  // (and any future data drift) can't render the wrong screen.
+  const iAmBuyer = !!order && !!user && typeof order.customer_id === "number" && Number(order.customer_id) === Number(user.id);
+
   // v1.0.101 — a seller looking at an order where they have line items
   // must ALWAYS see the seller-framed view ("Ship to", "Your earnings",
   // fulfillment status), never the buyer-framed one. Originally this
@@ -119,7 +130,7 @@ export default function OrderDetail() {
   // line items to fulfill, so a match there uniquely means "this user
   // is a seller ON this order" — even if the buyer endpoint also let
   // them read it.
-  if (sellerOrder) {
+  if (sellerOrder && !iAmBuyer) {
     return <SellerOrderScreen data={sellerOrder} onUpdated={setSellerOrder} />;
   }
 
@@ -248,7 +259,7 @@ export default function OrderDetail() {
           />
         ) : null}
         <OrderReviewCTA order={order} />
-        {isSeller && sellerOrder ? (
+        {isSeller && sellerOrder && !iAmBuyer ? (
           <SellerFulfillment orderId={String(order.id)} data={sellerOrder} onUpdated={setSellerOrder} />
         ) : null}
         <View style={styles.card}>

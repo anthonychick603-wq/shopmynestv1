@@ -188,6 +188,9 @@ export function toOrder(o: NestOrderRaw): Order {
     shipped_at: o.timeline?.shipped || (o.tracking || []).map((r) => r.shipped_at || "").filter(Boolean).sort()[0] || undefined,
     completed_at: o.date_completed,
     cancellable: !!o.cancellable,
+    // v1.0.108 — pass through the buyer id so the order screen can
+    // force the buyer view when the current user is the buyer.
+    customer_id: typeof o.customer_id === "number" ? o.customer_id : undefined,
   };
 }
 

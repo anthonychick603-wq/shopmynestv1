@@ -163,6 +163,10 @@ export type Order = {
   // v3.7.121 (Build #16) — true when the buyer can outright cancel
   // (pending/on-hold, no shipments). Paid orders route to refund flow.
   cancellable?: boolean;
+  // v1.0.108 — buyer identity so the order screen can force the
+  // buyer-framed view for a seller-buyer account viewing their own
+  // purchase.
+  customer_id?: number;
   seller_fees?: { seller_id: string; gross: number; marketplace_fee: number; seller_net: number; fee_percent: number }[];
 };
 

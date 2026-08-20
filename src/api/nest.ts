@@ -1126,6 +1126,11 @@ export type NestOrderRaw = {
   id: number;
   number: string;
   status: string;
+  // v1.0.108 — buyer identity so a seller-buyer account viewing their
+  // own purchase can force the buyer-framed screen even when the order
+  // happens to match their seller-orders list. Optional so older plugin
+  // builds still parse.
+  customer_id?: number;
   date_created?: string;
   currency: string;
   subtotal: number;
