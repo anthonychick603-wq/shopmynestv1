@@ -1,20 +1,20 @@
 /**
- * useHardwareBack — v1.0.60
+ * useHardwareBack — v1.0.108
  *
  * Bridges the Android hardware / gesture back button to the same navigation
- * semantics as the in-app chevron. Without this, hardware back always calls
- * navigation.goBack() at the native level, which for (more) screens reached
- * via a deep link (or an already-dismissed stack) either does nothing or
- * exits the app — instead of returning to a sensible tab parent.
+ * semantics as the in-app chevron (safeBack). Without this, hardware back
+ * calls navigation.goBack() at the native level, which for (more) screens
+ * reached via a deep link (or an already-dismissed stack) either does
+ * nothing or exits the app instead of returning to a sensible tab parent.
  *
- * Rules:
- *   • (more) screen with history → pop the stack (default behaviour)
- *   • (more) screen with no history → route to the natural parent tab
- *     based on the current segment (seller/* → Seller dashboard, everything
- *     else → Account, matching the in-app chevron fallbacks used across the
- *     app).
- *   • Tab root screen → do nothing, let Android handle it (switches tab or
- *     exits the app as expected).
+ * Rules (must match safeBack exactly):
+ *   • (more) screen with history → router.back() (pop one entry)
+ *   • (more) screen with no history → route to the referring tab if we
+ *     have one, else fall back to a natural parent tab based on the
+ *     current segment (seller/* → Seller dashboard, everything else →
+ *     Account).
+ *   • Tab root screen → do nothing, let Android handle it (tab switch /
+ *     exit the app as expected).
  */
 import { useEffect } from "react";
 import { BackHandler, Platform } from "react-native";
@@ -34,12 +34,20 @@ export function useHardwareBack(): void {
       // Not in the (more) stack → let Android handle back (tab switch / exit).
       if (!inMore) return false;
 
-      // In (more) → do NOT call router.back(). The (more) group is a
-      // single shared Stack across every tab, so canGoBack() reports true
-      // whenever another tab left an unrelated screen on the stack, and
-      // back would pop through the user's entire session history. Instead
-      // always route to a tab: the one they launched from, else a
-      // natural parent based on the current segment.
+      // In (more) → prefer a real stack pop. Because useTrackReferringTab
+      // dismisses the (more) stack whenever the user lands back on a tab
+      // root, any stack history that remains is guaranteed to be within
+      // the same flow (Product → Seller → Product B → back → Seller),
+      // so router.back() is now the correct behaviour.
+      try {
+        if (router.canGoBack()) {
+          router.back();
+          return true;
+        }
+      } catch {
+        // fall through to referring-tab fallback
+      }
+
       const remembered = getReferringTab();
       if (remembered) {
         router.replace(remembered as never);

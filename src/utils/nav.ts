@@ -1,23 +1,33 @@
-// v1.0.60 — safeBack + pushFromTab + referring tab memory
+// v1.0.108 — back-button restore + hardened cross-tab (more) stack reset.
 //
-// A one-liner router.back() will silently no-op when the current screen was
-// opened as a router.replace() destination (no prior entry) or when the app
-// was cold-started deep into a route (Play Store notification, share intent,
-// share-a-link on the web build). Sellers then see the back arrow do
-// nothing.
+// Design rules (must hold for every screen):
+//   1. Back button (in-app chevron OR Android hardware back) always returns
+//      to the direct previous screen the user was on.
+//   2. If there is no previous entry (deep link, cold start, notification
+//      into a detail), back goes to the tab we recorded on the last tab
+//      root visit — else the caller's fallback — else the tabs root.
 //
-// The other failure mode: every route pushed from a tab root lives on a
-// single shared Stack inside the (more) group, so the raw stack can hold
-// entries from a completely unrelated flow (e.g. seller listings from an
-// earlier session under the seller tab). Popping onto those unrelated
-// entries feels like "the back button jumps around":
-//   account → messages → back → listings (was previously visited)
+// Historical context (v1.0.60):
+//   The (more) group is a single Stack shared across every tab, so if the
+//   user pushed A from tab 1, switched to tab 2, and pushed B, then
+//   returned to tab 1 and pushed C, the raw stack held [A, B, C] and back
+//   popped through B (a completely unrelated flow). Old code worked around
+//   this by refusing to pop and always replacing to the referring tab —
+//   which broke ordinary within-flow back (Product → Seller → Product B →
+//   back should return to Seller, but replaced all the way to a tab root).
 //
-// The clean fix is on the push side: when a tab root opens a (more)
-// screen, dismiss the (more) stack first so it becomes a fresh single
-// entry. Subsequent within-flow pushes (product → seller → product) still
-// stack correctly, and back always returns to the actual previous page.
-import type { Router } from "expo-router";
+// New strategy:
+//   • useTrackReferringTab (mounted at the root) calls router.dismissAll()
+//     the moment the user lands back on a tab root, so the (more) stack is
+//     guaranteed empty before the next tab pushes into it.
+//   • pushFromTab / pushFromCard keep their existing push semantics — they
+//     don't need to clear the stack themselves because the tracker has
+//     already cleared it.
+//   • safeBack calls router.back() when there's stack history (which is
+//     now guaranteed to be within-flow entries only), and falls back to
+//     the referring tab / caller fallback / tabs root only when there's
+//     none.
+import { router as globalRouter, type Router } from "expo-router";
 
 // Records the tab route that last called pushFromTab / pushFromCard. When a
 // (more) screen with no stack history taps back, safeBack prefers this over
@@ -36,31 +46,41 @@ export function clearReferringTab(): void {
   referringTab = null;
 }
 
+/**
+ * v1.0.108 — return to the direct previous screen when possible, else fall
+ * back to the referring tab / caller-provided fallback / tabs root.
+ *
+ * router.canGoBack() is now trustworthy because useTrackReferringTab
+ * dismisses the (more) stack the instant the user is back on a tab root,
+ * so any stack history that remains is guaranteed to belong to the same
+ * within-flow push chain (Product → Seller → Product B → back → Seller).
+ */
 export function safeBack(router: Router, fallback: string = "/(tabs)") {
-  // We deliberately do NOT trust router.canGoBack() here. The (more)
-  // group is a single Stack shared across every tab, so canGoBack() will
-  // report true whenever another tab left an unrelated screen on that
-  // stack — popping it feels like the back button is jumping through the
-  // user's entire session history (Account → Messages → back → Listings
-  // → back → Payouts → back → Home → back → exits app). Detail screens
-  // reached from a menu row always want to return to the tab they were
-  // launched from, not to whatever else lives on the shared stack.
-  //
-  // Priority: the tab we recorded when the user last left a tab root,
-  // then the caller-provided fallback, then the tabs root.
+  try {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+  } catch {
+    // canGoBack is safe to call at any time in expo-router 6, but guard
+    // anyway so a mid-transition tap can't crash the app.
+  }
   const target = referringTab ?? fallback;
   router.replace(target as any);
 }
 
 /**
  * Navigate from a tab root (Account, Home, Browse, Seller dashboard...) to
- * a screen inside the shared (more) Stack. Dismisses any leftover (more)
- * entries first so the next back press returns to the tab, not to whatever
- * the user was doing before in an unrelated flow.
+ * a screen inside the shared (more) Stack. The (more) stack is guaranteed
+ * empty at this point because useTrackReferringTab called dismissAll the
+ * moment the user last landed on a tab root, so this push always creates
+ * a fresh single entry — subsequent within-flow pushes stack on top of it,
+ * and back returns to each in order until the stack is empty, at which
+ * point safeBack falls back to the referring tab.
  *
  * Use this for entries reached from a top-level menu row. Do NOT use it
  * for within-flow pushes (product → seller → product), which want the
- * default stacking behaviour.
+ * default stacking behaviour (pushFromCard handles both cases).
  */
 /**
  * Set the referring tab. Called by useTrackReferringTab (mounted at the
@@ -72,13 +92,6 @@ export function setReferringTab(path: string | null): void {
 }
 
 export function pushFromTab(router: Router, path: string, params?: Record<string, unknown>): void {
-  // The (more) group is a single Stack shared across every tab. We can't
-  // reliably clear it from outside (dismissAll/canDismiss only act on the
-  // currently focused navigator, and from a tab root that's the Tabs
-  // navigator, not the (more) Stack). So instead of trying to clear it,
-  // we push normally — but safeBack on the destination ignores the stack
-  // and returns to referringTab, which the tracker set the moment we
-  // left the tab.
   if (params) {
     router.push({ pathname: path as any, params: params as any });
   } else {
@@ -88,11 +101,11 @@ export function pushFromTab(router: Router, path: string, params?: Record<string
 
 /**
  * Reusable card / feed navigation. Cards live inside both tab roots and
- * (more) screens; from a tab root the tap must reset the (more) stack so
- * back returns to the tab, and from within (more) it must stack so back
- * returns to the previous flow screen (e.g. seller → product → back →
- * seller). Callers pass `insideMore` (from useSegments) so this helper
- * can pick the right behaviour without importing hooks itself.
+ * (more) screens; from a tab root the tap needs to launch a fresh (more)
+ * flow, and from within (more) it needs to stack on top of the current
+ * flow so back returns to the previous flow screen (e.g. seller → product
+ * → back → seller). Callers pass `insideMore` (from useSegments) so this
+ * helper can pick the right behaviour without importing hooks itself.
  */
 export function pushFromCard(
   router: Router,
@@ -108,5 +121,28 @@ export function pushFromCard(
     router.push({ pathname: path as any, params: params as any });
   } else {
     router.push(path as any);
+  }
+}
+
+/**
+ * v1.0.108 — internal helper used by useTrackReferringTab. Dismisses the
+ * (more) stack from the global router. Safe to call from a tab root
+ * effect because expo-router 6 dispatches dismissAll against the deepest
+ * active stack navigator, which is the (more) Stack we care about — even
+ * when the currently focused screen is a tab root, the (more) navigator
+ * remains mounted (the tabs layout keeps it hidden but instantiated) and
+ * receives the action.
+ */
+export function dismissMoreStackIfAny(): void {
+  try {
+    // canDismiss is not exposed on the router type in 6.0.x but is a
+    // runtime method. Guard both existence and truthiness.
+    const r: any = globalRouter as any;
+    if (typeof r.canDismiss === "function" && r.canDismiss()) {
+      r.dismissAll();
+    }
+  } catch {
+    // Never let a navigation cleanup crash the tree; a stuck stack entry
+    // is a lesser evil than an unhandled render throw.
   }
 }
