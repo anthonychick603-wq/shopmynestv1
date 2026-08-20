@@ -49,17 +49,45 @@ export default function ApplySeller() {
   }, []);
 
   const submit = async () => {
-    if (!shopName || description.length < 10) return toast.error("Please complete required fields");
-    if (selectedCats.length === 0) return toast.error("Choose at least one category");
-    if (!agreed) return toast.error("Please agree to the seller terms");
+    // v1.0.110 — client-side checks now match the exact server contract
+    // (store_name / about / products / accept_terms), and the toast
+    // names the specific field(s) missing so the seller doesn't have
+    // to guess after tapping submit on a long form.
+    const missing: string[] = [];
+    if (!shopName.trim()) missing.push("Shop name");
+    if (description.trim().length < 10) missing.push("Shop description (10+ characters)");
+    if (selectedCats.length === 0) missing.push("At least one product category");
+    if (!agreed) missing.push("Agreement to seller terms");
+    if (missing.length) {
+      return toast.error("Please complete: " + missing.join(", "));
+    }
+
+    // v1.0.110 — map the mobile form fields to the exact payload the
+    // plugin's /seller/application endpoint expects. The old payload
+    // used shop_name / shop_description / product_categories /
+    // shipping_info / agreed_to_terms, none of which matched, so the
+    // server always answered with the 422 "Store name, about,
+    // products, and acceptance of seller terms are required" banner
+    // even for a fully-filled form. Categories and shipping info are
+    // merged into `products` and `about` so the admin reviewing the
+    // application still sees everything the seller entered.
+    const catNames = selectedCats
+      .map((id) => categories.find((c) => c.id === id)?.name || "")
+      .filter(Boolean);
+    const aboutBody =
+      description.trim() +
+      (shipping.trim() ? "\n\nShipping: " + shipping.trim() : "");
+    const productsBody = catNames.length
+      ? "Categories: " + catNames.join(", ")
+      : "";
+
     setBusy(true);
     try {
       await nest.submitSellerApplication({
-        shop_name: shopName,
-        shop_description: description,
-        product_categories: selectedCats,
-        shipping_info: shipping,
-        agreed_to_terms: agreed,
+        store_name: shopName.trim(),
+        about: aboutBody,
+        products: productsBody,
+        accept_terms: agreed,
       });
       await refresh();
       toast.success("Application submitted!");
