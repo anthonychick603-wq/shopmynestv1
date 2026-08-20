@@ -153,6 +153,26 @@ export default function SellerShippoConnect() {
               ) : null}
 
               <View style={styles.card}>
+                <Text style={styles.cardTitle}>Don’t have a Shippo account yet?</Text>
+                <Text style={styles.dim}>
+                  Sign up free at Shippo, then come back here and paste your API token to connect. Signup takes about a minute.
+                </Text>
+                <View style={{ marginTop: spacing.md }}>
+                  <Button
+                    title="Create a Shippo account"
+                    variant="secondary"
+                    onPress={() => {
+                      haptics.press();
+                      Linking.openURL("https://apps.goshippo.com/join").catch(() => {
+                        toast.error("Could not open Shippo signup.");
+                      });
+                    }}
+                    testID="shippo-signup"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.card}>
                 <Text style={styles.cardTitle}>Paste your Shippo API token</Text>
                 <Text style={styles.dim}>
                   In Shippo, go to Settings → API. Copy the Live token (starts with <Text style={styles.mono}>shippo_live_</Text>) or a Test token, and paste it below.

@@ -59,6 +59,10 @@ export default function ProductForm() {
   // Stripe Connect gate — only enforced for brand-new listings, never for edits.
   const [gateChecking, setGateChecking] = useState(!isEdit);
   const [payoutsEnabled, setPayoutsEnabled] = useState<boolean | null>(null);
+  // v1.0.106 — sellers must connect a Shippo account before they can create
+  // new listings (plugin v3.7.122.9 enforces this server-side, but blocking
+  // the form up front keeps the seller out of a confusing 403).
+  const [shippoConnected, setShippoConnected] = useState<boolean | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -137,9 +141,13 @@ export default function ProductForm() {
     let cancelled = false;
     (async () => {
       try {
-        const s = await nest.getStripeConnectStatus();
+        const [s, sh] = await Promise.all([
+          nest.getStripeConnectStatus(),
+          nest.getShippoStatus().catch(() => null),
+        ]);
         if (cancelled) return;
         setPayoutsEnabled(s.payouts_enabled);
+        setShippoConnected(sh ? !!sh.connected : null);
       } catch {
         if (cancelled) return;
         setPayoutsEnabled(null);
@@ -267,6 +275,22 @@ export default function ProductForm() {
           actionLabel="Connect with Stripe"
           onAction={() => router.push("/seller/connect")}
           testID="pf-connect-required"
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (!isEdit && shippoConnected === false) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="New listing" />
+        <EmptyState
+          icon="cube-outline"
+          title="Connect Shippo first"
+          message="Before you can publish a new listing, connect a Shippo account so you can print shipping labels. You can create a free Shippo account in under a minute."
+          actionLabel="Connect Shippo"
+          onAction={() => router.push("/seller/shippo")}
+          testID="pf-shippo-required"
         />
       </SafeAreaView>
     );

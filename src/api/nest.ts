@@ -768,6 +768,12 @@ export type NestUserRaw = {
   // backend's seller permission gate. This is the only "can manage the store"
   // signal the API exposes to the app.
   is_approved_seller?: boolean;
+  // v1.0.106 (plugin v3.7.122.9) — Shippo onboarding surfacing so the app
+  // can show banners and block the listing flow client-side.
+  // shippo_required is a policy flag (server-controlled), shippo_connected
+  // is the actual state.
+  shippo_required?: boolean;
+  shippo_connected?: boolean;
   // null for non-sellers.
   seller_id?: number | null;
   seller_status?: string;
