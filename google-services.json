@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "288944617499",
+    "project_id": "shopmynest-209f2",
+    "storage_bucket": "shopmynest-209f2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:288944617499:android:bc9d26fdc3160ee21b20be",
+        "android_client_info": {
+          "package_name": "com.shopmynest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDx7Pi2kODjGIl43R5-YRFdfZHegCGgXjA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
