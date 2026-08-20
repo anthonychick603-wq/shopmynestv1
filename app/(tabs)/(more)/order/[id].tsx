@@ -108,10 +108,18 @@ export default function OrderDetail() {
 
   if (loading) return <SafeAreaView style={styles.safe}><OrderDetailSkeleton /></SafeAreaView>;
 
-  // v1.0.46 — seller-only view: buyer fetch was refused (403) but this
-  // seller has a line item on the order. Render a purpose-built seller
-  // fulfillment screen instead of the "can't view this order" wall.
-  if (!order && sellerOrder) {
+  // v1.0.101 — a seller looking at an order where they have line items
+  // must ALWAYS see the seller-framed view ("Ship to", "Your earnings",
+  // fulfillment status), never the buyer-framed one. Originally this
+  // branch only fired when the buyer fetch 403'd (v1.0.46 fix for Jo's
+  // #2943). But on some orders the buyer endpoint returns the order to
+  // sellers/admins, and the screen then rendered the buyer layout with
+  // "SHIPPING TO <buyer>" for the person actually doing the shipping.
+  // getSellerOrders only returns orders where the current user has
+  // line items to fulfill, so a match there uniquely means "this user
+  // is a seller ON this order" — even if the buyer endpoint also let
+  // them read it.
+  if (sellerOrder) {
     return <SellerOrderScreen data={sellerOrder} onUpdated={setSellerOrder} />;
   }
 
