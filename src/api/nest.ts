@@ -1395,6 +1395,12 @@ export type NestBalances = {
   available: number;
   reserved: number;
   paid: number;
+  // v1.0.104 — positive dollar amount the seller currently owes for
+  // shipping labels they bought. The plugin's ledger stamps postage as a
+  // negative row that nets off the next transfer; the payouts screen
+  // surfaces this as a separate line so a $-5.17 raw sum doesn't get
+  // read as "you owe us." Optional so older plugin builds still parse.
+  shipping_owed?: number;
   currency: string;
 };
 

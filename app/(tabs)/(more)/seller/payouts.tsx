@@ -43,7 +43,11 @@ export default function Payouts() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const available = balances?.available ?? 0;
+  // v1.0.104 — the plugin (v3.7.122.6+) already clamps `available` to ≥ 0 and
+  // exposes any postage debit separately as `shipping_owed`. Guard against
+  // older plugin builds by clamping client-side too.
+  const available = Math.max(0, balances?.available ?? 0);
+  const shippingOwed = Math.max(0, balances?.shipping_owed ?? 0);
   const canRequest = available >= minimum && available > 0;
 
   const requestPayout = () => {
@@ -110,6 +114,16 @@ export default function Payouts() {
           <Mini label="Reserved" value={`$${(balances?.reserved ?? 0).toFixed(2)}`} />
           <Mini label="Paid out" value={`$${(balances?.paid ?? 0).toFixed(2)}`} />
         </View>
+
+        {shippingOwed > 0 ? (
+          <View style={styles.shippingRow}>
+            <Ionicons name="cube-outline" size={16} color={colors.onSurfaceMuted} />
+            <Text style={styles.shippingText}>
+              <Text style={styles.shippingLabel}>Shipping labels: </Text>
+              ${shippingOwed.toFixed(2)} will come off your next paid order.
+            </Text>
+          </View>
+        ) : null}
 
         <Button
           title={canRequest ? "Request payout" : `Minimum payout is $${minimum.toFixed(2)}`}
@@ -186,6 +200,9 @@ const styles = StyleSheet.create({
   miniValue: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
   miniLabel: { fontSize: 11, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 2 },
   hint: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.sm, textAlign: "center" },
+  shippingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md },
+  shippingText: { flex: 1, fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 16 },
+  shippingLabel: { fontWeight: "800", color: colors.onSurface },
   sectionHeader: { marginTop: spacing.xl, marginBottom: spacing.sm },
   sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   empty: { color: colors.onSurfaceMuted, fontStyle: "italic" },
