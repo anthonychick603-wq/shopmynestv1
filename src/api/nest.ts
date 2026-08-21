@@ -622,6 +622,22 @@ export const nest = {
   getStripeConnectDashboardLink: () =>
     request<NestConnectDashboardLink>("connect", "/dashboard-link", { method: "POST" }),
 
+  // v3.8.0 seller bank account (replaces Stripe Connect for payouts).
+  // GET  -> masked summary: has_bank + last4 + holder_name + updated_at.
+  //         Never returns routing/account digits.
+  // POST -> save/replace bank details. Server format-validates and encrypts.
+  getSellerBank: () =>
+    request<NestSellerBank>("marketplace", "/seller/bank-account"),
+  saveSellerBank: (payload: {
+    holder_name: string;
+    routing_number: string;
+    account_number: string;
+  }) =>
+    request<NestSellerBank>("marketplace", "/seller/bank-account", {
+      method: "POST",
+      body: payload,
+    }),
+
   // Ops
   getAddresses: () => request<{ billing: NestWpAddress; shipping: NestWpAddress }>("ops", "/addresses"),
   saveAddresses: (payload: { billing?: NestWpAddress; shipping?: NestWpAddress }) =>
@@ -1491,6 +1507,14 @@ export type NestConnectStatus = {
 };
 export type NestConnectOnboardLink = { url: string };
 export type NestConnectDashboardLink = { url: string };
+
+// v3.8.0 seller bank account (masked-only response).
+export type NestSellerBank = {
+  has_bank: boolean;
+  last4: string;
+  holder_name: string;
+  updated_at: string;
+};
 
 export type NestSellerDashboardRaw = {
   store_name?: string;
