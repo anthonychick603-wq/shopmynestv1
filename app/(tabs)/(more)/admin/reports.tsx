@@ -16,6 +16,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { parseServerDate } from "@/src/utils/datetime";
 
 type Status = "pending" | "resolved" | "dismissed";
 const TABS: Status[] = ["pending", "resolved", "dismissed"];
@@ -167,7 +168,7 @@ function ReportRow({ report, status, acting, onResolve, onDismiss }: { report: A
         <View style={styles.kindBadge}>
           <Text style={styles.kindBadgeText}>{report.subject_label.toUpperCase()}</Text>
         </View>
-        <Text style={styles.createdAt}>{new Date(report.created_at).toLocaleDateString()}</Text>
+        <Text style={styles.createdAt}>{(parseServerDate(report.created_at) ?? new Date(0)).toLocaleDateString()}</Text>
       </View>
       {report.reason ? <Text style={styles.reason}>{report.reason}</Text> : null}
       {report.subject_body ? <Text style={styles.subjectBody} numberOfLines={4}>{report.subject_body}</Text> : null}
@@ -203,7 +204,7 @@ function ReportRow({ report, status, acting, onResolve, onDismiss }: { report: A
         <Text style={styles.resolvedMeta}>
           {status === "resolved" ? "Resolved" : "Dismissed"}
           {report.resolved_by ? ` by ${report.resolved_by.name}` : ""} ·{" "}
-          {new Date(report.resolved_at).toLocaleString()}
+          {(parseServerDate(report.resolved_at) ?? new Date(0)).toLocaleString()}
         </Text>
       ) : null}
     </View>

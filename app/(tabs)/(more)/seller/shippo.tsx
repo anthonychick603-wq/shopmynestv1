@@ -10,6 +10,7 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { haptics } from "@/src/utils/haptics";
+import { parseServerDate } from "@/src/utils/datetime";
 
 /**
  * Seller-side Shippo Connect screen.
@@ -134,7 +135,7 @@ export default function SellerShippoConnect() {
                 <Text style={styles.dim}>{[status.account.company, status.account.name].filter(Boolean).join(" • ")}</Text>
               ) : null}
               {status.connected_at ? (
-                <Text style={styles.dimSmall}>Connected {new Date(status.connected_at).toLocaleString()} • {status.source === "oauth" ? "One-click" : "API token"}</Text>
+                <Text style={styles.dimSmall}>Connected {(parseServerDate(status.connected_at) ?? new Date(0)).toLocaleString()} • {status.source === "oauth" ? "One-click" : "API token"}</Text>
               ) : null}
               <View style={{ marginTop: spacing.md }}>
                 <Button title={disconnecting ? "Disconnecting…" : "Disconnect"} variant="secondary" onPress={() => { haptics.warning(); disconnect(); }} loading={disconnecting} testID="shippo-disconnect" />

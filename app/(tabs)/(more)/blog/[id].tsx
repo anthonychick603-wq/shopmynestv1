@@ -32,6 +32,7 @@ import { shareBlogPost } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
 import { stripHtml } from "@/src/utils/html";
 import type { BlogPost } from "@/src/types";
+import { parseServerDate } from "@/src/utils/datetime";
 
 // v1.0.54 - blog post detail with comment thread. Mirrors the community-post
 // comments screen so both flows read/write with the same UX: header +
@@ -41,7 +42,9 @@ const MAX_LENGTH = 2000;
 
 function timeAgo(iso?: string): string {
   if (!iso) return "";
-  const then = new Date(iso).getTime();
+  const parsed = parseServerDate(iso);
+  if (!parsed) return "";
+  const then = parsed.getTime();
   if (Number.isNaN(then)) return "";
   const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
   if (s < 60) return "just now";

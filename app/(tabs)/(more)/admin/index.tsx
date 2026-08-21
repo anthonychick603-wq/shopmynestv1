@@ -15,6 +15,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { safeBack, pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { parseServerDate } from "@/src/utils/datetime";
 
 export default function AdminDashboard() {
   const insets = useSafeAreaInsets();
@@ -166,7 +167,7 @@ export default function AdminDashboard() {
             </View>
 
             {stats?.refreshed_at ? (
-              <Text style={styles.refreshedAt}>Refreshed {new Date(stats.refreshed_at).toLocaleTimeString()}</Text>
+              <Text style={styles.refreshedAt}>Refreshed {(parseServerDate(stats.refreshed_at) ?? new Date()).toLocaleTimeString()}</Text>
             ) : null}
           </>
         )}

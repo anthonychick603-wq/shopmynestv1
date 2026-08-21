@@ -25,6 +25,7 @@ import { OrderReviewCTA } from "@/src/components/OrderReviewCTA";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { OrderDetailSkeleton } from "@/src/components/OrderDetailSkeleton";
+import { parseServerDate } from "@/src/utils/datetime";
 
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -279,7 +280,7 @@ export default function OrderDetail() {
             </TouchableOpacity>
           </View>
         </View>
-        <Text style={styles.placedAt}>Placed {order.created_at ? format(new Date(order.created_at), "PPpp") : ""}</Text>
+        <Text style={styles.placedAt}>Placed {order.created_at ? format(parseServerDate(order.created_at) ?? new Date(0), "PPpp") : ""}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -599,7 +600,7 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
           <Line k="Net (before shipping)" v={`$${Number(data.net_before_shipping ?? 0).toFixed(2)}`} bold />
         </View>
         <SellerFulfillment orderId={String(data.id)} data={data} onUpdated={onUpdated} />
-        <Text style={styles.placedAt}>Placed {data.date_created ? format(new Date(data.date_created), "PPpp") : ""}</Text>
+        <Text style={styles.placedAt}>Placed {data.date_created ? format(parseServerDate(data.date_created) ?? new Date(0), "PPpp") : ""}</Text>
       </ScrollView>
     </SafeAreaView>
   );

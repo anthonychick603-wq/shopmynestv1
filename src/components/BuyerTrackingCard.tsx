@@ -5,6 +5,7 @@ import { format } from "date-fns";
 
 import { colors, radius, spacing, shadows } from "@/src/theme";
 import type { OrderTrackingRow } from "@/src/types";
+import { parseServerDate } from "@/src/utils/datetime";
 
 // v1.0.51 - one per-seller tracking card. Renders carrier + number, a
 // "Track this shipment" tap-through when we have a tracking URL, a
@@ -49,7 +50,7 @@ export function BuyerTrackingCard({ row }: { row: OrderTrackingRow }) {
         <Text style={styles.subline}>
           Shipped {(() => {
             try {
-              return format(new Date(row.shipped_at.replace(" ", "T") + "Z"), "PP");
+              return format(parseServerDate(row.shipped_at) ?? new Date(0), "PP");
             } catch {
               return "";
             }

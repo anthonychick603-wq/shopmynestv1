@@ -16,6 +16,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { parseServerDate } from "@/src/utils/datetime";
 
 type Range = "7d" | "30d" | "all";
 const RANGES: { key: Range; label: string }[] = [
@@ -153,7 +154,7 @@ export default function AdminOrders() {
               <View style={styles.cardBottom}>
                 <Text style={styles.meta}>
                   {item.item_count} item{item.item_count === 1 ? "" : "s"}
-                  {item.created_at ? ` · ${format(new Date(item.created_at), "MMM d, yyyy")}` : ""}
+                  {item.created_at ? ` · ${format(parseServerDate(item.created_at) ?? new Date(0), "MMM d, yyyy")}` : ""}
                 </Text>
                 <Text style={styles.total}>${item.total.toFixed(2)}</Text>
               </View>

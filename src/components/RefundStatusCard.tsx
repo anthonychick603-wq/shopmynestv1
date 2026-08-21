@@ -35,6 +35,7 @@ import { colors, radius, shadows, spacing, statusPalette } from "@/src/theme";
 import { Input } from "@/src/components/Input";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
+import { parseServerDate } from "@/src/utils/datetime";
 
 type Props = {
   orderId: number | string;
@@ -265,7 +266,7 @@ export function RefundStatusCard({ orderId, refund, onChange }: Props) {
 function safeDate(iso: string): string {
   if (!iso) return "";
   try {
-    return format(new Date(iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z")), "MMM d, h:mm a");
+    return format(parseServerDate(iso) ?? new Date(0), "MMM d, h:mm a");
   } catch {
     return iso;
   }

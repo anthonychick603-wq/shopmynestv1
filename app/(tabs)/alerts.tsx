@@ -20,6 +20,7 @@ import { pushFromTab, safeBack } from "@/src/utils/nav";
 import { peekPreviousRoute } from "@/src/utils/nav-history";
 import { haptics } from "@/src/utils/haptics";
 import { routeForPush } from "@/src/hooks/use-notification-routing";
+import { parseServerDate } from "@/src/utils/datetime";
 
 const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
   new_order_for_seller: "bag-check-outline",
@@ -232,7 +233,7 @@ export default function Alerts() {
             <View style={{ flex: 1 }}>
               <Text style={styles.rowTitle}>{item.title}</Text>
               {item.body ? <Text style={styles.rowBody}>{item.body}</Text> : null}
-              <Text style={styles.rowTime}>{formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}</Text>
+              <Text style={styles.rowTime}>{formatDistanceToNow(parseServerDate(item.created_at) ?? new Date(0), { addSuffix: true })}</Text>
             </View>
             {!item.read ? <View style={styles.dot} /> : null}
             <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} style={styles.chev} />

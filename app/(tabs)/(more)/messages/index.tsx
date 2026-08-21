@@ -13,13 +13,15 @@ import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { parseServerDate } from "@/src/utils/datetime";
 
 // Format an ISO/MySQL UTC timestamp as a relative label (e.g. "3m", "2h", "Yesterday", "Mar 4").
 function formatRelative(iso: string): string {
   if (!iso) return "";
   // The-nest returns MySQL UTC ("YYYY-MM-DD HH:MM:SS"); make it a real ISO string.
   const utc = iso.includes("T") ? iso : iso.replace(" ", "T") + "Z";
-  const d = new Date(utc);
+  const d = parseServerDate(utc);
+  if (!d) return "";
   if (Number.isNaN(d.getTime())) return "";
   const diffMs = Date.now() - d.getTime();
   const diffMin = Math.round(diffMs / 60000);

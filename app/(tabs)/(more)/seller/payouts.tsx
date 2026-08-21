@@ -15,6 +15,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { parseServerDate } from "@/src/utils/datetime";
 
 export default function Payouts() {
   const insets = useSafeAreaInsets();
@@ -147,7 +148,7 @@ export default function Payouts() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.payoutAmount}>${p.amount.toFixed(2)} {p.currency}</Text>
                 <Text style={styles.payoutMeta}>
-                  {p.method?.toUpperCase()} · {p.requested_at ? format(new Date(p.requested_at.replace(" ", "T") + "Z"), "PP") : ""}
+                  {p.method?.toUpperCase()} · {(parseServerDate(p.requested_at) ?? null) ? format(parseServerDate(p.requested_at) as Date, "PP") : ""}
                 </Text>
               </View>
               <View style={[styles.statusPill, { backgroundColor: statusStyle(p.status).backgroundColor }]}>

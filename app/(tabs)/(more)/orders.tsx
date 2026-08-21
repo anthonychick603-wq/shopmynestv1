@@ -18,6 +18,7 @@ import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/context/AuthContext";
+import { parseServerDate } from "@/src/utils/datetime";
 
 // v1.0.71 — status coloring is shared with the seller dashboard via StatusPill
 // so buyers and sellers see the same color language across the app.
@@ -128,7 +129,7 @@ export default function Orders() {
                 <Text style={styles.orderId}>#{item.id}</Text>
                 <StatusPill status={item.status} />
               </View>
-              <Text style={styles.date}>{item.createdAt ? format(new Date(item.createdAt), "MMM d, yyyy") : ""}</Text>
+              <Text style={styles.date}>{item.createdAt ? format(parseServerDate(item.createdAt) ?? new Date(0), "MMM d, yyyy") : ""}</Text>
               <View style={{ flexDirection: "row", marginTop: spacing.md, alignItems: "center" }}>
                 <AppImage source={{ uri: item.firstImage }} style={styles.thumb} fallbackIcon="pricetag-outline" />
                 <View style={{ flex: 1, marginLeft: spacing.md }}>
@@ -154,7 +155,7 @@ export default function Orders() {
                 <Text style={styles.orderId}>#{item.id}</Text>
                 <StatusPill status={item.status} />
               </View>
-              <Text style={styles.date}>{item.created_at ? format(new Date(item.created_at), "MMM d, yyyy") : ""}</Text>
+              <Text style={styles.date}>{item.created_at ? format(parseServerDate(item.created_at) ?? new Date(0), "MMM d, yyyy") : ""}</Text>
               <View style={{ flexDirection: "row", marginTop: spacing.md }}>
                 {item.items.slice(0, 3).map((it, i) => (
                   <AppImage key={i} source={{ uri: it.product.images?.[0] }} style={[styles.thumb, { marginLeft: i === 0 ? 0 : -12, zIndex: 5 - i }]} fallbackIcon="pricetag-outline" />

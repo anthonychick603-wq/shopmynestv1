@@ -25,12 +25,15 @@ import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { parseServerDate } from "@/src/utils/datetime";
 
 const MAX_LENGTH = 2000;
 
 function timeAgo(iso?: string): string {
   if (!iso) return "";
-  const then = new Date(iso).getTime();
+  const parsed = parseServerDate(iso);
+  if (!parsed) return "";
+  const then = parsed.getTime();
   if (Number.isNaN(then)) return "";
   const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
   if (s < 60) return "just now";

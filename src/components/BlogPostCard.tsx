@@ -9,10 +9,13 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { stripHtml } from "@/src/utils/html";
 import { shareBlogPost } from "@/src/utils/share";
 import type { BlogPost } from "@/src/types";
+import { parseServerDate } from "@/src/utils/datetime";
 
 function timeAgo(iso?: string): string {
   if (!iso) return "";
-  const then = new Date(iso).getTime();
+  const parsed = parseServerDate(iso);
+  if (!parsed) return "";
+  const then = parsed.getTime();
   if (Number.isNaN(then)) return "";
   const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
   if (s < 60) return "just now";

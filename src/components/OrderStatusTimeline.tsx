@@ -13,6 +13,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 
 import { colors, radius, spacing } from "@/src/theme";
 import type { Order } from "@/src/types";
+import { parseServerDate } from "@/src/utils/datetime";
 
 type Step = {
   key: "placed" | "paid" | "shipped" | "delivered";
@@ -52,7 +53,8 @@ function currentStepIndex(order: Order): number {
 // ago", "3h ago"). Absolute time is still exposed via the a11y label.
 function relTime(iso?: string | null): { rel: string; abs: string } | null {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = parseServerDate(iso);
+  if (!d) return { rel: "", abs: "" };
   if (Number.isNaN(d.getTime())) return null;
   try {
     return { rel: `${formatDistanceToNowStrict(d, { addSuffix: false })} ago`, abs: d.toLocaleString() };

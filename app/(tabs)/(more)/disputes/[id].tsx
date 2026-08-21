@@ -18,6 +18,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { parseServerDate } from "@/src/utils/datetime";
 
 export default function DisputeDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -113,7 +114,7 @@ export default function DisputeDetail() {
         ) : null}
 
         {dispute.created_at ? (
-          <Text style={styles.meta}>Opened {format(new Date(dispute.created_at), "PPp")}</Text>
+          <Text style={styles.meta}>Opened {format(parseServerDate(dispute.created_at) ?? new Date(0), "PPp")}</Text>
         ) : null}
 
         {canRespond ? (

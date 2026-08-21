@@ -29,12 +29,14 @@ import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { parseServerDate } from "@/src/utils/datetime";
 
 // Format a MySQL UTC timestamp as a friendly time-of-day / date line above a
 // message bubble ("Today 3:14 PM", "Yesterday 11:02 AM", "Mar 4 3:14 PM").
 function formatBubbleTime(iso: string): string {
   const utc = iso.includes("T") ? iso : iso.replace(" ", "T") + "Z";
-  const d = new Date(utc);
+  const d = parseServerDate(utc);
+  if (!d) return "";
   if (Number.isNaN(d.getTime())) return "";
   const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   const now = new Date();
@@ -436,8 +438,8 @@ export default function MessageThread() {
               const prev = index > 0 ? messages[index - 1] : null;
               const showTime =
                 !prev ||
-                Math.abs(new Date(item.created_at.replace(" ", "T") + "Z").getTime() -
-                  new Date(prev.created_at.replace(" ", "T") + "Z").getTime()) > 15 * 60 * 1000;
+                Math.abs((parseServerDate(item.created_at)?.getTime() ?? 0) -
+                  (parseServerDate(prev.created_at)?.getTime() ?? 0)) > 15 * 60 * 1000;
               const hasPhotos = (item.photos?.length || 0) > 0;
               const hasText   = !!item.message?.trim();
               return (

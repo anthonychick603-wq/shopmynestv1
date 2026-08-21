@@ -25,6 +25,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { shareSeller } from "@/src/utils/share";
+import { parseServerDate } from "@/src/utils/datetime";
 
 export default function SellerProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
 // yet; move to /components if the reviews-list screen picks it up.
 function ReviewRow({ row }: { row: NestSellerReviewRaw }) {
   const stars = Math.max(1, Math.min(5, row.rating || 0));
-  const when = row.created_at ? new Date(row.created_at.replace(" ", "T") + "Z").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+  const when = (parseServerDate(row.created_at) ?? null)?.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) ?? "";
   return (
     <View style={reviewStyles.card}>
       <View style={reviewStyles.headerRow}>

@@ -14,6 +14,7 @@ import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { decodeEntities } from "@/src/utils/html";
+import { parseServerDate } from "@/src/utils/datetime";
 
 // v1.0.64 - Build #4: paginated shop-reviews list. Reached via
 // "See all reviews" on the seller profile. Loads 20 rows at a time; the
@@ -114,7 +115,7 @@ export default function SellerReviewsScreen() {
 // keep drifting, promote to a shared /components/ReviewRow.
 function ReviewRow({ row }: { row: NestSellerReviewRaw }) {
   const stars = Math.max(1, Math.min(5, row.rating || 0));
-  const when = row.created_at ? new Date(row.created_at.replace(" ", "T") + "Z").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+  const when = (parseServerDate(row.created_at) ?? null)?.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) ?? "";
   return (
     <View style={reviewStyles.card}>
       <View style={reviewStyles.headerRow}>
