@@ -18,6 +18,7 @@ import { useEffect } from "react";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { nest } from "@/src/api/nest";
+import { useAuth } from "@/src/context/AuthContext";
 
 function parseNumericParam(url: URL, key: string): string | null {
   const v = url.searchParams.get(key);
@@ -25,9 +26,34 @@ function parseNumericParam(url: URL, key: string): string | null {
   return /^\d+$/.test(v) ? v : null;
 }
 
-async function routeUrl(rawUrl: string, router: ReturnType<typeof useRouter>): Promise<void> {
+async function routeUrl(
+  rawUrl: string,
+  router: ReturnType<typeof useRouter>,
+  adoptSessionToken: (token: string) => Promise<void>,
+): Promise<void> {
   let parsed: URL;
   try { parsed = new URL(rawUrl); } catch { return; }
+
+  // v1.0.120 — signup magic link. Server-side handler at
+  // /verify-signup?token=...&pending=... does the actual verification
+  // and 302-redirects to thenest://auth/signup/verified?token=<jwt>.
+  // When we receive that, we hydrate the auth context and drop the
+  // user straight into the tabs.
+  if (parsed.protocol === "thenest:" && parsed.host === "auth" && parsed.pathname.startsWith("/signup/verified")) {
+    const token = parsed.searchParams.get("token") ?? "";
+    if (!token) {
+      router.replace("/(auth)/login");
+      return;
+    }
+    try {
+      await adoptSessionToken(token);
+      router.replace("/(tabs)");
+    } catch {
+      router.replace("/(auth)/login");
+    }
+    return;
+  }
+
   const host = parsed.hostname.replace(/^www\./, "");
   if (host !== "shopmynest.com") return;
 
@@ -83,17 +109,18 @@ async function routeUrl(rawUrl: string, router: ReturnType<typeof useRouter>): P
 
 export function useDeepLinkRouting(): void {
   const router = useRouter();
+  const { adoptSessionToken } = useAuth();
 
   useEffect(() => {
     // Cold start: the URL that launched the app (if any).
     Linking.getInitialURL().then((url) => {
-      if (url) void routeUrl(url, router);
+      if (url) void routeUrl(url, router, adoptSessionToken);
     });
 
     // Warm: URLs that arrive while the app is already running.
     const sub = Linking.addEventListener("url", (evt) => {
-      void routeUrl(evt.url, router);
+      void routeUrl(evt.url, router, adoptSessionToken);
     });
     return () => sub.remove();
-  }, [router]);
+  }, [router, adoptSessionToken]);
 }

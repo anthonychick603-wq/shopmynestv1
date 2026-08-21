@@ -187,6 +187,27 @@ export const nest = {
       body: payload,
       auth: false,
     }),
+  // v1.0.120 — two-step signup with email verification. Step 1 stashes
+  // credentials + emails a code + magic link. Step 2 checks the code and
+  // creates the real user. No wp_users row is created until Step 2 passes.
+  signupStart: (payload: { name: string; username: string; email: string; password: string }) =>
+    request<{ pending_id: number; email: string; expires_in: number }>("marketplace", "/auth/signup/start", {
+      method: "POST",
+      body: payload,
+      auth: false,
+    }),
+  signupVerify: (payload: { pending_id: number; code: string }) =>
+    request<{ token: string; user: NestUserRaw }>("marketplace", "/auth/signup/verify", {
+      method: "POST",
+      body: payload,
+      auth: false,
+    }),
+  signupResend: (payload: { pending_id: number }) =>
+    request<{ sent: boolean; expires_in: number }>("marketplace", "/auth/signup/resend", {
+      method: "POST",
+      body: payload,
+      auth: false,
+    }),
   logout: () => request<{ ok: boolean }>("marketplace", "/auth/logout", { method: "POST" }),
   me: () => request<NestUserRaw>("marketplace", "/auth/me"),
   updateMe: (payload: Record<string, unknown>) =>

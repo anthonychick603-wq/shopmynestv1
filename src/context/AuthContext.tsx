@@ -13,7 +13,16 @@ type AuthContextValue = {
   user: NestUser | null;
   loading: boolean;
   login: (loginValue: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, username: string) => Promise<void>;
+  // v1.0.120 — two-step signup. Step 1 emails a verification code +
+  // magic link and returns a pending signup id. Step 2 completes the
+  // signup by proving code ownership; only then does a real wp_users
+  // row exist. adoptSessionToken lets the magic-link deep-link finish
+  // signup on the client when the server already promoted the pending
+  // row.
+  signupStart: (payload: { name: string; email: string; username: string; password: string }) => Promise<{ pendingId: number; email: string; expiresIn: number }>;
+  signupVerify: (payload: { pendingId: number; code: string }) => Promise<void>;
+  signupResend: (pendingId: number) => Promise<void>;
+  adoptSessionToken: (token: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   updateUser: (u: NestUser) => void;
@@ -103,11 +112,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(toUser(res.user));
         void registerPushToken();
       },
-      async register(email, password, name, username) {
-        const res = await nest.register({ email, username, password, display_name: name, name });
+      async signupStart({ name, email, username, password }) {
+        const res = await nest.signupStart({ name, email, username, password });
+        return { pendingId: res.pending_id, email: res.email, expiresIn: res.expires_in };
+      },
+      async signupVerify({ pendingId, code }) {
+        const res = await nest.signupVerify({ pending_id: pendingId, code });
         await setAuthToken(res.token);
         setUser(toUser(res.user));
         void registerPushToken();
+      },
+      async signupResend(pendingId) {
+        await nest.signupResend({ pending_id: pendingId });
+      },
+      async adoptSessionToken(token) {
+        await setAuthToken(token);
+        try {
+          const raw = await nest.me();
+          setUser(toUser(raw));
+          void registerPushToken();
+        } catch {
+          await setAuthToken(null);
+          setUser(null);
+          throw new Error("Could not finish signing in. Please try signing in with your password.");
+        }
       },
       async logout() {
         try {

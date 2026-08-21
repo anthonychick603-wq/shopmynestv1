@@ -13,9 +13,19 @@ import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/api/nest";
 import { safeBack } from "@/src/utils/nav";
 
+// v1.0.120 — the first half of the two-step signup flow.
+//
+// Full name and email are BOTH required, so the app can no longer be
+// used to create wp_users rows with fake credentials (see the
+// testuser123@example.com incident on Aug 21, 2026). This screen
+// gathers the four fields, calls /auth/signup/start, and pushes to
+// /(auth)/verify with the returned pending id — no user record has
+// been created on the server yet at this point.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function Register() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { signupStart } = useAuth();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -28,14 +38,29 @@ export default function Register() {
 
   const submit = async () => {
     setErr(null);
-    if (!username.trim()) return setErr("Username is required");
+    const trimmedName = name.trim();
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+    // Client-side gate: every server error re-checks the same rules but
+    // showing them here avoids a round-trip for typos.
+    if (trimmedName.length < 2) return setErr("Please enter your full name");
+    if (!trimmedUsername) return setErr("Username is required");
+    if (!EMAIL_RE.test(trimmedEmail)) return setErr("Please enter a valid email address");
     if (password.length < 8) return setErr("Password must be at least 8 characters");
     setLoading(true);
     try {
-      await register(email.trim(), password, name.trim(), username.trim());
-      router.replace("/(tabs)");
+      const { pendingId, email: sentTo } = await signupStart({
+        name: trimmedName,
+        username: trimmedUsername,
+        email: trimmedEmail,
+        password,
+      });
+      router.replace({
+        pathname: "/(auth)/verify",
+        params: { pendingId: String(pendingId), email: sentTo },
+      });
     } catch (e) {
-      setErr(e instanceof ApiError ? e.friendly : "Registration failed. Please try again.");
+      setErr(e instanceof ApiError ? e.friendly : "Sign up failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -54,7 +79,7 @@ export default function Register() {
             <NestLogo />
           </View>
           <Text style={styles.title}>Create your Nest account</Text>
-          <Text style={styles.body}>Join our community of makers and shoppers.</Text>
+          <Text style={styles.body}>We'll email you a verification code to finish signing up.</Text>
 
           <Input
             label="Full name"
@@ -64,6 +89,7 @@ export default function Register() {
             textContentType="name"
             returnKeyType="next"
             onSubmitEditing={() => usernameRef.current?.focus()}
+            hint="Required"
             testID="register-name"
           />
           <Input
@@ -91,6 +117,7 @@ export default function Register() {
             textContentType="emailAddress"
             returnKeyType="next"
             onSubmitEditing={() => passwordRef.current?.focus()}
+            hint="You'll get a code to verify this address"
             testID="register-email"
           />
           <Input
@@ -108,7 +135,7 @@ export default function Register() {
           />
           {err ? <Text style={styles.err}>{err}</Text> : null}
 
-          <Button title="Create account" onPress={submit} loading={loading} testID="register-submit" style={{ marginTop: spacing.md }} />
+          <Button title="Send verification code" onPress={submit} loading={loading} testID="register-submit" style={{ marginTop: spacing.md }} />
           <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/login"); }} style={{ marginTop: spacing.lg }} testID="register-goto-login">
             <Text style={styles.link}>Already have an account? Sign in</Text>
           </TouchableOpacity>
