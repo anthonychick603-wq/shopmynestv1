@@ -391,7 +391,12 @@ export default function MessageThread() {
   const bubbleMaxWidth = Math.min(320, winWidth * 0.72);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    // v1.0.113 — stop including the bottom safe-area edge here. When the
+    // keyboard is up the composer must sit flush against the keyboard, and
+    // an extra bottom inset would push it below what KeyboardAvoidingView
+    // moves it to. The composer applies its own bottom inset when the
+    // keyboard is closed (see styles.composer).
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
         <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} testID="thread-back" accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
@@ -407,9 +412,15 @@ export default function MessageThread() {
         <View style={styles.topBtn} />
       </View>
 
+      {/* v1.0.113 — the messaging screen needs the composer to sit flush
+          against the keyboard on both platforms. Android's default
+          adjustResize does not fully work with Expo's edgeToEdgeEnabled
+          layout, so we now use behavior='height' on Android which lets
+          KeyboardAvoidingView shrink the container to make room for the
+          input. keyboardVerticalOffset accounts for the top header. */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         {loading ? (
@@ -610,7 +621,10 @@ const styles = StyleSheet.create({
   bubbleTextMine: { color: colors.onBrand },
   linkText: { textDecorationLine: "underline" },
   timeLabel: { fontSize: 11, color: colors.onSurfaceMuted, textAlign: "center", marginTop: spacing.sm, marginBottom: 2 },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md, borderTopWidth: 1, borderTopColor: colors.divider, backgroundColor: colors.surface },
+  // v1.0.113 — paddingBottom bumped so the composer keeps a comfortable
+  // gap above the system nav bar when the keyboard is closed (the parent
+  // SafeAreaView no longer applies a bottom inset for this screen).
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg, borderTopWidth: 1, borderTopColor: colors.divider, backgroundColor: colors.surface },
   attachBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary },
   input: { flex: 1, minHeight: 40, maxHeight: 140, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, color: colors.onSurface, fontSize: 15 },
   sendBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.brand },

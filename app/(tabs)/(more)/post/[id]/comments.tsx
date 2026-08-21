@@ -93,7 +93,9 @@ export default function PostComments() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top onBack={() => safeBack(router, "/(tabs)")} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      {/* v1.0.113 — behavior='height' on Android so the composer isn't hidden
+          by the soft keyboard under edge-to-edge layout. */}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         {loading ? (
           <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
         ) : error ? (
