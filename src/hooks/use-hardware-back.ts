@@ -20,7 +20,8 @@ import { useEffect } from "react";
 import { BackHandler, Platform } from "react-native";
 import { useRouter, useSegments } from "expo-router";
 
-import { getReferringTab } from "@/src/utils/nav";
+import { safeBack } from "@/src/utils/nav";
+import { peekPreviousRoute } from "@/src/utils/nav-history";
 
 export function useHardwareBack(): void {
   const router = useRouter();
@@ -30,32 +31,20 @@ export function useHardwareBack(): void {
     if (Platform.OS !== "android") return;
 
     const onBack = (): boolean => {
+      // Tab roots: only intercept if the nav-history tracker knows the
+      // user got here from another screen (e.g. tapped the bell on a
+      // product to land on Alerts). Otherwise let Android handle back
+      // — that's the normal "exit the app from Home" behaviour.
       const inMore = segments.includes("(more)" as never);
-      // Not in the (more) stack → let Android handle back (tab switch / exit).
-      if (!inMore) return false;
+      if (!inMore && !peekPreviousRoute()) return false;
 
-      // In (more) → prefer a real stack pop. Because useTrackReferringTab
-      // dismisses the (more) stack whenever the user lands back on a tab
-      // root, any stack history that remains is guaranteed to be within
-      // the same flow (Product → Seller → Product B → back → Seller),
-      // so router.back() is now the correct behaviour.
-      try {
-        if (router.canGoBack()) {
-          router.back();
-          return true;
-        }
-      } catch {
-        // fall through to referring-tab fallback
-      }
-
-      const remembered = getReferringTab();
-      if (remembered) {
-        router.replace(remembered as never);
-        return true;
-      }
+      // v1.0.117: delegate to safeBack so hardware back and in-app back
+      // are guaranteed to behave identically. safeBack walks the
+      // nav-history tracker, prefers a real router.back() when both
+      // agree, otherwise router.replace()s the previous entry.
       const isSellerFlow = segments.some((s) => s === "seller");
-      const parent = isSellerFlow ? "/(tabs)/seller/dashboard" : "/(tabs)/account";
-      router.replace(parent as never);
+      const fallback = isSellerFlow ? "/(tabs)/seller/dashboard" : "/(tabs)/account";
+      safeBack(router, fallback);
       return true;
     };
 

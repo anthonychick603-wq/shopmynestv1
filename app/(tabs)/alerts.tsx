@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,7 +16,8 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAlerts } from "@/src/context/AlertsContext";
-import { pushFromTab } from "@/src/utils/nav";
+import { pushFromTab, safeBack } from "@/src/utils/nav";
+import { peekPreviousRoute } from "@/src/utils/nav-history";
 import { haptics } from "@/src/utils/haptics";
 import { routeForPush } from "@/src/hooks/use-notification-routing";
 
@@ -35,6 +37,40 @@ const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
   favorite_added: "heart-outline",
   favorites_digest: "heart-outline",
 };
+
+/**
+ * v1.0.117 — chevron shown only when the nav-history tracker knows the
+ * user got here from another screen (e.g. tapped the bell on a product).
+ * On a cold start where Alerts is the first thing shown, the tracker
+ * has one entry (this screen) and peekPreviousRoute() returns null, so
+ * nothing renders. That keeps the header clean when there's genuinely
+ * nowhere to go back to.
+ */
+function BackChip({ router }: { router: ReturnType<typeof useRouter> }) {
+  const [hasPrev, setHasPrev] = useState<boolean>(!!peekPreviousRoute());
+  // Re-check on every focus — the tracker only updates when segments
+  // change, and useFocusEffect fires whenever the screen becomes the
+  // active one. Together they guarantee the chip reflects whether
+  // history exists to walk back through.
+  useFocusEffect(
+    useCallback(() => {
+      setHasPrev(!!peekPreviousRoute());
+    }, []),
+  );
+  if (!hasPrev) return null;
+  return (
+    <TouchableOpacity
+      onPress={() => { haptics.tap(); safeBack(router, "/(tabs)"); }}
+      style={styles.backBtn}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Go back"
+      testID="alerts-back"
+    >
+      <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+    </TouchableOpacity>
+  );
+}
 
 export default function Alerts() {
   const insets = useSafeAreaInsets();
@@ -132,7 +168,7 @@ export default function Alerts() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}><NestLogo compact /><CartHeaderButton /></View>
+        <View style={styles.header}><BackChip router={router} /><NestLogo compact /><CartHeaderButton /></View>
         <EmptyState
           icon="notifications-off-outline"
           title="Sign in to see alerts"
@@ -148,7 +184,7 @@ export default function Alerts() {
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}><NestLogo compact /><CartHeaderButton /></View>
+        <View style={styles.header}><BackChip router={router} /><NestLogo compact /><CartHeaderButton /></View>
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       </SafeAreaView>
     );
@@ -159,6 +195,7 @@ export default function Alerts() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
+        <BackChip router={router} />
         <NestLogo compact title="Alerts" subtitle={unread > 0 ? `${unread} unread` : undefined} />
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           {unread > 0 ? (
@@ -209,6 +246,7 @@ export default function Alerts() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg },
+  backBtn: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
   markRead: { color: colors.brand, fontWeight: "700" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "flex-start", backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, gap: spacing.md, ...shadows.card },

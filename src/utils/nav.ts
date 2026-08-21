@@ -29,6 +29,8 @@
 //     none.
 import { router as globalRouter, type Router } from "expo-router";
 
+import { consumePreviousRoute, peekPreviousRoute } from "./nav-history";
+
 // Records the tab route that last called pushFromTab / pushFromCard. When a
 // (more) screen with no stack history taps back, safeBack prefers this over
 // the caller-provided fallback so the user returns to the tab they came from
@@ -47,15 +49,44 @@ export function clearReferringTab(): void {
 }
 
 /**
- * v1.0.108 — return to the direct previous screen when possible, else fall
- * back to the referring tab / caller-provided fallback / tabs root.
+ * v1.0.117 — return to the direct previous screen the user was on. The
+ * nav-history tracker (useNavHistory, mounted at the root) records every
+ * route change with its params, so we can walk back to the exact prior
+ * URL even across tab switches and dismissAll() cleanups.
  *
- * router.canGoBack() is now trustworthy because useTrackReferringTab
- * dismisses the (more) stack the instant the user is back on a tab root,
- * so any stack history that remains is guaranteed to belong to the same
- * within-flow push chain (Product → Seller → Product B → back → Seller).
+ * Order of preference:
+ *   1. If the tracker has a previous entry AND router.canGoBack(): pop
+ *      both in lockstep so the visible tail of the tracker matches the
+ *      screen we return to.
+ *   2. If the tracker has a previous entry but router has no stack: use
+ *      router.replace() with the tracker's previous entry. This is the
+ *      case for tab-to-tab "back" (Product → Alerts → back → Product)
+ *      and deep-link entries.
+ *   3. No tracker entry: fall back to the recorded tab → caller fallback
+ *      → tabs root. Preserves the pre-v1.0.117 behaviour for cold-start
+ *      cases.
  */
 export function safeBack(router: Router, fallback: string = "/(tabs)") {
+  const prev = peekPreviousRoute();
+  if (prev) {
+    let canBack = false;
+    try { canBack = router.canGoBack(); } catch { canBack = false; }
+    if (canBack) {
+      // Sync the tracker with the router pop so the next safeBack sees
+      // the correct "previous" entry.
+      consumePreviousRoute();
+      try { router.back(); return; } catch { /* fall through */ }
+    }
+    // No stack to pop but the tracker knows where we came from — jump
+    // there directly. Consume so subsequent backs walk further into the
+    // history.
+    const target = consumePreviousRoute() ?? prev;
+    router.replace(target as any);
+    return;
+  }
+
+  // No tracked history — fall back to the old behaviour for cold-start
+  // and deep-link entries that beat the tracker's first record.
   try {
     if (router.canGoBack()) {
       router.back();

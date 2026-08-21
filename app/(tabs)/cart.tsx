@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useCallback, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -26,7 +27,8 @@ import { AddressPickerModal } from "@/src/components/AddressPickerModal";
 import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate, type NestAddressBookEntry } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
 import { storage } from "@/src/utils/storage";
-import { pushFromTab } from "@/src/utils/nav";
+import { pushFromTab, safeBack } from "@/src/utils/nav";
+import { peekPreviousRoute } from "@/src/utils/nav-history";
 import { haptics } from "@/src/utils/haptics";
 import { CartSkeleton } from "@/src/components/CartSkeleton";
 import { AppImage } from "@/src/components/AppImage";
@@ -726,14 +728,36 @@ function Field({
   );
 }
 
-// Peer tab header — no back arrow (Cart is a tab now; leave by tapping another tab).
+// v1.0.117 — Cart is a peer tab, but the header shows a chevron whenever
+// the nav-history tracker knows the user got here from another screen
+// (e.g. tapped the header cart icon from a product page). Tapping
+// safeBack replaces the cart with the previous route; if there's no
+// tracked history (cold-start, user tapped the cart button in the
+// account row), the chevron is hidden and the user leaves the cart by
+// tapping another tab.
 function Top({ title }: { title: string }) {
+  const router = useRouter();
+  const [hasPrev, setHasPrev] = useState<boolean>(!!peekPreviousRoute());
+  useFocusEffect(
+    useCallback(() => {
+      setHasPrev(!!peekPreviousRoute());
+    }, []),
+  );
   return (
     <View style={styles.top}>
+      {hasPrev ? (
+        <TouchableOpacity
+          onPress={() => { haptics.tap(); safeBack(router, "/(tabs)"); }}
+          style={styles.backBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          testID="cart-back"
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+        </TouchableOpacity>
+      ) : null}
       <Text style={styles.topTitle}>{title}</Text>
-      {/* v1.0.116 — keep the alerts bell reachable from the cart too so
-          the shipping-rate wait doesn't strand the user with no way to
-          check a fresh order notification. */}
       <View style={{ flex: 1 }} />
       <AlertsBellButton />
     </View>
@@ -752,6 +776,7 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   top: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: spacing.sm },
+  backBtn: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
   topTitle: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
   addrCard: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md, marginHorizontal: spacing.lg, marginBottom: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, ...shadows.card },
   addrPrompt: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginHorizontal: spacing.lg, marginBottom: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.lg },
