@@ -57,13 +57,14 @@ export default function ProductForm() {
     }
   };
   const [categories, setCategories] = useState<Category[]>([]);
-  // Stripe Connect gate — only enforced for brand-new listings, never for edits.
+  // v1.0.124 — Payout account gate. Only enforced for brand-new listings,
+  // never for edits. Under the v3.8.0 money model the seller just needs to
+  // have a bank account saved (routing + account number) so ACH payouts can
+  // run. The plugin's server-side gate is `MNU_Bank_Account::has_bank_account`.
+  // v1.0.124 — Shippo per-seller gate removed. Platform Shippo token covers
+  // every seller by default, so we don't check `getShippoStatus` on mount.
   const [gateChecking, setGateChecking] = useState(!isEdit);
-  const [payoutsEnabled, setPayoutsEnabled] = useState<boolean | null>(null);
-  // v1.0.106 — sellers must connect a Shippo account before they can create
-  // new listings (plugin v3.7.122.9 enforces this server-side, but blocking
-  // the form up front keeps the seller out of a confusing 403).
-  const [shippoConnected, setShippoConnected] = useState<boolean | null>(null);
+  const [hasBank, setHasBank] = useState<boolean | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -134,24 +135,20 @@ export default function ProductForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable
   }, [id, isEdit]);
 
-  // New listings require a connected Stripe payout account. Check on mount so we
-  // can block the form up front (edits are exempt). A failed check leaves the
-  // gate unknown and defers to the re-check inside submit().
+  // v1.0.124 — New listings require a saved bank account. Check on mount so
+  // we can block the form up front (edits are exempt). A failed check leaves
+  // the gate unknown and defers to the re-check inside submit().
   useEffect(() => {
     if (isEdit) return;
     let cancelled = false;
     (async () => {
       try {
-        const [s, sh] = await Promise.all([
-          nest.getStripeConnectStatus(),
-          nest.getShippoStatus().catch(() => null),
-        ]);
+        const bank = await nest.getSellerBank();
         if (cancelled) return;
-        setPayoutsEnabled(s.payouts_enabled);
-        setShippoConnected(sh ? !!sh.connected : null);
+        setHasBank(!!bank.has_bank);
       } catch {
         if (cancelled) return;
-        setPayoutsEnabled(null);
+        setHasBank(null);
       } finally {
         if (!cancelled) setGateChecking(false);
       }
@@ -199,14 +196,14 @@ export default function ProductForm() {
     if (price === "" || Number(price) < 0 || Number.isNaN(Number(price))) {
       return toast.error("Enter a valid price.");
     }
-    // Authoritative gate for new listings: re-verify payouts are enabled before
-    // creating. Editing an existing listing is never gated.
+    // v1.0.124 — Authoritative gate for new listings: re-verify a bank account
+    // is on file before creating. Editing an existing listing is never gated.
     if (!isEdit) {
       try {
-        const s = await nest.getStripeConnectStatus();
-        setPayoutsEnabled(s.payouts_enabled);
-        if (!s.payouts_enabled) {
-          toast.error("Connect your bank account with Stripe before publishing a new listing.");
+        const bank = await nest.getSellerBank();
+        setHasBank(!!bank.has_bank);
+        if (!bank.has_bank) {
+          toast.error("Add a bank account before you publish a new listing.");
           return;
         }
       } catch (e) {
@@ -265,15 +262,15 @@ export default function ProductForm() {
     );
   }
 
-  if (!isEdit && payoutsEnabled === false) {
+  if (!isEdit && hasBank === false) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="New listing" />
         <EmptyState
           icon="business-outline"
-          title="Connect your bank account first"
-          message="Before you can publish a new listing, connect a bank account with Stripe so you can get paid."
-          actionLabel="Connect with Stripe"
+          title="Add a payout account first"
+          message="Before you can publish a new listing, save your bank routing and account numbers so we can pay you by ACH after the 7-day holding window."
+          actionLabel="Add bank account"
           onAction={() => router.push("/seller/connect")}
           testID="pf-connect-required"
         />
@@ -281,21 +278,8 @@ export default function ProductForm() {
     );
   }
 
-  if (!isEdit && shippoConnected === false) {
-    return (
-      <SafeAreaView style={styles.safe} edges={["top"]}>
-        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="New listing" />
-        <EmptyState
-          icon="cube-outline"
-          title="Connect Shippo first"
-          message="Before you can publish a new listing, connect a Shippo account so you can print shipping labels. You can create a free Shippo account in under a minute."
-          actionLabel="Connect Shippo"
-          onAction={() => router.push("/seller/shippo")}
-          testID="pf-shippo-required"
-        />
-      </SafeAreaView>
-    );
-  }
+  // v1.0.124 — Shippo per-seller gate removed (platform Shippo token covers
+  // every seller by default).
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
