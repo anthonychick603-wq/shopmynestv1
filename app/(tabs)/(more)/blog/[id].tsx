@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestBlogCommentRaw } from "@/src/api/nest";
 import { toBlogPost } from "@/src/api/adapters";
@@ -76,6 +76,11 @@ export default function BlogPostDetail() {
 
   const [post, setPost] = useState<BlogPost | null>(initial);
   const [comments, setComments] = useState<NestBlogCommentRaw[]>([]);
+  // v1.0.115 — store the server's total so the header count always agrees
+  // with the list we just fetched. Prevents the "blog feed says 1, detail
+  // says 0" disparity when the two screens read the same data source but
+  // at different moments.
+  const [commentTotal, setCommentTotal] = useState<number>(initial?.comment_count ?? 0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,15 +96,22 @@ export default function BlogPostDetail() {
     try {
       const res = await nest.getBlogPostComments(id, { page: 1, per_page: 50 });
       setComments(res.comments || []);
-      // Refresh post header if we didn't receive it via params.
-      if (!post) {
-        try {
-          const feed = await nest.getBlogPosts({ page: 1, per_page: 50 });
-          const raw = (feed.items || []).find((p) => String(p.id) === String(id));
-          if (raw) setPost(toBlogPost(raw));
-        } catch {
-          // header is optional; comments still render
-        }
+      // v1.0.115 — the server returns a total that comes from the same
+      // filtered query as the list, so it's guaranteed to agree with the
+      // rows we just rendered. Trusting this here (instead of the feed's
+      // cached comment_count) is what closes the "feed shows 1, detail
+      // shows 0" gap.
+      setCommentTotal((res as { total?: number }).total ?? (res.comments?.length ?? 0));
+      // Always refresh the post header from the feed on load. The feed
+      // returns favorites_count / comment_count computed server-side, so
+      // pulling on every focus keeps the header chips in sync with what
+      // Blog and Fresh from the Nest show.
+      try {
+        const feed = await nest.getBlogPosts({ page: 1, per_page: 50 });
+        const raw = (feed.items || []).find((p) => String(p.id) === String(id));
+        if (raw) setPost(toBlogPost(raw));
+      } catch {
+        // header is optional; comments still render
       }
     } catch (e) {
       setError(e instanceof ApiError ? e.friendly : "Could not load comments.");
@@ -107,11 +119,14 @@ export default function BlogPostDetail() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [id, post]);
+  }, [id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // v1.0.115 — refetch every time the screen regains focus so the count
+  // and list stay in sync with the blog feed (which already uses
+  // useFocusEffect). Previously used useEffect(load, [load]) which only
+  // fires on mount — that let the detail sit on stale 0 while the feed
+  // showed 1 after a new comment landed.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const submit = async () => {
     if (!user) return router.push("/(auth)/login");
@@ -129,6 +144,7 @@ export default function BlogPostDetail() {
       } else {
         const created = await nest.createBlogPostComment(id!, content);
         setComments((prev) => [...prev, created]);
+        setCommentTotal((n) => n + 1);
         setDraft("");
         toast.success("Comment posted");
       }
@@ -152,7 +168,12 @@ export default function BlogPostDetail() {
     setDraft("");
   };
   const removeCommentLocal = useCallback((commentId: string | number) => {
-    setComments((prev) => prev.filter((c) => String(c.id) !== String(commentId)));
+    setComments((prev) => {
+      const next = prev.filter((c) => String(c.id) !== String(commentId));
+      // v1.0.115 — keep total in sync with the visible list.
+      setCommentTotal(next.length);
+      return next;
+    });
     if (editingId !== null && String(editingId) === String(commentId)) {
       setEditingId(null);
       setDraft("");
@@ -260,7 +281,10 @@ export default function BlogPostDetail() {
                     <View style={styles.metaChip}>
                       <Ionicons name="chatbubble-outline" size={16} color={colors.onSurfaceMuted} />
                       <Text style={styles.commentsHeaderText}>
-                        {comments.length === 1 ? "1 comment" : `${comments.length} comments`}
+                        {/* v1.0.115 — show server-authoritative total from
+                            the same query that populates the list, so this
+                            never disagrees with the blog feed's chip. */}
+                        {commentTotal === 1 ? "1 comment" : `${commentTotal} comments`}
                       </Text>
                     </View>
                   </View>
