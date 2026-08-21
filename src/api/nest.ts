@@ -1419,6 +1419,11 @@ export type NestSellerOrderRaw = {
   gross: number;
   platform_fee: number;
   net_before_shipping: number;
+  // v3.7.124 backend — present on orders under the new fee model (platform
+  // keeps shipping). Older orders omit these fields, so treat as optional.
+  stripe_fee?: number;
+  seller_net?: number;
+  platform_keeps_shipping?: boolean;
   currency: string;
 };
 

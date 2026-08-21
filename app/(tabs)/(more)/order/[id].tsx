@@ -322,7 +322,7 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
         <Ionicons name="cube-outline" size={20} color={colors.brand} />
         <Text style={styles.protectTitle}>Fulfill this order</Text>
       </View>
-      <Text style={styles.sellerNet}>Your net (before shipping): ${data.net_before_shipping.toFixed(2)}</Text>
+      <Text style={styles.sellerNet}>Your net: ${(data.seller_net ?? data.net_before_shipping).toFixed(2)}</Text>
       <Text style={styles.fieldLabel}>Status</Text>
       <View style={styles.statusRow}>
         {SELLER_STATUSES.map((s) => {
@@ -596,8 +596,20 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
           <Text style={styles.cardLabel}>Your earnings</Text>
           <Line k="Item subtotal" v={`$${Number(data.gross ?? 0).toFixed(2)}`} />
           <Line k="Platform fee" v={`-$${Number(data.platform_fee ?? 0).toFixed(2)}`} />
+          {Number(data.stripe_fee ?? 0) > 0 && (
+            <Line k="Stripe processing fee" v={`-$${Number(data.stripe_fee ?? 0).toFixed(2)}`} />
+          )}
           <View style={styles.divider} />
-          <Line k="Net (before shipping)" v={`$${Number(data.net_before_shipping ?? 0).toFixed(2)}`} bold />
+          <Line
+            k="Your net"
+            v={`$${Number(data.seller_net ?? data.net_before_shipping ?? 0).toFixed(2)}`}
+            bold
+          />
+          {data.platform_keeps_shipping ? (
+            <Text style={{ fontSize: 12, color: '#7A7974', marginTop: 6 }}>
+              Shipping is paid by the buyer and covered by ShopMyNest — you don't need to pay for the label.
+            </Text>
+          ) : null}
         </View>
         <SellerFulfillment orderId={String(data.id)} data={data} onUpdated={onUpdated} />
         <Text style={styles.placedAt}>Placed {data.date_created ? format(parseServerDate(data.date_created) ?? new Date(0), "PPpp") : ""}</Text>
