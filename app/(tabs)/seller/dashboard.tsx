@@ -489,12 +489,16 @@ function DashboardSkeleton() {
 }
 
 // Peer tab header — no back arrow (the dashboard is a primary tab, not a pushed screen).
+// v1.0.126 — group bell + cart together on the right instead of spacing them
+// apart. Title stays flush-left, action icons cluster flush-right.
 function Top() {
   return (
     <View style={styles.top}>
       <Text style={styles.topTitle}>My Nest</Text>
-      <AlertsBellButton />
-      <CartHeaderButton />
+      <View style={styles.topActions}>
+        <AlertsBellButton />
+        <CartHeaderButton />
+      </View>
     </View>
   );
 }
@@ -503,6 +507,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  topActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   topTitle: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
   hello: { fontSize: 14, color: colors.onSurfaceMuted },
   shopName: { fontSize: 24, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.lg },

@@ -586,6 +586,17 @@ export const nest = {
   //   POST /seller/disconnect   → clears the connection
   //   GET  /oauth/start         → Shippo authorize URL (B1, dormant until platform creds set)
   // -------------------------------------------------------------------------
+  // Ship-from address + package defaults (nest-shipping/v1/seller/profile).
+  // v1.0.126 — exposed to the mobile app so sellers can fill in the origin
+  // address that ShopMyNest uses to buy labels on their behalf.
+  getSellerShippingProfile: () =>
+    request<{ profile: NestSellerShippingProfile }>("shipping", "/seller/profile"),
+  saveSellerShippingProfile: (patch: Partial<NestSellerShippingProfile>) =>
+    request<{ profile: NestSellerShippingProfile }>("shipping", "/seller/profile", {
+      method: "POST",
+      body: patch,
+    }),
+
   getShippoStatus: () =>
     request<NestShippoStatus>("connect", "/seller/status"),
   connectShippoManual: (token: string) =>
@@ -1677,6 +1688,27 @@ export type NestBuyLabelRaw = {
 export type NestGetLabelRaw = {
   seller_id: number;
   label: NestShippingLabel;
+};
+
+// Shape returned by GET/POST /nest-shipping/v1/seller/profile. Every field is
+// stored as a string on the server (dimensions serialize as decimals-in-a-string
+// for backward compatibility). free_shipping_allowed is a boolean.
+export type NestSellerShippingProfile = {
+  ship_from_name: string;
+  ship_from_company: string;
+  ship_from_street1: string;
+  ship_from_street2: string;
+  ship_from_city: string;
+  ship_from_state: string;
+  ship_from_zip: string;
+  ship_from_country: string;
+  ship_from_phone: string;
+  processing_time: string;
+  default_weight_oz: string;
+  default_length_in: string;
+  default_width_in: string;
+  default_height_in: string;
+  free_shipping_allowed: boolean;
 };
 
 // Shape returned by GET /nest-connect/v1/seller/status
