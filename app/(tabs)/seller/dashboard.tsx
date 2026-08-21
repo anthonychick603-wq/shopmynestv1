@@ -242,7 +242,7 @@ export default function SellerDashboard() {
           />
           <ActionTile
             icon="business-outline"
-            label="Payouts (Stripe)"
+            label="Payout account"
             onPress={() => pushFromTab(router, "/seller/connect")}
             testID="dash-connect"
           />
