@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
-import { nest, ApiError, type NestProductWritePayload } from "@/src/api/nest";
+import { nest, ApiError, type NestProductWritePayload, type NestSellerShippingProfile } from "@/src/api/nest";
 import { toCategory, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Category } from "@/src/types";
@@ -27,6 +27,29 @@ const PACKAGE_SIZES: { value: PackageSize; label: string }[] = [
   { value: "large", label: "Large — 16×14×10 in" },
   { value: "custom", label: "Custom dimensions" },
 ];
+
+// v1.0.127 — Mirror of the server's mnu_ship_from_required_fields() in
+// class-mnu-ship-from-guard.php. When any of these is empty on the
+// seller's profile, the readiness endpoint marks the ship_from_complete
+// step incomplete and the platform's label buy fails on the first order.
+// Keep this list in lock-step with the plugin.
+const SHIP_FROM_REQUIRED: Array<keyof NestSellerShippingProfile> = [
+  "ship_from_name",
+  "ship_from_street1",
+  "ship_from_city",
+  "ship_from_state",
+  "ship_from_zip",
+  "ship_from_country",
+];
+
+function isShipFromComplete(profile: NestSellerShippingProfile | null | undefined): boolean {
+  if (!profile) return false;
+  for (const key of SHIP_FROM_REQUIRED) {
+    const v = String((profile as Record<string, unknown>)[key] ?? "").trim();
+    if (v === "") return false;
+  }
+  return true;
+}
 
 export default function ProductForm() {
   const insets = useSafeAreaInsets();
@@ -63,8 +86,15 @@ export default function ProductForm() {
   // run. The plugin's server-side gate is `MNU_Bank_Account::has_bank_account`.
   // v1.0.124 — Shippo per-seller gate removed. Platform Shippo token covers
   // every seller by default, so we don't check `getShippoStatus` on mount.
+  // v1.0.127 — Ship-from address gate added. If the seller has no
+  // ship-from address on file (or is missing any of the six fields the
+  // server treats as required), the first order's label buy would fail.
+  // Server-side validators live in class-mnu-ship-from-guard.php
+  // (mnu_ship_from_required_fields() lists them); we mirror the same six
+  // fields client-side so the gate matches.
   const [gateChecking, setGateChecking] = useState(!isEdit);
   const [hasBank, setHasBank] = useState<boolean | null>(null);
+  const [hasShipFrom, setHasShipFrom] = useState<boolean | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -142,16 +172,25 @@ export default function ProductForm() {
     if (isEdit) return;
     let cancelled = false;
     (async () => {
-      try {
-        const bank = await nest.getSellerBank();
-        if (cancelled) return;
-        setHasBank(!!bank.has_bank);
-      } catch {
-        if (cancelled) return;
+      // v1.0.127 — Run both readiness checks in parallel so a slow one
+      // doesn't gate the other. Each failure independently sets its
+      // corresponding gate to `null` so submit() re-verifies on tap.
+      const [bankRes, shipRes] = await Promise.allSettled([
+        nest.getSellerBank(),
+        nest.getSellerShippingProfile(),
+      ]);
+      if (cancelled) return;
+      if (bankRes.status === "fulfilled") {
+        setHasBank(!!bankRes.value.has_bank);
+      } else {
         setHasBank(null);
-      } finally {
-        if (!cancelled) setGateChecking(false);
       }
+      if (shipRes.status === "fulfilled") {
+        setHasShipFrom(isShipFromComplete(shipRes.value.profile));
+      } else {
+        setHasShipFrom(null);
+      }
+      setGateChecking(false);
     })();
     return () => { cancelled = true; };
   }, [isEdit]);
@@ -208,6 +247,22 @@ export default function ProductForm() {
         }
       } catch (e) {
         toast.error(e instanceof ApiError ? e.friendly : "Could not verify your payout account. Please try again.");
+        return;
+      }
+      // v1.0.127 — Authoritative ship-from gate for new listings. Mirrors
+      // the server's mnu_seller_has_complete_ship_from(). Editing an
+      // existing listing is never gated (the address only matters when
+      // buying a label for a new order).
+      try {
+        const ship = await nest.getSellerShippingProfile();
+        const ok = isShipFromComplete(ship.profile);
+        setHasShipFrom(ok);
+        if (!ok) {
+          toast.error("Add your ship-from address before you publish a new listing.");
+          return;
+        }
+      } catch (e) {
+        toast.error(e instanceof ApiError ? e.friendly : "Could not verify your ship-from address. Please try again.");
         return;
       }
     }
@@ -273,6 +328,27 @@ export default function ProductForm() {
           actionLabel="Add bank account"
           onAction={() => router.push("/seller/connect")}
           testID="pf-connect-required"
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // v1.0.127 — Ship-from address gate. Only shown for new listings
+  // (edits pass through). This block deliberately runs AFTER the bank
+  // gate above so a brand-new seller is walked through onboarding in
+  // the same order as the readiness checklist: bank first, then
+  // ship-from address, then list.
+  if (!isEdit && hasBank === true && hasShipFrom === false) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="New listing" />
+        <EmptyState
+          icon="location-outline"
+          title="Add your ship-from address first"
+          message="We use this address as the origin on every shipping label ShopMyNest buys for your orders. Fill it in once and every new listing can go live."
+          actionLabel="Add ship-from address"
+          onAction={() => router.push("/seller/shippo")}
+          testID="pf-ship-from-required"
         />
       </SafeAreaView>
     );

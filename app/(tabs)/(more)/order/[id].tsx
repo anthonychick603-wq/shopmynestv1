@@ -596,8 +596,12 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
           <Text style={styles.cardLabel}>Your earnings</Text>
           <Line k="Item subtotal" v={`$${Number(data.gross ?? 0).toFixed(2)}`} />
           <Line k="Platform fee" v={`-$${Number(data.platform_fee ?? 0).toFixed(2)}`} />
+          {/* v1.0.127 — Renamed from "Stripe processing fee" to "Card
+              processing fee" — same field on the server, vendor-agnostic
+              wording so sellers see what the deduction is for without
+              us naming a specific payment processor. */}
           {Number(data.stripe_fee ?? 0) > 0 && (
-            <Line k="Stripe processing fee" v={`-$${Number(data.stripe_fee ?? 0).toFixed(2)}`} />
+            <Line k="Card processing fee" v={`-$${Number(data.stripe_fee ?? 0).toFixed(2)}`} />
           )}
           <View style={styles.divider} />
           <Line

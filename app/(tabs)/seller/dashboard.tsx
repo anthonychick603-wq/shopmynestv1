@@ -234,9 +234,14 @@ export default function SellerDashboard() {
             onPress={() => pushFromTab(router, "/seller/payouts")}
             testID="dash-payouts"
           />
+          {/* v1.0.127 — tile renamed. The old "Shipping (Shippo)" label
+              named a vendor sellers never see and lied about where the
+              tile went (address form, not a shipping settings screen).
+              Route path stays /seller/shippo so the readiness deep link
+              keeps working. */}
           <ActionTile
-            icon="cube-outline"
-            label="Shipping (Shippo)"
+            icon="location-outline"
+            label="Ship-from address"
             onPress={() => pushFromTab(router, "/seller/shippo")}
             testID="dash-shippo"
           />

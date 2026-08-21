@@ -579,16 +579,18 @@ export const nest = {
     request<NestGetLabelRaw>("labels", `/seller/orders/${orderId}/label`),
 
   // -------------------------------------------------------------------------
-  // Shippo Connect (nest-connect/v1) — sellers link their own Shippo account
-  // so postage is billed to them directly instead of the platform.
-  //   GET  /seller/status       → { connected, source, mode, account, oauth_ready }
-  //   POST /seller/manual       → { token } validates + stores token
-  //   POST /seller/disconnect   → clears the connection
-  //   GET  /oauth/start         → Shippo authorize URL (B1, dormant until platform creds set)
-  // -------------------------------------------------------------------------
   // Ship-from address + package defaults (nest-shipping/v1/seller/profile).
   // v1.0.126 — exposed to the mobile app so sellers can fill in the origin
   // address that ShopMyNest uses to buy labels on their behalf.
+  //
+  // v1.0.127 — The per-seller Shippo Connect methods that used to sit
+  // here (getShippoStatus, connectShippoManual, disconnectShippo,
+  // startShippoOAuth) were removed. The platform now uses ShopMyNest's
+  // own Shippo account for every label, so sellers never touch a Shippo
+  // token directly. The server endpoints under /nest-connect/v1/seller/*
+  // remain for future admin/diagnostic use but the mobile app doesn't
+  // call them.
+  // -------------------------------------------------------------------------
   getSellerShippingProfile: () =>
     request<{ profile: NestSellerShippingProfile }>("shipping", "/seller/profile"),
   saveSellerShippingProfile: (patch: Partial<NestSellerShippingProfile>) =>
@@ -596,18 +598,6 @@ export const nest = {
       method: "POST",
       body: patch,
     }),
-
-  getShippoStatus: () =>
-    request<NestShippoStatus>("connect", "/seller/status"),
-  connectShippoManual: (token: string) =>
-    request<{ ok: boolean; status: NestShippoStatus }>("connect", "/seller/manual", {
-      method: "POST",
-      body: { token },
-    }),
-  disconnectShippo: () =>
-    request<{ ok: boolean; status: NestShippoStatus }>("connect", "/seller/disconnect", { method: "POST" }),
-  startShippoOAuth: () =>
-    request<{ authorize_url: string; expires_in: number }>("connect", "/oauth/start"),
 
   // Earnings + payouts — the-nest/v1/seller/{earnings,payouts}.
   getSellerEarnings: (query?: Record<string, unknown>) =>
@@ -617,23 +607,17 @@ export const nest = {
     request<{ success: boolean; payout: NestPayoutRaw }>("marketplace", "/seller/payouts", { method: "POST", body: payload }),
 
   // -------------------------------------------------------------------------
-  // Stripe Connect Express (nest-connect/v1) — sellers link a real bank account
-  // via Stripe-hosted onboarding, then view balance/payout history in the
-  // Stripe-hosted Express dashboard. Same bearer auth as the other seller calls.
-  //   POST /onboard-link   → Stripe onboarding URL (needs return/refresh URLs).
-  //   GET  /status         → connection + charges/payouts enabled flags.
-  //   POST /dashboard-link → Stripe Express dashboard login URL.
-  // -------------------------------------------------------------------------
-  getStripeConnectOnboardLink: (returnUrl: string, refreshUrl: string) =>
-    request<NestConnectOnboardLink>("connect", "/onboard-link", {
-      method: "POST",
-      body: { return_url: returnUrl, refresh_url: refreshUrl },
-    }),
-  getStripeConnectStatus: () => request<NestConnectStatus>("connect", "/status"),
-  getStripeConnectDashboardLink: () =>
-    request<NestConnectDashboardLink>("connect", "/dashboard-link", { method: "POST" }),
-
   // v3.8.0 seller bank account (replaces Stripe Connect for payouts).
+  //
+  // v1.0.127 — The Stripe Connect Express methods that used to sit here
+  // (getStripeConnectOnboardLink, getStripeConnectStatus,
+  // getStripeConnectDashboardLink) were removed. Sellers no longer link a
+  // Stripe Express account — they enter a routing + account number on
+  // /seller/connect and the platform ACHs their share from a business
+  // checking account after the 7-day holding window. The server
+  // endpoints under /nest-connect/v1 still exist but the mobile app
+  // doesn't call them.
+  // -------------------------------------------------------------------------
   // GET  -> masked summary: has_bank + last4 + holder_name + updated_at.
   //         Never returns routing/account digits.
   // POST -> save/replace bank details. Server format-validates and encrypts.
@@ -1507,19 +1491,12 @@ export type NestSellerPayoutsRaw = {
   minimum: number;
 };
 
-// ---------------------------------------------------------------------------
-// Stripe Connect Express (nest-connect/v1)
-// ---------------------------------------------------------------------------
-export type NestConnectStatus = {
-  connected: boolean;
-  charges_enabled: boolean;
-  payouts_enabled: boolean;
-  details_submitted: boolean;
-};
-export type NestConnectOnboardLink = { url: string };
-export type NestConnectDashboardLink = { url: string };
+// v3.8.0 seller bank account (masked-only response). The four Stripe
+// Connect Express types that used to sit above this block
+// (NestConnectStatus, NestConnectOnboardLink, NestConnectDashboardLink)
+// were retired in v1.0.127 when the mobile app stopped calling those
+// endpoints. See the corresponding removal comment in the client.
 
-// v3.8.0 seller bank account (masked-only response).
 export type NestSellerBank = {
   has_bank: boolean;
   last4: string;
@@ -1711,12 +1688,8 @@ export type NestSellerShippingProfile = {
   free_shipping_allowed: boolean;
 };
 
-// Shape returned by GET /nest-connect/v1/seller/status
-export type NestShippoStatus = {
-  connected: boolean;
-  source: "manual" | "oauth" | null;
-  connected_at: string | null;
-  mode: "live" | "test" | null;
-  account: { email: string; name: string; company: string };
-  oauth_ready: boolean;
-};
+// v1.0.127 — NestShippoStatus removed. The per-seller Shippo Connect
+// endpoints under /nest-connect/v1/seller/* are no longer called from
+// the mobile app; every seller ships on the platform's own Shippo
+// account. The type is preserved in git history if it ever needs to
+// come back for an admin/diagnostic screen.
