@@ -248,7 +248,7 @@ export default function SellerDashboard() {
           <ActionTile
             icon="business-outline"
             label="Payout account"
-            onPress={() => pushFromTab(router, "/seller/connect")}
+            onPress={() => pushFromTab(router, "/seller/bank")}
             testID="dash-connect"
           />
           <ActionTile

@@ -326,7 +326,7 @@ export default function ProductForm() {
           title="Add a payout account first"
           message="Before you can publish a new listing, save your bank routing and account numbers so we can pay you by ACH after the 7-day holding window."
           actionLabel="Add bank account"
-          onAction={() => router.push("/seller/connect")}
+          onAction={() => router.push("/seller/bank")}
           testID="pf-connect-required"
         />
       </SafeAreaView>

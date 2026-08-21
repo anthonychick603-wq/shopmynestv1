@@ -613,10 +613,10 @@ export const nest = {
   // (getStripeConnectOnboardLink, getStripeConnectStatus,
   // getStripeConnectDashboardLink) were removed. Sellers no longer link a
   // Stripe Express account — they enter a routing + account number on
-  // /seller/connect and the platform ACHs their share from a business
-  // checking account after the 7-day holding window. The server
-  // endpoints under /nest-connect/v1 still exist but the mobile app
-  // doesn't call them.
+  // /seller/bank (renamed from /seller/connect in v1.0.128) and the
+  // platform ACHs their share from a business checking account after
+  // the 7-day holding window. The server endpoints under
+  // /nest-connect/v1 still exist but the mobile app doesn't call them.
   // -------------------------------------------------------------------------
   // GET  -> masked summary: has_bank + last4 + holder_name + updated_at.
   //         Never returns routing/account digits.
