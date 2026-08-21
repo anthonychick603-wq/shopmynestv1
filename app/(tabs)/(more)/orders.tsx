@@ -14,7 +14,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { OrderListSkeleton } from "@/src/components/OrderListSkeleton";
-import { safeBack } from "@/src/utils/nav";
+import { pushDetail, safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/context/AuthContext";
@@ -120,7 +120,7 @@ export default function Orders() {
           }
           renderItem={({ item }) => (
             <TouchableOpacity
-              onPress={() => { haptics.tap(); router.push(`/order/${item.id}`); }}
+              onPress={() => { haptics.tap(); pushDetail(router, `/order/${item.id}`); }}
               style={styles.card}
               testID={`seller-order-${item.id}`}
               accessibilityLabel={`Open sold order ${item.id}, status ${item.status}`}
@@ -150,7 +150,7 @@ export default function Orders() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
           ListEmptyComponent={<EmptyState icon="receipt-outline" title="No orders yet" message="Once you place an order it will show up here." testID="orders-empty" />}
           renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => { haptics.tap(); router.push(`/order/${item.id}`); }} style={styles.card} testID={`order-${item.id}`} accessibilityLabel={`Open order ${item.id}, status ${item.status}`}>
+            <TouchableOpacity onPress={() => { haptics.tap(); pushDetail(router, `/order/${item.id}`); }} style={styles.card} testID={`order-${item.id}`} accessibilityLabel={`Open order ${item.id}, status ${item.status}`}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Text style={styles.orderId}>#{item.id}</Text>
                 <StatusPill status={item.status} />

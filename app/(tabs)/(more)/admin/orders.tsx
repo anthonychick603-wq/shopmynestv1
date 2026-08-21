@@ -13,7 +13,7 @@ import { nest, ApiError, type AdminOrder } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
-import { safeBack } from "@/src/utils/nav";
+import { pushDetail, safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -139,7 +139,7 @@ export default function AdminOrders() {
             <TouchableOpacity
               style={styles.card}
               activeOpacity={0.7}
-              onPress={() => { haptics.tap(); router.push(`/order/${item.id}` as any); }}
+              onPress={() => { haptics.tap(); pushDetail(router, `/order/${item.id}`); }}
               accessibilityRole="button"
               accessibilityLabel={`Order ${item.number}`}
               testID={`admin-order-${item.id}`}

@@ -15,7 +15,7 @@
 import { useEffect, useRef } from "react";
 import { useSegments } from "expo-router";
 
-import { dismissMoreStackIfAny, setReferringTab } from "@/src/utils/nav";
+import { clearMoreStack, dismissMoreStackIfAny, setReferringTab } from "@/src/utils/nav";
 
 // Map from the third path segment (the tab folder or file name) to the
 // canonical tab route. Anything unknown falls back to the tabs root.
@@ -51,6 +51,9 @@ export function useTrackReferringTab(): void {
     // around by refusing to pop).
     if (wasInMore.current) {
       dismissMoreStackIfAny();
+      // v1.0.121 — keep the origin-tab stack in sync with the router.
+      // Tab-root re-entry means every previous (more) push is gone.
+      clearMoreStack();
       wasInMore.current = false;
     }
 

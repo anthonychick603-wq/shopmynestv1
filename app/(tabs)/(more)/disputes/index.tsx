@@ -13,7 +13,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { statusStyle, statusLabel } from "@/src/utils/disputeStatus";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
-import { safeBack } from "@/src/utils/nav";
+import { pushDetail, safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
 export default function DisputesList() {
@@ -69,7 +69,7 @@ export default function DisputesList() {
           renderItem={({ item }) => {
             const s = statusStyle(item.status);
             return (
-              <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); router.push(`/disputes/${item.id}`); }} testID={`dispute-row-${item.id}`}>
+              <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); pushDetail(router, `/disputes/${item.id}`); }} testID={`dispute-row-${item.id}`}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>Order #{item.order_id}</Text>
                   <Text style={styles.rowReason} numberOfLines={1}>{item.description || item.reason}</Text>

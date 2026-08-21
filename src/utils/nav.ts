@@ -1,35 +1,45 @@
-// v1.0.108 — back-button restore + hardened cross-tab (more) stack reset.
+// v1.0.121 — origin-tab back button.
 //
-// Design rules (must hold for every screen):
-//   1. Back button (in-app chevron OR Android hardware back) always returns
-//      to the direct previous screen the user was on.
-//   2. If there is no previous entry (deep link, cold start, notification
-//      into a detail), back goes to the tab we recorded on the last tab
-//      root visit — else the caller's fallback — else the tabs root.
+// The spec (locked down by the user Aug 21, 2026):
+//   • Every (more) screen has one owning tab. Back always returns to
+//     that tab, not to whatever intermediate (more) screen the user
+//     happened to hop through.
+//   • The one exception is a detail-of-a-detail chain, e.g.
+//     Orders → specific order → back → Orders (the parent screen
+//     inside the same tab flow), then a second back → owning tab.
 //
-// Historical context (v1.0.60):
-//   The (more) group is a single Stack shared across every tab, so if the
-//   user pushed A from tab 1, switched to tab 2, and pushed B, then
-//   returned to tab 1 and pushed C, the raw stack held [A, B, C] and back
-//   popped through B (a completely unrelated flow). Old code worked around
-//   this by refusing to pop and always replacing to the referring tab —
-//   which broke ordinary within-flow back (Product → Seller → Product B →
-//   back should return to Seller, but replaced all the way to a tab root).
-//
-// New strategy:
-//   • useTrackReferringTab (mounted at the root) calls router.dismissAll()
-//     the moment the user lands back on a tab root, so the (more) stack is
-//     guaranteed empty before the next tab pushes into it.
-//   • pushFromTab / pushFromCard keep their existing push semantics — they
-//     don't need to clear the stack themselves because the tracker has
-//     already cleared it.
-//   • safeBack calls router.back() when there's stack history (which is
-//     now guaranteed to be within-flow entries only), and falls back to
-//     the referring tab / caller fallback / tabs root only when there's
-//     none.
+// How it works:
+//   pushFromTab records the current tab as the "origin" for the (more)
+//   push. pushFromCard from inside (more) marks the new entry as an
+//   in-flow child, so its back pops the (more) stack instead of
+//   replacing to the tab. safeBack consults these markers first, and
+//   only falls back to the older nav-history / referring-tab logic
+//   when nothing else is known (deep links, cold start).
 import { router as globalRouter, type Router } from "expo-router";
 
 import { consumePreviousRoute, peekPreviousRoute } from "./nav-history";
+
+// Parallel stack to the (more) navigator: each entry is the tab the
+// user was on when that (more) screen was pushed. Popped on router
+// back / consumeMoreEntry, cleared on tab-root re-entry.
+type MoreEntry = { originTab: string; inFlow: boolean };
+const moreStack: MoreEntry[] = [];
+
+export function pushMoreEntry(originTab: string, inFlow: boolean): void {
+  moreStack.push({ originTab, inFlow });
+}
+
+export function consumeMoreEntry(): MoreEntry | null {
+  return moreStack.pop() ?? null;
+}
+
+export function peekMoreEntry(): MoreEntry | null {
+  return moreStack[moreStack.length - 1] ?? null;
+}
+
+export function clearMoreStack(): void {
+  moreStack.length = 0;
+}
 
 // Records the tab route that last called pushFromTab / pushFromCard. When a
 // (more) screen with no stack history taps back, safeBack prefers this over
@@ -49,52 +59,63 @@ export function clearReferringTab(): void {
 }
 
 /**
- * v1.0.117 — return to the direct previous screen the user was on. The
- * nav-history tracker (useNavHistory, mounted at the root) records every
- * route change with its params, so we can walk back to the exact prior
- * URL even across tab switches and dismissAll() cleanups.
+ * v1.0.121 — spec-driven back.
  *
- * Order of preference:
- *   1. If the tracker has a previous entry AND router.canGoBack(): pop
- *      both in lockstep so the visible tail of the tracker matches the
- *      screen we return to.
- *   2. If the tracker has a previous entry but router has no stack: use
- *      router.replace() with the tracker's previous entry. This is the
- *      case for tab-to-tab "back" (Product → Alerts → back → Product)
- *      and deep-link entries.
- *   3. No tracker entry: fall back to the recorded tab → caller fallback
- *      → tabs root. Preserves the pre-v1.0.117 behaviour for cold-start
- *      cases.
+ * 1. If the top of the moreStack is an in-flow child (pushFromCard
+ *    inside (more)) AND router.canGoBack(): pop one (more) entry.
+ *    Keeps Orders → specific order → back → Orders working.
+ * 2. Otherwise, if we know the origin tab for the current (more)
+ *    entry: consume the entry AND dismissAll on the (more) stack
+ *    (so switching back into this tab lands clean) AND replace to
+ *    the origin tab.
+ * 3. Otherwise: legacy nav-history / referring-tab fallback for deep
+ *    links, notifications, cold starts.
  */
 export function safeBack(router: Router, fallback: string = "/(tabs)") {
+  const top = peekMoreEntry();
+  if (top) {
+    if (top.inFlow) {
+      let canBack = false;
+      try { canBack = router.canGoBack(); } catch { canBack = false; }
+      if (canBack) {
+        consumeMoreEntry();
+        consumePreviousRoute();
+        try { router.back(); return; } catch { /* fall through */ }
+      }
+    }
+    // Top of the stack came directly from a tab — jump back to that
+    // tab and clear the entire (more) stack so re-entering the tab
+    // lands on the tab root, not on the popped screen.
+    const target = top.originTab;
+    clearMoreStack();
+    dismissMoreStackIfAny();
+    router.replace(target as any);
+    return;
+  }
+
+  // No origin recorded (deep link, notification, cold start). Fall
+  // back to the nav-history tracker so "back" still lands somewhere
+  // reasonable.
   const prev = peekPreviousRoute();
   if (prev) {
     let canBack = false;
     try { canBack = router.canGoBack(); } catch { canBack = false; }
     if (canBack) {
-      // Sync the tracker with the router pop so the next safeBack sees
-      // the correct "previous" entry.
       consumePreviousRoute();
       try { router.back(); return; } catch { /* fall through */ }
     }
-    // No stack to pop but the tracker knows where we came from — jump
-    // there directly. Consume so subsequent backs walk further into the
-    // history.
     const target = consumePreviousRoute() ?? prev;
     router.replace(target as any);
     return;
   }
 
-  // No tracked history — fall back to the old behaviour for cold-start
-  // and deep-link entries that beat the tracker's first record.
   try {
     if (router.canGoBack()) {
       router.back();
       return;
     }
   } catch {
-    // canGoBack is safe to call at any time in expo-router 6, but guard
-    // anyway so a mid-transition tap can't crash the app.
+    // Guard against mid-transition taps.
   }
   const target = referringTab ?? fallback;
   router.replace(target as any);
@@ -123,6 +144,12 @@ export function setReferringTab(path: string | null): void {
 }
 
 export function pushFromTab(router: Router, path: string, params?: Record<string, unknown>): void {
+  // v1.0.121 — record the tab we're leaving so safeBack can return
+  // straight to it, no matter how many in-flow pushes happen inside
+  // this (more) session. If the tracker hasn't logged the current tab
+  // yet (very early launch), default to /(tabs).
+  const originTab = referringTab ?? "/(tabs)";
+  pushMoreEntry(originTab, false);
   if (params) {
     router.push({ pathname: path as any, params: params as any });
   } else {
@@ -148,6 +175,37 @@ export function pushFromCard(
     pushFromTab(router, path, params);
     return;
   }
+  // v1.0.121 — spec: back from any (more) screen jumps to the owning
+  // tab, skipping the intermediate (more) hop. So even when we're
+  // already inside (more), a card push inherits the same origin tab
+  // and marks itself NOT in-flow — the previous (more) entry is
+  // effectively replaced. If the user goes shop → product → seller,
+  // back from seller still lands on Browse.
+  const parent = peekMoreEntry();
+  const originTab = parent?.originTab ?? referringTab ?? "/(tabs)";
+  pushMoreEntry(originTab, false);
+  if (params) {
+    router.push({ pathname: path as any, params: params as any });
+  } else {
+    router.push(path as any);
+  }
+}
+
+/**
+ * v1.0.121 — push from an index-of-details screen into one of its
+ * children. Marks the new (more) entry as in-flow so safeBack pops
+ * one (more) frame instead of jumping to the owning tab — the only
+ * chain in the spec that uses this is Orders → specific order →
+ * back → Orders. Add other detail chains here as they come up.
+ */
+export function pushDetail(
+  router: Router,
+  path: string,
+  params?: Record<string, unknown>,
+): void {
+  const parent = peekMoreEntry();
+  const originTab = parent?.originTab ?? referringTab ?? "/(tabs)";
+  pushMoreEntry(originTab, true);
   if (params) {
     router.push({ pathname: path as any, params: params as any });
   } else {
