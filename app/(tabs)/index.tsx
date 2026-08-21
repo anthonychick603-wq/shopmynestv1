@@ -241,7 +241,6 @@ export default function Blog() {
 
               <View style={styles.composeCard}>
                 <Text style={styles.composeTitle}>Share something with the Nest</Text>
-                <Text style={styles.composeBody}>Post a photo and a caption. An admin reviews every post before it goes live.</Text>
                 <Button
                   title="New Post"
                   onPress={() => { haptics.tap(); (user ? pushFromTab(router, "/blog/compose") : pushFromTab(router, "/(auth)/login")); }}
