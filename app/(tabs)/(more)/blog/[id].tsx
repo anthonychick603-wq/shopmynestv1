@@ -20,6 +20,7 @@ import { toBlogPost } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { BlogPostMenu } from "@/src/components/BlogPostMenu";
 import { BlogCommentMenu } from "@/src/components/BlogCommentMenu";
 import { AppImage } from "@/src/components/AppImage";
@@ -202,6 +203,7 @@ export default function BlogPostDetail() {
               <Ionicons name="share-outline" size={20} color={colors.onSurface} />
             </TouchableOpacity>
           ) : null}
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
       </View>

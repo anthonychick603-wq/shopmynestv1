@@ -10,6 +10,7 @@ import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
@@ -46,6 +47,7 @@ export default function CreateTab() {
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: spacing.lg }}>
         <View style={styles.header}>
           <NestLogo compact />
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
 

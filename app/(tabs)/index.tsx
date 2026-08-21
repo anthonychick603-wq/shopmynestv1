@@ -14,6 +14,7 @@ import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { ScrollView } from "react-native";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { Button } from "@/src/components/Button";
 import { pushFromTab } from "@/src/utils/nav";
@@ -125,9 +126,9 @@ export default function Blog() {
           <TouchableOpacity testID="header-search" accessibilityLabel="Search products" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/browse"); }} style={styles.iconBtn}>
             <Ionicons name="search" size={20} color={colors.onSurface} />
           </TouchableOpacity>
-          <TouchableOpacity testID="header-alerts" accessibilityLabel="Open notifications" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/alerts"); }} style={styles.iconBtn}>
-            <Ionicons name="notifications-outline" size={20} color={colors.onSurface} />
-          </TouchableOpacity>
+          {/* v1.0.116 — shared bell component so the unread badge is
+              consistent across every screen that shows it. */}
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
       </View>

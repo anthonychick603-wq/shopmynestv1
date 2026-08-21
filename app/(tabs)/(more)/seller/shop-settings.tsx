@@ -22,6 +22,7 @@ import { haptics } from "@/src/utils/haptics";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function ShopSettings() {
   const router = useRouter();
@@ -153,7 +154,7 @@ function Top({ onBack }: { onBack: () => void }) {
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Shop settings</Text>
-      <View style={styles.topBtn} />
+      <AlertsBellButton />
     </View>
   );
 }

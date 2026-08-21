@@ -15,6 +15,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
@@ -138,6 +139,7 @@ export default function ProductDetail() {
             <Ionicons name={isFavorite(product.id) ? "heart" : "heart-outline"} size={20} color={isFavorite(product.id) ? colors.error : colors.onSurface} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.topBtn} onPress={doShare} testID="product-share" accessibilityRole="button" accessibilityLabel="Share this listing" hitSlop={8}><Ionicons name="share-outline" size={20} color={colors.onSurface} /></TouchableOpacity>
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
       </View>

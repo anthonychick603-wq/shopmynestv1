@@ -16,6 +16,7 @@ import { Input } from "@/src/components/Input";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
@@ -175,6 +176,7 @@ export default function OrderDetail() {
       <View style={styles.top}>
         <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Order #{order.id}</Text>
+        <AlertsBellButton />
         <CartHeaderButton />
       </View>
       <ScrollView

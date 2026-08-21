@@ -20,6 +20,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 type Range = 7 | 30 | 90;
 const RANGES: { key: Range; label: string }[] = [
@@ -295,7 +296,7 @@ function Top({ onBack }: { onBack: () => void }) {
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Analytics</Text>
-      <View style={{ width: 40 }} />
+      <AlertsBellButton />
     </View>
   );
 }

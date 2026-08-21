@@ -14,6 +14,7 @@ import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 type Status = "pending" | "approved" | "rejected";
 const TABS: Status[] = ["pending", "approved", "rejected"];
@@ -172,7 +173,7 @@ function Top({ onBack }: { onBack: () => void }) {
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Blog moderation</Text>
-      <View style={{ width: 40 }} />
+      <AlertsBellButton />
     </View>
   );
 }

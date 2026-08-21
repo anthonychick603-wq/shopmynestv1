@@ -15,6 +15,7 @@ import type { Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
@@ -101,6 +102,7 @@ export default function RecentlyViewedScreen() {
               <Text style={styles.clearText}>{clearing ? "…" : "Clear"}</Text>
             </TouchableOpacity>
           ) : null}
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
       </View>

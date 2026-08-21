@@ -14,6 +14,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
+import { useAlerts } from "@/src/context/AlertsContext";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { routeForPush } from "@/src/hooks/use-notification-routing";
@@ -39,6 +40,9 @@ export default function Alerts() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  // v1.0.116 — keep the shared badge in sync with local mark-read
+  // actions so the bell on every other screen updates instantly.
+  const { refresh: refreshAlertsBadge, setUnreadCount, decrementUnread } = useAlerts();
 
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,9 +72,13 @@ export default function Alerts() {
     // if the server round-trip is slow. On failure we surface the error AND
     // reload from server, which will restore the true state.
     setItems((prev) => prev.map((n) => (n.read ? n : { ...n, read: true })));
+    // v1.0.116 — optimistically zero the shared badge so the bell on
+    // other screens drops its dot immediately.
+    setUnreadCount(0);
     try {
       await nest.markNotificationsRead();
       load();
+      refreshAlertsBadge();
     } catch (e) {
       // v1.0.97 — previously swallowed. If the server is down or auth
       // expired mid-session, the user would tap "mark all read" and get
@@ -78,6 +86,7 @@ export default function Alerts() {
       // they'd think the button was broken. Now we surface it.
       toast.error(e instanceof ApiError ? e.friendly : "Couldn’t mark alerts as read");
       load();
+      refreshAlertsBadge();
     }
   };
 
@@ -92,11 +101,16 @@ export default function Alerts() {
       if (!item.read) {
         setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
         const numericId = Number(item.id);
+        // v1.0.116 — decrement the shared badge before the network call
+        // so the bell drops in real time; if the server rejects we roll
+        // back below.
+        decrementUnread(1);
         if (Number.isFinite(numericId) && numericId > 0) {
           nest.markNotificationsRead([numericId]).catch(() => {
             // Rollback if the server rejected it — better to show the true
             // state than a stale optimistic one.
             setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: false } : n)));
+            refreshAlertsBadge();
           });
         }
       }

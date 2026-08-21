@@ -12,6 +12,7 @@ import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 // Format an ISO/MySQL UTC timestamp as a relative label (e.g. "3m", "2h", "Yesterday", "Mar 4").
 function formatRelative(iso: string): string {
@@ -66,7 +67,7 @@ export default function MessagesInbox() {
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Messages</Text>
-          <View style={styles.topBtn} />
+          <AlertsBellButton />
         </View>
         <EmptyState
           icon="chatbubble-ellipses-outline"
@@ -85,7 +86,7 @@ export default function MessagesInbox() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Messages</Text>
-        <View style={styles.topBtn} />
+        <AlertsBellButton />
       </View>
 
       {loading ? (

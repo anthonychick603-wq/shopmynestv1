@@ -19,6 +19,7 @@ import { nest, ApiError, type NestPostCommentRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
@@ -190,6 +191,7 @@ function Top({ onBack }: { onBack: () => void }) {
     <View style={styles.top}>
       <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="comments-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Comments</Text>
+      <AlertsBellButton />
       <CartHeaderButton />
     </View>
   );

@@ -15,6 +15,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 type Range = "7d" | "30d" | "all";
 const RANGES: { key: Range; label: string }[] = [
@@ -171,7 +172,7 @@ function Top({ onBack }: { onBack: () => void }) {
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Orders</Text>
-      <View style={{ width: 40 }} />
+      <AlertsBellButton />
     </View>
   );
 }

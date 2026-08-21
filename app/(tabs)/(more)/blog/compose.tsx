@@ -17,6 +17,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { stripHtml } from "@/src/utils/html";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function BlogComposer() {
   const insets = useSafeAreaInsets();
@@ -191,7 +192,7 @@ function Top({ onBack, title = "New post" }: { onBack: () => void; title?: strin
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>{title}</Text>
-      <View style={{ width: 40 }} />
+      <AlertsBellButton />
     </View>
   );
 }

@@ -22,6 +22,7 @@ import { Button } from "@/src/components/Button";
 import { haptics } from "@/src/utils/haptics";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 // WooCommerce `pa_condition` global attribute — fixed terms registered by the
 // Trust Suite plugin. Values are the term slugs passed to the products query.
 const CONDITION_TERMS: { slug: string; label: string }[] = [
@@ -247,6 +248,7 @@ export default function Browse() {
             </TouchableOpacity>
           ) : null}
         </View>
+        <AlertsBellButton />
         <CartHeaderButton />
       </View>
 

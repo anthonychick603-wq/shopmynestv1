@@ -17,6 +17,7 @@ import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { shareSeller } from "@/src/utils/share";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function AllShops() {
   const insets = useSafeAreaInsets();
@@ -65,7 +66,7 @@ export default function AllShops() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>All shops</Text>
-        <View style={{ width: 36 }} />
+        <AlertsBellButton />
       </View>
       <View style={styles.searchWrap}>
         <View style={styles.searchBar}>

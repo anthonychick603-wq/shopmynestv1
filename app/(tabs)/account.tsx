@@ -14,6 +14,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -63,6 +64,7 @@ export default function Account() {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.header}>
           <NestLogo compact title="Account" />
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
         <View style={{ padding: spacing.xl, alignItems: "center" }}>
@@ -97,6 +99,7 @@ export default function Account() {
           >
             <NestLogo compact title="Account" />
           </TouchableOpacity>
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
 

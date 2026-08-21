@@ -12,6 +12,7 @@ import { useTrackReferringTab } from "@/src/hooks/use-track-referring-tab";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
+import { AlertsProvider } from "@/src/context/AlertsContext";
 import { StripePaymentProvider } from "@/src/context/StripePayment";
 import { NetworkProvider } from "@/src/context/NetworkContext";
 import { ToastHost } from "@/src/components/Toast";
@@ -44,6 +45,10 @@ export default function RootLayout() {
       <AuthProvider>
         <CartProvider>
           <FavoritesProvider>
+            {/* v1.0.116 — AlertsProvider sits below Auth (so it can see
+                the current user) and above the app tree so the header
+                bell can show a live unread badge on every screen. */}
+            <AlertsProvider>
             <StripePaymentProvider>
             <View style={styles.root}>
               <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
@@ -64,6 +69,7 @@ export default function RootLayout() {
               <ReferringTabTracker />
             </View>
             </StripePaymentProvider>
+            </AlertsProvider>
           </FavoritesProvider>
         </CartProvider>
       </AuthProvider>

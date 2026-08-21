@@ -30,6 +30,7 @@ import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { CartSkeleton } from "@/src/components/CartSkeleton";
 import { AppImage } from "@/src/components/AppImage";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 // Where the buyer's destination address is persisted locally (reused across sessions).
 const SHIPPING_ADDRESS_KEY = "nest.checkout.shipping_address";
@@ -730,6 +731,11 @@ function Top({ title }: { title: string }) {
   return (
     <View style={styles.top}>
       <Text style={styles.topTitle}>{title}</Text>
+      {/* v1.0.116 — keep the alerts bell reachable from the cart too so
+          the shipping-rate wait doesn't strand the user with no way to
+          check a fresh order notification. */}
+      <View style={{ flex: 1 }} />
+      <AlertsBellButton />
     </View>
   );
 }

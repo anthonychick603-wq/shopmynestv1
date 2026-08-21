@@ -28,6 +28,7 @@ import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 // Format a MySQL UTC timestamp as a friendly time-of-day / date line above a
 // message bubble ("Today 3:14 PM", "Yesterday 11:02 AM", "Mar 4 3:14 PM").
@@ -378,7 +379,7 @@ export default function MessageThread() {
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle} numberOfLines={1}>{headerName}</Text>
-          <View style={styles.topBtn} />
+          <AlertsBellButton />
         </View>
         <EmptyState icon="chatbubble-ellipses-outline" title="Sign in to send messages" message="Sign in to talk to shops on MyNest." testID="thread-signin" />
       </SafeAreaView>
@@ -407,7 +408,7 @@ export default function MessageThread() {
           <Text style={styles.topTitle} numberOfLines={1}>{headerName}</Text>
           <Text style={styles.topSubtitle} numberOfLines={1}>Tap to view shop</Text>
         </TouchableOpacity>
-        <View style={styles.topBtn} />
+        <AlertsBellButton />
       </View>
 
       {/* v1.0.113 — the messaging screen needs the composer to sit flush

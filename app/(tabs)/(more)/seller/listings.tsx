@@ -10,6 +10,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
@@ -100,6 +101,7 @@ export default function SellerListings() {
             <Ionicons name="add" size={18} color={colors.onBrand} />
             <Text style={styles.addBtnText}>Add New</Text>
           </TouchableOpacity>
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
       </View>

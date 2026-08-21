@@ -9,6 +9,7 @@ import { colors, radius, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
@@ -184,6 +185,7 @@ export default function ProductVariationsScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>Variations</Text>
+        <AlertsBellButton />
         <CartHeaderButton />
       </View>
       {loading ? (

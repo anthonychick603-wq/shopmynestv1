@@ -11,6 +11,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 const REASONS = [
   { id: "prohibited", label: "Prohibited item" },
@@ -61,7 +62,7 @@ export default function ReportItem() {
         <View style={styles.top}>
           <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)"); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
           <Text style={styles.topTitle}>{headerTitle}</Text>
-          <View style={styles.topBtn} />
+          <AlertsBellButton />
         </View>
         <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
           <Text style={styles.body}>{"Tell us what's wrong — our team will review your report."}</Text>

@@ -12,6 +12,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
@@ -112,6 +113,7 @@ function Top({ onBack }: { onBack: () => void }) {
     <View style={styles.top}>
       <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="compose-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>New post</Text>
+      <AlertsBellButton />
       <CartHeaderButton />
     </View>
   );

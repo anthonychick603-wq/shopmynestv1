@@ -20,6 +20,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { SellerBadge } from "@/src/components/SellerBadge";
 import { BoostSheet } from "@/src/components/BoostSheet";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
@@ -492,6 +493,7 @@ function Top() {
   return (
     <View style={styles.top}>
       <Text style={styles.topTitle}>My Nest</Text>
+      <AlertsBellButton />
       <CartHeaderButton />
     </View>
   );

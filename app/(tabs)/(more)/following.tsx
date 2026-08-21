@@ -18,6 +18,7 @@ import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function FollowingScreen() {
   const insets = useSafeAreaInsets();
@@ -65,7 +66,7 @@ export default function FollowingScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Following</Text>
-        <View style={styles.topBtn} />
+        <AlertsBellButton />
       </View>
 
       {loading ? (

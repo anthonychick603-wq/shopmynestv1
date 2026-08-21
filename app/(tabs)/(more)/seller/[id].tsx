@@ -20,6 +20,7 @@ import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -112,6 +113,7 @@ export default function SellerProfile() {
               <Ionicons name="share-outline" size={20} color={colors.onSurface} />
             </TouchableOpacity>
           ) : null}
+          <AlertsBellButton />
           <CartHeaderButton />
         </View>
       </View>

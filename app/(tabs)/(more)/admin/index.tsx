@@ -14,6 +14,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack, pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function AdminDashboard() {
   const insets = useSafeAreaInsets();
@@ -181,7 +182,7 @@ function Top({ onBack }: { onBack: () => void }) {
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Admin</Text>
-      <View style={{ width: 40 }} />
+      <AlertsBellButton />
     </View>
   );
 }

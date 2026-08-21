@@ -10,6 +10,7 @@ import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 const REASONS: { slug: string; label: string }[] = [
   { slug: "not_arrived", label: "Item never arrived" },
@@ -54,7 +55,7 @@ export default function NewDispute() {
       <View style={styles.top}>
         <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.topBtn} testID="new-dispute-close" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Open a dispute</Text>
-        <View style={styles.topBtn} />
+        <AlertsBellButton />
       </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">

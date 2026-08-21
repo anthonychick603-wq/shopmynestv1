@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { nest, ApiError, type NestMePreferences } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -80,6 +81,7 @@ export default function NotificationsPreferencesScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Notifications</Text>
+        <AlertsBellButton />
         <CartHeaderButton />
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>

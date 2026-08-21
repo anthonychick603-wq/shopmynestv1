@@ -10,6 +10,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { toast } from "@/src/components/Toast";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 type Phase = "idle" | "uploading" | "preview" | "running" | "done" | "error";
 
@@ -117,7 +118,7 @@ export default function ImportScreen() {
           <Ionicons name="chevron-back" size={26} color={colors.brand} />
         </TouchableOpacity>
         <Text style={styles.title}>Import products</Text>
-        <View style={{ width: 26 }} />
+        <AlertsBellButton />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>

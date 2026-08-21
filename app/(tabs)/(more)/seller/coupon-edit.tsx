@@ -8,6 +8,7 @@ import { nest, ApiError, type NestCoupon, type NestCouponDiscountType, type Nest
 import { colors, radius, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -109,6 +110,7 @@ export default function CouponEditScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>{isEdit ? "Edit coupon" : "New coupon"}</Text>
+        <AlertsBellButton />
         <CartHeaderButton />
       </View>
 

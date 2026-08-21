@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { nest, ApiError, type NestAddressBookEntry } from "@/src/api/nest";
 import { colors, radius, spacing } from "@/src/theme";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { Fab } from "@/src/components/Fab";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
@@ -58,6 +59,7 @@ export default function AddressBookScreen() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Addresses</Text>
+        <AlertsBellButton />
         <CartHeaderButton />
       </View>
 

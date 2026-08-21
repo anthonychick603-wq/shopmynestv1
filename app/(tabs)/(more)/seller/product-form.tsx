@@ -14,6 +14,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -431,6 +432,7 @@ function Top({ onBack, title, onDuplicate, duplicating }: { onBack: () => void; 
             )}
           </TouchableOpacity>
         ) : null}
+        <AlertsBellButton />
         <CartHeaderButton />
       </View>
     </View>
