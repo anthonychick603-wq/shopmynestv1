@@ -14,6 +14,7 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
 import { AlertsProvider } from "@/src/context/AlertsContext";
+import { RestockAlertsProvider } from "@/src/context/RestockAlertsContext";
 import { StripePaymentProvider } from "@/src/context/StripePayment";
 import { NetworkProvider } from "@/src/context/NetworkContext";
 import { ToastHost } from "@/src/components/Toast";
@@ -50,6 +51,7 @@ export default function RootLayout() {
                 the current user) and above the app tree so the header
                 bell can show a live unread badge on every screen. */}
             <AlertsProvider>
+            <RestockAlertsProvider>
             <StripePaymentProvider>
             <View style={styles.root}>
               <StatusBar barStyle="dark-content" backgroundColor={colors.surface} />
@@ -71,6 +73,7 @@ export default function RootLayout() {
               <ReferringTabTracker />
             </View>
             </StripePaymentProvider>
+            </RestockAlertsProvider>
             </AlertsProvider>
           </FavoritesProvider>
         </CartProvider>

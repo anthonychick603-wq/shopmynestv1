@@ -13,6 +13,7 @@ import { Button } from "@/src/components/Button";
 import { useAuth } from "@/src/context/AuthContext";
 import { useCart } from "@/src/context/CartContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
+import { useRestockAlerts } from "@/src/context/RestockAlertsContext";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
@@ -31,6 +32,7 @@ export default function ProductDetail() {
   const { user } = useAuth();
   const { addProduct } = useCart();
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const { enabled: restockAlertsEnabled, isWatching, addWatch, removeWatch } = useRestockAlerts();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,6 +86,42 @@ export default function ProductDetail() {
   }, [isVariable, product, picked]);
   const allPicked = !isVariable || (product?.attributes ?? []).every((a) => !!picked[a.name]);
   const variationAvailable = !isVariable || (matchedVariation?.is_purchasable && matchedVariation.stock_status !== "outofstock");
+
+  const restockVariationId = isVariable && allPicked && matchedVariation ? matchedVariation.id : undefined;
+  const restockVariationLabel = React.useMemo(() => {
+    if (!isVariable || !allPicked || !product?.attributes) return undefined;
+    return product.attributes.map((a) => {
+      const value = picked[a.name];
+      const option = a.options.find((o) => o.slug === value);
+      return `${a.label}: ${option?.label ?? value}`;
+    }).join(" · ");
+  }, [allPicked, isVariable, picked, product]);
+  const isOwnListing = !!user && !!product?.seller && user.id === product.seller.id;
+  const canOfferRestockAlert = !isOwnListing && (!product?.in_stock || (isVariable && allPicked && !!matchedVariation && !variationAvailable));
+  const restockWatching = product ? isWatching(product.id, restockVariationId) : false;
+
+  const toggleRestockWatch = async () => {
+    haptics.tap();
+    if (!user) return router.push("/(auth)/login");
+    if (!product) return;
+    if (restockWatching) {
+      await removeWatch(product.id, restockVariationId);
+      toast.show("Restock alert removed.");
+      return;
+    }
+    if (!restockAlertsEnabled) {
+      toast.show("Back-in-stock alerts are turned off in Notifications settings.");
+      return;
+    }
+    await addWatch({
+      productId: product.id,
+      variationId: restockVariationId,
+      title: product.title,
+      variationLabel: restockVariationLabel,
+    });
+    haptics.success();
+    toast.success("We'll alert you when it's available again.");
+  };
 
   const doAdd = async (buyNow = false) => {
     haptics.press();
@@ -280,13 +318,30 @@ export default function ProductDetail() {
       {/* No insets.bottom here: the tab bar sits below this screen and already
           clears the home indicator. */}
       <View style={[styles.bottomBar, { paddingBottom: spacing.md }]}>
-        <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-add-cart">
-          <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
-          <Text style={styles.actionSecondaryText}>Add to cart</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-buy-now">
-          {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
-        </TouchableOpacity>
+        {canOfferRestockAlert ? (
+          <TouchableOpacity
+            onPress={toggleRestockWatch}
+            style={[styles.restockAction, restockWatching && styles.restockActionActive]}
+            testID="product-restock-alert"
+            accessibilityRole="button"
+            accessibilityLabel={restockWatching ? "Remove back in stock alert" : "Notify me when available"}
+          >
+            <Ionicons name={restockWatching ? "notifications" : "notifications-outline"} size={20} color={restockWatching ? colors.onBrand : colors.brand} />
+            <Text style={[styles.restockActionText, restockWatching && styles.restockActionTextActive]}>
+              {restockWatching ? "Restock alert on" : "Notify me when available"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-add-cart">
+              <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
+              <Text style={styles.actionSecondaryText}>Add to cart</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-buy-now">
+              {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -334,4 +389,8 @@ const styles = StyleSheet.create({
   actionSecondaryText: { color: colors.onSurface, fontWeight: "700" },
   actionPrimary: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand, borderRadius: radius.pill, minHeight: 52 },
   actionPrimaryText: { color: colors.onBrand, fontWeight: "800", fontSize: 15 },
+  restockAction: { flex: 1, minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1.5, borderColor: colors.brand },
+  restockActionActive: { backgroundColor: colors.brand },
+  restockActionText: { color: colors.brand, fontWeight: "800", fontSize: 15 },
+  restockActionTextActive: { color: colors.onBrand },
 });

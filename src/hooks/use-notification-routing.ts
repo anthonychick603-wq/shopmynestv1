@@ -82,6 +82,9 @@ export function routeForPush(data: PushData): string | null {
     case "product_review":
       return "/seller/reviews";
 
+    case "back_in_stock":
+      return objectId ? `/product/${objectId}` : "/alerts";
+
     // Blog engagement: comment or reply. object_id is the blog post id.
     case "blog_comment":
     case "blog_reply":

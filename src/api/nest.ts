@@ -1480,7 +1480,8 @@ export type NestSellerOrderRaw = {
   seller_status: string;
   tracking_number: string;
   date_created: string | null;
-  customer: { name: string; email: string; phone: string; address: string };
+  customer_id?: number;
+  customer: { id?: number; name: string; email: string; phone: string; address: string };
   items: NestSellerOrderItemRaw[];
   gross: number;
   platform_fee: number;

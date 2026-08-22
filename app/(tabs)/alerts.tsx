@@ -37,6 +37,7 @@ const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
   // v1.0.66 Build #5 - Favorites growth loop.
   favorite_added: "heart-outline",
   favorites_digest: "heart-outline",
+  back_in_stock: "notifications-outline",
 };
 
 /**

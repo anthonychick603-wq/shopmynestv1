@@ -73,6 +73,19 @@ function renderBody(body: string) {
   });
 }
 
+function withOrderContext(body: string, orderId?: string): string {
+  if (!orderId) return body;
+  const marker = `[Order #${orderId}]`;
+  return body ? `${marker}\n${body}` : marker;
+}
+
+function parseOrderContext(raw: string): { orderId?: string; body: string } {
+  const text = raw || "";
+  const match = text.match(/^\[Order #([^\]\r\n]+)\](?:\r?\n)?/);
+  if (!match) return { body: text };
+  return { orderId: match[1].trim(), body: text.slice(match[0].length) };
+}
+
 // Draft photo the user has picked but not yet sent. `uri` is the local Expo
 // file URI, `uploading` is true while the multipart upload is in flight, and
 // `attachmentId` is set once the server acknowledges the upload.
@@ -174,12 +187,14 @@ function PhotoGrid({
 
 export default function MessageThread() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ userId: string; name?: string; productId?: string; draft?: string }>();
+  const params = useLocalSearchParams<{ userId: string; name?: string; productId?: string; draft?: string; orderId?: string; orderTitle?: string }>();
   const { user } = useAuth();
 
   const otherId = Number(params.userId);
   const productId = params.productId ? Number(params.productId) : 0;
   const headerName = decodeEntities(params.name || "Shop");
+  const orderId = typeof params.orderId === "string" ? params.orderId.trim() : "";
+  const orderTitle = typeof params.orderTitle === "string" ? decodeEntities(params.orderTitle) : "";
 
   const [messages, setMessages] = useState<NestMessageRaw[]>([]);
   const [loading, setLoading] = useState(true);
@@ -293,6 +308,7 @@ export default function MessageThread() {
 
   const onSend = async () => {
     const body = draft.trim();
+    const wireBody = withOrderContext(body, orderId || undefined);
     const readyIds = drafts.filter((d) => !d.uploading && !d.error && d.attachmentId).map((d) => d.attachmentId!) as number[];
     if ((!body && readyIds.length === 0) || sending || !otherId) return;
     // Block send while any photo is still uploading so we don't drop attachments.
@@ -310,7 +326,7 @@ export default function MessageThread() {
       // string in our types, so coerce here (server-side ids are all numeric).
       sender_id: Number(user!.id),
       recipient_id: otherId,
-      message: body,
+      message: wireBody,
       is_read: false,
       created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
       photos: drafts
@@ -321,7 +337,7 @@ export default function MessageThread() {
     setDraft("");
     setDrafts([]);
     try {
-      await nest.sendMessage({ recipient_id: otherId, message: body, product_id: productId || undefined, photo_ids: readyIds });
+      await nest.sendMessage({ recipient_id: otherId, message: wireBody, product_id: productId || undefined, photo_ids: readyIds });
       // Reload to get server-authoritative rows (fresh signed URLs, etc.).
       await load();
       haptics.success();
@@ -413,6 +429,27 @@ export default function MessageThread() {
         <AlertsBellButton />
       </View>
 
+      {orderId ? (
+        <TouchableOpacity
+          style={styles.orderContext}
+          onPress={() => router.push(`/order/${orderId}`)}
+          testID="thread-order-context"
+          accessibilityRole="button"
+          accessibilityLabel={`View order ${orderId}`}
+        >
+          <View style={styles.orderContextIcon}>
+            <Ionicons name="receipt-outline" size={18} color={colors.brand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.orderContextEyebrow}>ORDER CONVERSATION</Text>
+            <Text style={styles.orderContextTitle} numberOfLines={1}>Order #{orderId}</Text>
+            {orderTitle ? <Text style={styles.orderContextSub} numberOfLines={1}>{orderTitle}</Text> : null}
+          </View>
+          <Text style={styles.orderContextLink}>View order</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceMuted} />
+        </TouchableOpacity>
+      ) : null}
+
       {/* v1.0.113 — the messaging screen needs the composer to sit flush
           against the keyboard on both platforms. Android's default
           adjustResize does not fully work with Expo's edgeToEdgeEnabled
@@ -440,11 +477,23 @@ export default function MessageThread() {
                 !prev ||
                 Math.abs((parseServerDate(item.created_at)?.getTime() ?? 0) -
                   (parseServerDate(prev.created_at)?.getTime() ?? 0)) > 15 * 60 * 1000;
+              const parsed = parseOrderContext(item.message);
               const hasPhotos = (item.photos?.length || 0) > 0;
-              const hasText   = !!item.message?.trim();
+              const hasText = !!parsed.body.trim();
               return (
                 <View>
                   {showTime ? <Text style={styles.timeLabel}>{formatBubbleTime(item.created_at)}</Text> : null}
+                  {parsed.orderId ? (
+                    <TouchableOpacity
+                      style={[styles.orderTag, mine ? styles.orderTagMine : styles.orderTagTheirs]}
+                      onPress={() => router.push(`/order/${parsed.orderId}`)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`View order ${parsed.orderId}`}
+                    >
+                      <Ionicons name="receipt-outline" size={12} color={colors.brandDark} />
+                      <Text style={styles.orderTagText}>Order #{parsed.orderId}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   {hasPhotos ? (
                     <View style={[styles.photoWrap, mine ? styles.photoWrapMine : styles.photoWrapTheirs]}>
                       <PhotoGrid
@@ -458,7 +507,7 @@ export default function MessageThread() {
                   {hasText ? (
                     <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs, hasPhotos && { marginTop: 4 }]}>
                       <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]} selectable>
-                        {renderBody(item.message)}
+                        {renderBody(parsed.body)}
                       </Text>
                     </View>
                   ) : null}
@@ -605,6 +654,40 @@ const styles = StyleSheet.create({
   // v1.0.113 — paddingBottom bumped so the composer keeps a comfortable
   // gap above the system nav bar when the keyboard is closed (the parent
   // SafeAreaView no longer applies a bottom inset for this screen).
+  orderContext: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  orderContextIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand + "14" },
+  orderContextEyebrow: { fontSize: 9, fontWeight: "800", letterSpacing: 0.7, color: colors.onSurfaceMuted },
+  orderContextTitle: { fontSize: 14, fontWeight: "800", color: colors.onSurface, marginTop: 1 },
+  orderContextSub: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 1 },
+  orderContextLink: { fontSize: 11, fontWeight: "800", color: colors.brandDark },
+  orderTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    marginBottom: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand + "14",
+    borderWidth: 1,
+    borderColor: colors.brand + "25",
+  },
+  orderTagMine: { alignSelf: "flex-end" },
+  orderTagTheirs: { alignSelf: "flex-start" },
+  orderTagText: { fontSize: 10, fontWeight: "800", color: colors.brandDark },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg, borderTopWidth: 1, borderTopColor: colors.divider, backgroundColor: colors.surface },
   attachBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary },
   input: { flex: 1, minHeight: 40, maxHeight: 140, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, color: colors.onSurface, fontSize: 15 },

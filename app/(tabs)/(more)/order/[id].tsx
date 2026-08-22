@@ -226,6 +226,7 @@ export default function OrderDetail() {
             ))}
           </View>
         ) : null}
+        <OrderSellerMessagesCard order={order} />
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Items</Text>
           {order.items.map((it, i) => (
@@ -287,6 +288,71 @@ export default function OrderDetail() {
         <Text style={styles.placedAt}>Placed {order.created_at ? format(parseServerDate(order.created_at) ?? new Date(0), "PPpp") : ""}</Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function OrderSellerMessagesCard({ order }: { order: Order }) {
+  const router = useRouter();
+  const sellers = new Map<string, { id: string; name: string; titles: string[]; productIds: string[] }>();
+
+  for (const item of order.items) {
+    const seller = item.product.seller;
+    if (!seller?.id || Number(seller.id) <= 0) continue;
+    const existing = sellers.get(String(seller.id)) ?? { id: String(seller.id), name: seller.name || "Seller", titles: [], productIds: [] };
+    if (item.product.title && !existing.titles.includes(item.product.title)) existing.titles.push(item.product.title);
+    if (item.product_id && !existing.productIds.includes(item.product_id)) existing.productIds.push(item.product_id);
+    sellers.set(existing.id, existing);
+  }
+
+  if (!sellers.size) return null;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.protectRow}>
+        <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.brand} />
+        <Text style={styles.protectTitle}>{sellers.size > 1 ? "Message a seller" : "Message seller"}</Text>
+      </View>
+      <Text style={styles.protectText}>
+        Ask about this purchase here. Messages started from this order are tagged with Order #{order.id}.
+      </Text>
+      <View style={styles.orderMessageList}>
+        {Array.from(sellers.values()).map((seller) => {
+          const title = seller.titles.slice(0, 2).join(", ");
+          return (
+            <TouchableOpacity
+              key={seller.id}
+              style={styles.orderMessageRow}
+              onPress={() => {
+                haptics.tap();
+                router.push({
+                  pathname: "/messages/[userId]",
+                  params: {
+                    userId: seller.id,
+                    name: seller.name,
+                    orderId: order.id,
+                    orderTitle: title || `Order #${order.id}`,
+                    productId: seller.productIds[0],
+                  },
+                });
+              }}
+              testID={`order-message-seller-${seller.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Message ${seller.name} about order ${order.id}`}
+            >
+              <View style={styles.orderMessageIcon}>
+                <Ionicons name="storefront-outline" size={18} color={colors.brand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.orderMessageName} numberOfLines={1}>{seller.name}</Text>
+                {title ? <Text style={styles.orderMessageMeta} numberOfLines={1}>{title}</Text> : null}
+              </View>
+              <Text style={styles.orderMessageAction}>Message</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceMuted} />
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -695,6 +761,12 @@ const styles = StyleSheet.create({
   protectPrimaryText: { color: colors.onBrand, fontWeight: "800", fontSize: 14 },
   protectGhost: { flex: 1, alignItems: "center", backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, paddingVertical: spacing.md },
   protectGhostText: { color: colors.onSurface, fontWeight: "800", fontSize: 14 },
+  orderMessageList: { marginTop: spacing.md, gap: spacing.sm },
+  orderMessageRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, borderWidth: 1, borderColor: colors.border },
+  orderMessageIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.brand + "14", alignItems: "center", justifyContent: "center" },
+  orderMessageName: { fontSize: 13, fontWeight: "800", color: colors.onSurface },
+  orderMessageMeta: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2 },
+  orderMessageAction: { fontSize: 12, fontWeight: "800", color: colors.brandDark },
   sellerNet: { color: colors.onSurfaceMuted, fontSize: 13, marginBottom: spacing.md },
   fieldLabel: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.sm },
   statusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
