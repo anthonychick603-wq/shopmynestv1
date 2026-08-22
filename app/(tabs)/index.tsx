@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
-import { toBlogPost, toProduct } from "@/src/api/adapters";
+import { toBlogPost, toProduct, feedRowToProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { BlogPost, Product } from "@/src/types";
 import { BlogPostCard } from "@/src/components/BlogPostCard";
@@ -43,6 +43,11 @@ export default function Blog() {
   // v1.0.94 (Build #18a) — recently viewed carousel. Only shown when logged
   // in and there's at least one row from the server MRU.
   const [recentlyViewed, setRecentlyViewed] = useState<Product[]>([]);
+  // v1.0.132 — Picked for you carousel powered by the trust suite's
+  // /nest-trust/v1/feed personalized ranker. Silent failure keeps the row
+  // absent (same pattern as Fresh from the Nest / Keep browsing) so a bad
+  // network doesn't paint an error state on the home tab.
+  const [forYouItems, setForYouItems] = useState<Product[]>([]);
   const { isFavorite, toggle: toggleFavorite, isBlogFavorite, toggleBlog: toggleBlogFavorite } = useFavorites();
   const { addProduct } = useCart();
 
@@ -77,6 +82,22 @@ export default function Blog() {
     }
   }, []);
 
+  // v1.0.132 — Personalized ranker: recency + favorites + follows + badge +
+  // sales + boost. We only show the row when the user is signed in AND the
+  // ranker returned at least 6 items — for a brand-new signed-in user the
+  // score collapses to recency+sales, which duplicates "Fresh from the
+  // Nest", so gating on a full row keeps the home tab from repeating itself.
+  const loadForYouFeed = useCallback(async () => {
+    if (!user) { setForYouItems([]); return; }
+    try {
+      const res = await nest.trust.getPersonalizedFeed({ per_page: 12 });
+      const items = (res.items || []).map(feedRowToProduct);
+      setForYouItems(items.length >= 6 ? items : []);
+    } catch {
+      setForYouItems([]);
+    }
+  }, [user]);
+
   // v1.0.94 (Build #18a) — recently viewed for the signed-in buyer. Silent
   // failure keeps the row simply absent, so no error UI on the home tab.
   const loadRecentlyViewed = useCallback(async () => {
@@ -93,7 +114,7 @@ export default function Blog() {
     setError(null);
     try {
       if (nextPage === 1) {
-        await Promise.all([loadHomeFeed(), loadRecentlyViewed()]);
+        await Promise.all([loadHomeFeed(), loadRecentlyViewed(), loadForYouFeed()]);
       }
       const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
       const items = (res.items || []).map(toBlogPost);
@@ -107,7 +128,7 @@ export default function Blog() {
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [loadHomeFeed]);
+  }, [loadHomeFeed, loadRecentlyViewed, loadForYouFeed]);
 
   // Reload on focus so a newly approved post shows up without a manual pull.
   useFocusEffect(
@@ -178,6 +199,40 @@ export default function Blog() {
           }}
           ListHeaderComponent={
             <View>
+              {forYouItems.length > 0 ? (
+                <View style={styles.homeFeedSection}>
+                  <View style={styles.homeFeedHeader}>
+                    <Text style={styles.homeFeedTitle}>Picked for you</Text>
+                    <TouchableOpacity
+                      accessibilityLabel="See all personalized picks"
+                      accessibilityRole="button"
+                      onPress={() => { haptics.tap(); pushFromTab(router, "/for-you"); }}
+                      testID="home-foryou-see-all"
+                    >
+                      <Text style={styles.homeFeedSeeAll}>See all</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.homeFeedRow}
+                    testID="home-foryou-scroller"
+                  >
+                    {forYouItems.map((item) => (
+                      <View key={item.id} style={styles.homeFeedItem}>
+                        <ProductCard
+                          product={item}
+                          layout="full"
+                          onAddToCart={() => onAdd(item)}
+                          onToggleFavorite={() => onFav(item)}
+                          isFavorite={isFavorite(item.id)}
+                          testID={`home-foryou-card-${item.id}`}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
               {recentlyViewed.length > 0 ? (
                 <View style={styles.homeFeedSection}>
                   <View style={styles.homeFeedHeader}>
