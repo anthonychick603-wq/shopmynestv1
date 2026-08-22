@@ -37,7 +37,11 @@ export function useNavHistory(): void {
   const params = useGlobalSearchParams();
 
   useEffect(() => {
-    if (!segments || segments.length === 0) return;
+    // Cast to number: expo-router types `segments` as a non-empty tuple
+    // so TS thinks .length is always ≥1, but at first mount / edge cases
+    // it can genuinely be empty. Comparing via a number cast keeps the
+    // guard while satisfying strict TS.
+    if (!segments || (segments.length as number) === 0) return;
     const path = buildPath(segments as unknown as string[], params as Record<string, unknown>);
     recordRoute(path);
   }, [segments, params]);

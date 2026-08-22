@@ -23,11 +23,18 @@ export class ApiError extends Error {
   code: string;
   friendly: string;
   data?: any;
+  // v1.0.133 — verify.tsx reads err.body for the server's structured
+  // payload on signup verify failures. Kept optional so existing call
+  // sites that only look at .data / .friendly are unaffected. The
+  // request() layer sets `body` to the raw JSON body when a non-2xx
+  // response includes one.
+  body?: any;
   constructor(message: string, status = 0, code = "request_failed", data?: any) {
     super(message);
     this.status = status;
     this.code = code;
     this.data = data;
+    this.body = data;
     this.friendly = friendlyFor(status, code, message);
   }
 }
@@ -209,6 +216,20 @@ export const nest = {
       auth: false,
     }),
   logout: () => request<{ ok: boolean }>("marketplace", "/auth/logout", { method: "POST" }),
+  // v1.0.133 — native password reset. Three steps:
+  // 1. request a 6-digit code by email; response is oblivious to whether
+  //    the account exists to avoid enumeration leakage.
+  // 2. verify the code before the user types a new password so we can
+  //    show "code incorrect" without also throwing away the typed password.
+  // 3. confirm with { email, code, new_password }; on success the server
+  //    returns a fresh auth token + user so the app can sign the user in
+  //    without a second /auth/login round-trip.
+  requestPasswordReset: (email: string) =>
+    request<{ sent: boolean; expires_in: number }>("marketplace", "/auth/password-reset/request", { method: "POST", body: { email }, auth: false }),
+  verifyPasswordResetCode: (email: string, code: string) =>
+    request<{ valid: boolean; email: string; expires_in: number }>("marketplace", "/auth/password-reset/verify", { method: "POST", body: { email, code }, auth: false }),
+  confirmPasswordReset: (payload: { email: string; code: string; new_password: string }) =>
+    request<{ success: boolean; email: string; token?: string; user?: NestUserRaw }>("marketplace", "/auth/password-reset/confirm", { method: "POST", body: payload, auth: false }),
   me: () => request<NestUserRaw>("marketplace", "/auth/me"),
   updateMe: (payload: Record<string, unknown>) =>
     request<NestUserRaw>("marketplace", "/auth/me", { method: "PATCH", body: payload }),

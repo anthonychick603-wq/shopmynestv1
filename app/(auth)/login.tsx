@@ -4,15 +4,13 @@ import { haptics } from "@/src/utils/haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as WebBrowser from "expo-web-browser";
 
 import { colors, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
-import { toast } from "@/src/components/Toast";
-import { ApiError, SITE } from "@/src/api/nest";
+import { ApiError } from "@/src/api/nest";
 import { safeBack } from "@/src/utils/nav";
 
 export default function Login() {
@@ -82,14 +80,13 @@ export default function Login() {
           <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/register"); }} style={{ marginTop: spacing.lg }} testID="login-goto-register">
             <Text style={styles.link}>New here? Create an account</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { haptics.tap(); WebBrowser.openBrowserAsync(`${SITE}/wp-login.php?action=lostpassword`); }} style={{ marginTop: spacing.sm }} testID="login-forgot" accessibilityLabel="Forgot password" accessibilityRole="button">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.push({ pathname: "/(auth)/forgot-password", params: email.trim() ? { email: email.trim() } : {} }); }} style={{ marginTop: spacing.sm }} testID="login-forgot" accessibilityLabel="Forgot password" accessibilityRole="button">
             <Text style={styles.linkMuted}>Forgot password?</Text>
           </TouchableOpacity>
 
           <View style={styles.demo}>
             <Text style={styles.demoTitle}>Connected to shopmynest.com</Text>
             <Text style={styles.demoLine}>Use your existing website account.</Text>
-            <Text style={styles.demoLine}>Forgot password → tap the link above to reset via the website.</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
