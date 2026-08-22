@@ -1172,6 +1172,22 @@ export type SellerAnalytics = {
     pct_gross: number | null;
     pct_orders: number | null;
   };
+  // v3.13.4 — status breakdown (actionable: "3 processing right now")
+  // and customer summary (marketplace-health metric). Both are optional
+  // on the type so older plugin builds still parse cleanly.
+  status_breakdown?: {
+    processing: number;
+    on_hold: number;
+    completed: number;
+    refunded: number;
+  };
+  customers?: {
+    unique: number;
+    new: number;
+    repeat: number;
+    /** Share of orders that came from repeat buyers (0–1). */
+    repeat_rate: number;
+  };
 };
 
 // v3.7.120 (Build #15) — CSV export envelope.

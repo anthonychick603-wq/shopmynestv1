@@ -1,8 +1,14 @@
 // v1.0.91 — Seller analytics dashboard. Reads /seller/analytics (plugin
-// v3.7.118), lets the seller flip between 7/30/90-day windows, and shows
+// v3.7.118+), lets the seller flip between 7/30/90-day windows, and shows
 // a bar-based revenue sparkline, KPI tiles (net, orders, refund rate,
 // pending payout), and the top 5 products by gross. No external chart
 // dependency — bars are simple <View>s with computed heights.
+//
+// v1.0.137 — adds two new sections powered by plugin v3.13.4:
+//   • Order status breakdown (processing / on-hold / completed / refunded)
+//     so sellers can see "3 orders waiting to ship" at a glance.
+//   • Customer summary (unique + new/repeat counts + repeat-rate KPI) so
+//     sellers can watch marketplace-health metrics over time.
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -172,6 +178,30 @@ export default function SellerAnalytics() {
             <Kpi label="Avg order" value={`$${data.orders_count > 0 ? (data.total_gross / data.orders_count).toFixed(2) : "0.00"}`} icon="analytics-outline" />
           </View>
 
+          {data.status_breakdown ? (
+            <>
+              <Text style={styles.sectionLabel}>Order status</Text>
+              <View style={styles.statusRow}>
+                <StatusTile label="Processing" count={data.status_breakdown.processing} tone="info" icon="time-outline" />
+                <StatusTile label="On hold" count={data.status_breakdown.on_hold} tone="warning" icon="pause-circle-outline" />
+                <StatusTile label="Completed" count={data.status_breakdown.completed} tone="success" icon="checkmark-circle-outline" />
+                <StatusTile label="Refunded" count={data.status_breakdown.refunded} tone="error" icon="return-down-back-outline" />
+              </View>
+            </>
+          ) : null}
+
+          {data.customers ? (
+            <>
+              <Text style={styles.sectionLabel}>Customers</Text>
+              <View style={styles.kpiGrid}>
+                <Kpi label="Unique buyers" value={String(data.customers.unique)} icon="people-outline" />
+                <Kpi label="Repeat rate" value={`${(data.customers.repeat_rate * 100).toFixed(1)}%`} icon="repeat-outline" />
+                <Kpi label="New" value={String(data.customers.new)} icon="person-add-outline" />
+                <Kpi label="Returning" value={String(data.customers.repeat)} icon="person-circle-outline" />
+              </View>
+            </>
+          ) : null}
+
           <Text style={styles.sectionLabel}>Top products</Text>
           {data.top_products.length === 0 ? (
             <View style={styles.emptyProducts}>
@@ -240,6 +270,26 @@ function safeFormat(iso: string): string {
   } catch {
     return "";
   }
+}
+
+// v1.0.137 — small tile for the Order status row. Purely informational
+// (no tap target); sellers action orders from the seller dashboard tab.
+// Zero-count tiles render in muted colors so the eye lands on rows that
+// actually need attention.
+function StatusTile({ label, count, tone, icon }: { label: string; count: number; tone: "info" | "warning" | "success" | "error"; icon: keyof typeof import("@expo/vector-icons").Ionicons.glyphMap }) {
+  const active = count > 0;
+  const toneColor =
+    tone === "info" ? colors.brand :
+    tone === "warning" ? colors.warning :
+    tone === "success" ? colors.success :
+    colors.error;
+  return (
+    <View style={[styles.statusTile, active ? { backgroundColor: toneColor + "14", borderColor: toneColor + "33" } : null]}>
+      <Ionicons name={icon} size={14} color={active ? toneColor : colors.onSurfaceMuted} />
+      <Text style={[styles.statusCount, { color: active ? toneColor : colors.onSurfaceMuted }]}>{count}</Text>
+      <Text style={styles.statusLabel} numberOfLines={1}>{label}</Text>
+    </View>
+  );
 }
 
 function Kpi({ label, value, icon, tone }: { label: string; value: string; icon: keyof typeof import("@expo/vector-icons").Ionicons.glyphMap; tone?: "warning" | "default" }) {
@@ -349,4 +399,25 @@ const styles = StyleSheet.create({
   compareValue: { fontSize: 12, fontWeight: "800" },
   comparePct: { fontSize: 11, color: colors.onSurfaceMuted, fontWeight: "700" },
   compareLabel: { fontSize: 11, color: colors.onSurfaceMuted, marginLeft: 2 },
+
+  // v1.0.137 — order-status row tiles. Row wraps at 2 columns on narrow
+  // widths (each tile flexBasis 48%) and lays out as 4 across on wider
+  // screens. Muted when count is zero so live rows visually pop.
+  statusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  statusTile: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: "transparent",
+    ...shadows.card,
+  },
+  statusCount: { fontSize: 18, fontWeight: "800", minWidth: 18 },
+  statusLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted, flexShrink: 1 },
 });
