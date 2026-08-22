@@ -1,30 +1,29 @@
+// ⚠️  v1.0.143-test — DIAGNOSTIC PALETTE, DO NOT RELEASE ⚠️
+// This palette is intentionally garish so we can visually verify that
+// every screen and component reads its colors from theme.ts. Anything
+// still showing warm terracotta/cream is hardcoded and must be fixed.
+// Multiple pairings here fail WCAG (some below 2:1) — this build is
+// unreadable by design. Revert to v1.0.142 tokens before any Play
+// Store rollout.
 // The Nest — design tokens (from /app/design_guidelines.json).
-// v1.0.142 — new warmer palette. Four tokens were nudged from the raw
-// spec to meet WCAG AA (4.5:1 body / 3:1 large text) on the peach surface:
-//   brand           #cd725b → #ac513e   (button label #FFFFFF now 5.25:1)
-//   onBrand         #fde0e0 → #FFFFFF   (paired with the darker brand)
-//   onSurfaceMuted  #ab6a4c → #8a4a2f   (was 2.95:1 on surface, now 4.66:1)
-//   success         #4aeb10 → #2f7a1f   (was 1.10:1 — pill was invisible)
-//   warning         #e75635 → #b8451f   (was 2.50:1 on surface)
-//   error           #e32e2e → #c21c1c   (was 3.08:1 — kept warm red hue)
 export const colors = {
-  surface: "#f6d09f",
-  onSurface: "#65372e",
-  onSurfaceMuted: "#8a4a2f",
-  surfaceSecondary: "#eed9d9",
-  surfaceTertiary: "#f3d8c2",
-  brand: "#ac513e",
-  brandDark: "#9e4834",
-  onBrand: "#FFFFFF",
-  yellow: "#f7d46b",
-  green: "#add666",
-  peach: "#f49e74",
-  border: "#a27649",
-  borderStrong: "#DDBB99",
-  divider: "#EEDDCC",
-  error: "#c21c1c",
-  success: "#2f7a1f",
-  warning: "#b8451f",
+  surface: "#ffac40",
+  onSurface: "#ff2a00",
+  onSurfaceMuted: "#ff7332",
+  surfaceSecondary: "#fff6f6",
+  surfaceTertiary: "#979695",
+  brand: "#00d9ff",
+  brandDark: "#2400c6",
+  onBrand: "#7265ff",
+  yellow: "#ffd145",
+  green: "#6cab00",
+  peach: "#ff8e56",
+  border: "#ff00e6",
+  borderStrong: "#00ffd0",
+  divider: "#070400",
+  error: "#e18ce3",
+  success: "#80cd63",
+  warning: "#fe03e9",
 } as const;
 
 export const spacing = {
