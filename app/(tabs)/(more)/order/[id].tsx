@@ -21,7 +21,6 @@ import { AppImage } from "@/src/components/AppImage";
 import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
 import { OrderStatusTimeline } from "@/src/components/OrderStatusTimeline";
-import { OrderReviewCTA } from "@/src/components/OrderReviewCTA";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { OrderDetailSkeleton } from "@/src/components/OrderDetailSkeleton";
@@ -261,7 +260,12 @@ export default function OrderDetail() {
             onChange={setRefund}
           />
         ) : null}
-        <OrderReviewCTA order={order} />
+        {order.status === "delivered" ? (
+          <TouchableOpacity style={styles.leaveReviewBtn} onPress={() => router.push(`/orders/${order.id}/review` as any)} testID="order-leave-review">
+            <Ionicons name="star-outline" size={18} color={colors.onBrand} />
+            <Text style={styles.leaveReviewText}>Leave a review</Text>
+          </TouchableOpacity>
+        ) : null}
         {isSeller && sellerOrder && !iAmBuyer ? (
           <SellerFulfillment orderId={String(order.id)} data={sellerOrder} onUpdated={setSellerOrder} />
         ) : null}
@@ -669,6 +673,8 @@ const styles = StyleSheet.create({
     minHeight: 36,
   },
   cancelBtnText: { fontSize: 13, fontWeight: "700", color: colors.error },
+  leaveReviewBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.pill, paddingVertical: spacing.md, marginBottom: spacing.md },
+  leaveReviewText: { color: colors.onBrand, fontWeight: "800", fontSize: 15 },
   status: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   statusHint: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 4, lineHeight: 17 },
   tracking: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.md, backgroundColor: colors.surfaceTertiary, padding: spacing.md, borderRadius: radius.md },

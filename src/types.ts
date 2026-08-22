@@ -72,6 +72,7 @@ export type Product = {
   status: "draft" | "published";
   featured?: boolean;
   seller?: { id: string; name: string; profile_photo?: string | null; rating?: number; review_count?: number };
+  product_rating?: { rating: number; review_count: number };
   permalink?: string;
   // v1.0.66 Build #5 - Populated only in seller context (nest.getMyProducts).
   // Left off buyer-facing product cards so the payload stays small.

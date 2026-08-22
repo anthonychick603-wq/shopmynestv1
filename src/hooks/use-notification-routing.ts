@@ -52,7 +52,7 @@ export function routeForPush(data: PushData): string | null {
 
     // Post-purchase review nudge (v3.7.108). Server sends a single push per
     // order 3-7 days after the first seller ships. Land on the buyer order
-    // detail screen where the OrderReviewCTA rows the buyer can tap.
+    // detail screen, where the product-review composer is available.
     case "review_prompt":
       return orderId ? `/order/${orderId}` : "/orders";
 
@@ -77,6 +77,10 @@ export function routeForPush(data: PushData): string | null {
     // reviews are surfaced.
     case "seller_review":
       return "/seller/dashboard";
+
+    // v1.0.129 — a verified product review needs a seller response.
+    case "product_review":
+      return "/seller/reviews";
 
     // Blog engagement: comment or reply. object_id is the blog post id.
     case "blog_comment":

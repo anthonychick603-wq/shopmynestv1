@@ -47,6 +47,9 @@ export function toProduct(p: NestProductRaw): Product {
           review_count: typeof p.seller.review_count === "number" ? p.seller.review_count : undefined,
         }
       : undefined,
+    product_rating: p.product_rating
+      ? { rating: Number(p.product_rating.rating ?? 0), review_count: Number(p.product_rating.review_count ?? 0) }
+      : undefined,
     permalink: p.permalink,
     // v1.0.66 Build #5 - Only populated in seller context, so the field is
     // usually undefined for a buyer-facing product card.

@@ -1,161 +1,90 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
-import { nest, type NestSellerReviewRaw } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
-import { CartHeaderButton } from "@/src/components/CartHeaderButton";
-import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { ApiError, nest, type ProductReview } from "@/src/api/nest";
+import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
-import { AppImage } from "@/src/components/AppImage";
-import { RatingBadge } from "@/src/components/RatingBadge";
+import { toast } from "@/src/components/Toast";
+import { colors, radius, shadows, spacing } from "@/src/theme";
+import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
-import { decodeEntities } from "@/src/utils/html";
-import { parseServerDate } from "@/src/utils/datetime";
 
-// v1.0.64 - Build #4: paginated shop-reviews list. Reached via
-// "See all reviews" on the seller profile. Loads 20 rows at a time; the
-// backend caps per_page at 100 already so no additional client guard needed.
 const PAGE_SIZE = 20;
 
-export default function SellerReviewsScreen() {
-  const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
-  const insets = useSafeAreaInsets();
+export default function SellerReviewsInbox() {
   const router = useRouter();
-
-  const [items, setItems] = useState<NestSellerReviewRaw[]>([]);
+  const insets = useSafeAreaInsets();
+  const [items, setItems] = useState<ProductReview[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [average, setAverage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [active, setActive] = useState<ProductReview | null>(null);
 
-  const loadPage = useCallback(async (nextPage: number) => {
-    const res = await nest
-      .getSellerReviews(id!, { page: nextPage, per_page: PAGE_SIZE })
-      .catch(() => ({ items: [], total: 0, average: 0, page: nextPage, total_pages: 0 }));
-    setTotalPages(res.total_pages || 1);
-    setTotal(res.total || 0);
-    setAverage(res.average || 0);
-    setItems((prev) => (nextPage === 1 ? res.items || [] : [...prev, ...(res.items || [])]));
-    setPage(nextPage);
-  }, [id]);
+  const load = useCallback(async (next = 1) => {
+    setError(null);
+    try {
+      const res = await nest.getSellerProductReviews({ page: next, per_page: PAGE_SIZE });
+      setItems((current) => next === 1 ? res.items || [] : [...current, ...(res.items || [])]);
+      setPage(next); setTotalPages(res.total_pages || 1);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.friendly : "We couldn't load product reviews.");
+    } finally {
+      setLoading(false); setLoadingMore(false);
+    }
+  }, []);
+  useEffect(() => { load(1); }, [load]);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      await loadPage(1);
-      setLoading(false);
-    })();
-  }, [loadPage]);
-
-  const onEnd = useCallback(async () => {
-    if (loadingMore || loading) return;
-    if (page >= totalPages) return;
-    setLoadingMore(true);
-    await loadPage(page + 1);
-    setLoadingMore(false);
-  }, [loadPage, page, totalPages, loading, loadingMore]);
-
-  const title = decodeEntities(name || "Reviews");
-
-  return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.top}>
-        <TouchableOpacity
-          onPress={() => { haptics.tap(); safeBack(router, `/seller/${id}`); }}
-          style={styles.topBtn}
-          testID="reviews-back" accessibilityRole="button" accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
-        </TouchableOpacity>
-        <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
-        <AlertsBellButton />
-        <CartHeaderButton />
-      </View>
-      {loading ? (
-        <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(r) => String(r.id)}
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadPage(1); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
-          onEndReachedThreshold={0.4}
-          onEndReached={onEnd}
-          ListHeaderComponent={
-            <View style={styles.summary}>
-              <Text style={styles.summaryTitle}>Shop rating</Text>
-              <RatingBadge rating={average} reviewCount={total} size="lg" showEmpty />
-            </View>
-          }
-          renderItem={({ item }) => <ReviewRow row={item} />}
-          ListFooterComponent={
-            loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.lg }} color={colors.brand} /> : null
-          }
-          ListEmptyComponent={
-            <EmptyState
-              icon="star-outline"
-              title="No reviews yet"
-              message="Buyers can leave a review after their order is on its way."
-              testID="reviews-empty"
-            />
-          }
-        />
-      )}
-    </SafeAreaView>
-  );
+  if (loading) return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
+  return <SafeAreaView style={styles.safe} edges={["top"]}>
+    <View style={styles.top}><TouchableOpacity onPress={() => safeBack(router, "/seller/dashboard")} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.title}>Product reviews</Text><View style={styles.topBtn} /></View>
+    {error ? <EmptyState icon="cloud-offline-outline" title="Couldn't load reviews" message={error} actionLabel="Retry" onAction={() => { setLoading(true); load(1); }} /> : <FlatList
+      data={items} keyExtractor={(item) => String(item.id)}
+      contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
+      refreshControl={<RefreshControl refreshing={false} onRefresh={() => load(1)} tintColor={colors.brand} colors={[colors.brand]} />}
+      renderItem={({ item }) => <ReviewRow item={item} onRespond={() => setActive(item)} />}
+      ListEmptyComponent={<EmptyState icon="star-outline" title="No product reviews yet" message="New verified-purchase reviews will appear here." />}
+      ListFooterComponent={page < totalPages ? <TouchableOpacity style={styles.more} disabled={loadingMore} onPress={() => { setLoadingMore(true); load(page + 1); }}>{loadingMore ? <ActivityIndicator color={colors.brand} /> : <Text style={styles.moreText}>Load more</Text>}</TouchableOpacity> : null}
+    />}
+    {active ? <ResponseModal item={active} onClose={() => setActive(null)} onSaved={(updated) => { setItems((current) => current.map((item) => item.id === updated.id ? updated : item)); setActive(null); }} /> : null}
+  </SafeAreaView>;
 }
 
-// Kept private to this screen for now. If the profile screen and this screen
-// keep drifting, promote to a shared /components/ReviewRow.
-function ReviewRow({ row }: { row: NestSellerReviewRaw }) {
-  const stars = Math.max(1, Math.min(5, row.rating || 0));
-  const when = (parseServerDate(row.created_at) ?? null)?.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) ?? "";
-  return (
-    <View style={reviewStyles.card}>
-      <View style={reviewStyles.headerRow}>
-        {row.reviewer?.avatar ? (
-          <AppImage source={{ uri: row.reviewer.avatar }} style={reviewStyles.avatar} fallbackIcon="person-outline" />
-        ) : (
-          <View style={[reviewStyles.avatar, reviewStyles.avatarFallback]}><Ionicons name="person" size={18} color={colors.onSurfaceMuted} /></View>
-        )}
-        <View style={{ flex: 1 }}>
-          <Text style={reviewStyles.reviewer} numberOfLines={1}>{decodeEntities(row.reviewer?.display_name || "Anonymous")}</Text>
-          <View style={reviewStyles.starsRow}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Ionicons key={n} name={n <= stars ? "star" : "star-outline"} size={14} color={colors.brand} />
-            ))}
-            {when ? <Text style={reviewStyles.when}>{when}</Text> : null}
-          </View>
-        </View>
-      </View>
-      {row.review ? <Text style={reviewStyles.body}>{decodeEntities(row.review)}</Text> : null}
-    </View>
-  );
+function ReviewRow({ item, onRespond }: { item: ProductReview; onRespond: () => void }) {
+  return <View style={styles.card}>
+    <Text style={styles.product}>{decodeEntities(item.product_name || "Product")}</Text>
+    <Text style={styles.buyer}>{decodeEntities(item.reviewer?.display_name || "Buyer")} · <Text style={styles.stars}>{"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}</Text></Text>
+    {item.review ? <Text style={styles.review}>{decodeEntities(item.review)}</Text> : null}
+    {item.seller_response ? <View style={styles.response}><Text style={styles.responseTitle}>Your response</Text><Text style={styles.responseText}>{decodeEntities(item.seller_response)}</Text></View> : <TouchableOpacity style={styles.respond} onPress={onRespond}><Text style={styles.respondText}>Respond</Text></TouchableOpacity>}
+  </View>;
+}
+
+function ResponseModal({ item, onClose, onSaved }: { item: ProductReview; onClose: () => void; onSaved: (updated: ProductReview) => void }) {
+  const [response, setResponse] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    if (!response.trim() || saving) return;
+    setSaving(true);
+    try {
+      const updated = await nest.submitReviewResponse(item.product_id, item.id, response.trim());
+      toast.success("Response posted"); haptics.success(); onSaved({ ...updated, product_name: item.product_name });
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.friendly : "Couldn't post your response.");
+    } finally { setSaving(false); }
+  };
+  return <Modal transparent animationType="fade" visible onRequestClose={onClose}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.sheetTop}><Text style={styles.sheetTitle}>Respond to review</Text><TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color={colors.onSurface} /></TouchableOpacity></View><TextInput style={styles.input} value={response} onChangeText={(value) => setResponse(value.slice(0, 2000))} multiline maxLength={2000} placeholder="Write a helpful response…" placeholderTextColor={colors.onSurfaceMuted} /><Text style={styles.counter}>{response.length}/2000</Text><Button title="Post response" onPress={submit} loading={saving} disabled={!response.trim() || saving} /></View></View></Modal>;
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md },
-  topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface, flex: 1, textAlign: "center" },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  summary: { paddingVertical: spacing.md, marginBottom: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, gap: spacing.xs },
-  summaryTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
-});
-
-const reviewStyles = StyleSheet.create({
-  card: { padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginBottom: spacing.sm },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.xs },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceTertiary },
-  avatarFallback: { alignItems: "center", justifyContent: "center" },
-  reviewer: { fontSize: 14, fontWeight: "700", color: colors.onSurface },
-  starsRow: { flexDirection: "row", alignItems: "center", gap: 2, marginTop: 2 },
-  when: { fontSize: 12, color: colors.onSurfaceMuted, marginLeft: spacing.sm },
-  body: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
+  safe: { flex: 1, backgroundColor: colors.surface }, center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md }, title: { color: colors.onSurface, fontSize: 17, fontWeight: "800" }, topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  card: { padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.md }, product: { color: colors.onSurface, fontWeight: "800", fontSize: 15 }, buyer: { color: colors.onSurfaceMuted, fontSize: 13, marginTop: 4 }, stars: { color: colors.brand }, review: { color: colors.onSurface, lineHeight: 21, marginTop: spacing.sm },
+  respond: { alignSelf: "flex-start", marginTop: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.brand }, respondText: { color: colors.onBrand, fontWeight: "800", fontSize: 13 }, response: { marginTop: spacing.md, paddingLeft: spacing.sm, borderLeftWidth: 3, borderLeftColor: colors.brand }, responseTitle: { color: colors.onSurfaceMuted, fontWeight: "700", fontSize: 12 }, responseText: { color: colors.onSurface, lineHeight: 20, marginTop: 3 },
+  more: { alignSelf: "center", paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill }, moreText: { color: colors.brand, fontWeight: "700" },
+  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" }, sheet: { padding: spacing.lg, paddingBottom: spacing.xl, backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg }, sheetTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }, sheetTitle: { color: colors.onSurface, fontWeight: "800", fontSize: 17 }, input: { minHeight: 120, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, textAlignVertical: "top", color: colors.onSurface }, counter: { alignSelf: "flex-end", color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.xs, marginBottom: spacing.md },
 });

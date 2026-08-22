@@ -263,6 +263,12 @@ export default function SellerDashboard() {
             onPress={() => pushFromTab(router, "/seller/listings")}
             testID="dash-listings"
           />
+          <ActionTile
+            icon="star-outline"
+            label="Reviews"
+            onPress={() => pushFromTab(router, "/seller/reviews")}
+            testID="dash-reviews"
+          />
         </View>
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent orders</Text></View>

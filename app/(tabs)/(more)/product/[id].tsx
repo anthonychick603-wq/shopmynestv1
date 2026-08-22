@@ -161,6 +161,18 @@ export default function ProductDetail() {
 
         <View style={{ padding: spacing.lg }}>
           <Text style={styles.title}>{product.title}</Text>
+          {product.product_rating?.review_count ? (
+            <TouchableOpacity
+              style={styles.ratingRow}
+              onPress={() => { haptics.tap(); router.push(`/product/${product.id}/reviews` as any); }}
+              testID="product-reviews-link"
+              accessibilityLabel={`Read ${product.product_rating.review_count} product reviews`}
+            >
+              <Text style={styles.ratingStars}>★</Text>
+              <Text style={styles.ratingText}>{product.product_rating.rating.toFixed(1)} · {product.product_rating.review_count} {product.product_rating.review_count === 1 ? "review" : "reviews"}</Text>
+              <Ionicons name="chevron-forward" size={15} color={colors.onSurfaceMuted} />
+            </TouchableOpacity>
+          ) : <Text style={styles.noReviews}>No reviews yet</Text>}
           <View style={{ flexDirection: "row", alignItems: "baseline", marginTop: 6 }}>
             <Text style={styles.price}>${price.toFixed(2)}</Text>
             {onSale ? <Text style={styles.priceOld}>${product.price.toFixed(2)}</Text> : null}
@@ -294,6 +306,10 @@ const styles = StyleSheet.create({
   thumbActive: { borderColor: colors.brand },
   thumbImg: { width: "100%", height: "100%" },
   title: { fontSize: 22, fontWeight: "800", color: colors.onSurface },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", marginTop: spacing.sm },
+  ratingStars: { color: colors.brand, fontSize: 16 },
+  ratingText: { color: colors.onSurface, fontWeight: "700", fontSize: 14 },
+  noReviews: { color: colors.onSurfaceMuted, fontSize: 13, marginTop: spacing.sm },
   price: { fontSize: 26, fontWeight: "800", color: colors.onSurface },
   priceOld: { fontSize: 15, color: colors.onSurfaceMuted, marginLeft: 8, textDecorationLine: "line-through" },
   stockRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.sm, gap: 6 },

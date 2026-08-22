@@ -211,7 +211,7 @@ export default function SellerProfile() {
                   {reviewTotal > reviews.length ? (
                     <TouchableOpacity
                       style={styles.seeAllReviews}
-                      onPress={() => { haptics.tap(); router.push({ pathname: "/seller/reviews", params: { id: String(id), name: storeName } }); }}
+                      onPress={() => { haptics.tap(); router.push({ pathname: "/seller/[id]/reviews", params: { id: String(id), name: storeName } }); }}
                       testID="seller-see-all-reviews"
                     >
                       <Text style={styles.seeAllReviewsText}>See all {reviewTotal} reviews</Text>

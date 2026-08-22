@@ -359,6 +359,8 @@ export const nest = {
   getBuyerOrders: (query?: Record<string, unknown>) =>
     request<{ orders: NestOrderRaw[]; page: number; total: number; total_pages: number }>("marketplace", "/orders", { query }),
   getBuyerOrder: (id: number | string) => request<NestOrderRaw>("marketplace", `/orders/${id}`),
+  getReviewableProducts: (orderId: number) =>
+    request<{ items: ReviewableProduct[] }>("marketplace", `/orders/${orderId}/reviewable-products`),
   // v3.7.121 (Build #16) — buyer-initiated cancel. 409 means the order is
   // already shipped / paid / closed; 403 means the caller isn't the buyer.
   cancelBuyerOrder: (id: number | string, reason?: string) =>
@@ -706,9 +708,27 @@ export const nest = {
       { method: "POST", body: { code, items } }
     ),
 
-  // v3.7.119 (Build #9-lite) — product reviews list.
+  // v3.12.0 — verified purchase product reviews.
   getProductReviews: (productId: number | string, query?: { page?: number; per_page?: number }) =>
-    request<NestSellerReviewsPage>("marketplace", `/products/${productId}/reviews`, { query: query || {} }),
+    request<ProductReviewsPage>("marketplace", `/products/${productId}/reviews`, { query: query || {} }),
+  submitProductReview: (productId: number, body: {
+    order_id: number;
+    rating: number;
+    review: string;
+    photo_ids?: number[];
+    variation_id?: number;
+  }) => request<ProductReview>("marketplace", `/products/${productId}/reviews`, { method: "POST", body }),
+  submitReviewResponse: (productId: number, reviewId: number, response: string) =>
+    request<ProductReview>("marketplace", `/products/${productId}/reviews/${reviewId}/response`, {
+      method: "POST",
+      body: { response },
+    }),
+  uploadReviewPhoto: (formData: FormData) =>
+    request<{ id: number; url: string; thumbnail: string; mime_type: string }>("marketplace", "/media", {
+      method: "POST", query: { context: "review" }, formData, timeoutMs: 60000,
+    }),
+  getSellerProductReviews: (query?: { page?: number; per_page?: number }) =>
+    request<ProductReviewsPage>("marketplace", "/seller/reviews", { query: query || {} }),
 
   // v3.7.119 (Build #11) — buyer address book (multi-address).
   listAddressBook: () => request<{ items: NestAddressBookEntry[] }>("marketplace", "/me/addresses"),
@@ -887,6 +907,40 @@ export type NestSellerReviewsPage = {
   total_pages: number;
 };
 
+export type ProductReview = {
+  id: number;
+  rating: number;
+  review: string;
+  product_id: number;
+  variation_id: number;
+  variation_name?: string | null;
+  order_id: number;
+  reviewer_id: number;
+  reviewer: { display_name: string; avatar: string };
+  photo_ids: number[];
+  photos: string[];
+  seller_response: string | null;
+  seller_response_at: string | null;
+  created_at: string;
+  product_name?: string;
+};
+
+export type ProductReviewsPage = {
+  items: ProductReview[];
+  total: number;
+  average: number;
+  page: number;
+  total_pages: number;
+};
+
+export type ReviewableProduct = {
+  product_id: number;
+  name: string;
+  image: string;
+  variation_id: number;
+  already_reviewed: boolean;
+};
+
 // v3.7.119 (Build #10)
 export type NestCouponScope = "seller" | "site";
 export type NestCouponDiscountType = "percent" | "fixed_cart" | "fixed_product";
@@ -961,6 +1015,7 @@ export type NestProductRaw = {
   gallery?: string[];
   permalink?: string;
   seller?: NestSellerRaw;
+  product_rating?: { rating: number; review_count: number };
   categories?: { id: number; name: string; slug: string }[];
   // v3.7.104 Build #5 - Populated only in seller context. Buyer-facing
   // endpoints omit it to keep the response small.
