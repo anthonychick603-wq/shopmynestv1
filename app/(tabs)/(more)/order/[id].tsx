@@ -634,16 +634,16 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
         <View style={{ width: 36 }} />
       </View>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Your fulfillment status</Text>
-          <Text style={styles.status}>{(data.seller_status || "processing").toUpperCase()}</Text>
-          {data.tracking_number ? (
-            <View style={styles.tracking}>
-              <Ionicons name="location-outline" size={18} color={colors.brand} />
-              <Text style={styles.trackingText}>{data.tracking_number}</Text>
-            </View>
-          ) : null}
-        </View>
+        {/*
+          v1.0.141 — removed the read-only "Your fulfillment status" card
+          that used to sit here. Its two facts (current seller_status and
+          the tracking number) are already surfaced — and editable — in
+          the <SellerFulfillment> section further down on the same screen.
+          Keeping both meant the seller saw the same status label twice
+          and the same tracking number twice, with the top card offering
+          no action. The status chips and tracking input below cover the
+          need without duplication.
+        */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Your items</Text>
           {data.items.map((it, i) => (
