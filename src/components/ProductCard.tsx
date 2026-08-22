@@ -18,11 +18,16 @@ type Props = {
   layout?: Layout;
   onAddToCart?: () => void;
   onToggleFavorite?: () => void;
+  // v1.0.136 — optional long-press hook. Used by Recently Viewed to remove
+  // a single row from the MRU, and available to any future screen that
+  // needs a "press and hold" affordance on a card. Undefined by default
+  // so existing screens keep their tap-only behavior.
+  onLongPress?: () => void;
   isFavorite?: boolean;
   testID?: string;
 };
 
-export function ProductCard({ product, layout = "full", onAddToCart, onToggleFavorite, isFavorite, testID }: Props) {
+export function ProductCard({ product, layout = "full", onAddToCart, onToggleFavorite, onLongPress, isFavorite, testID }: Props) {
   const router = useRouter();
   // v1.0.57 — detect whether this card is being rendered inside a (more)
   // stack (product/seller/blog detail) vs at a tab root (browse feed, home
@@ -45,6 +50,8 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
       testID={testID ?? `product-card-${product.id}`}
       activeOpacity={0.9}
       onPress={() => pushFromCard(router, `/product/${product.id}`, insideMore)}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       style={[styles.card, layout === "grid" ? styles.gridCard : styles.fullCard]}
     >
       <View>

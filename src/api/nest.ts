@@ -391,6 +391,12 @@ export const nest = {
     request<{ ok: boolean; count: number }>("marketplace", "/me/recently-viewed", { method: "POST", body: { product_id: Number(productId) } }),
   clearRecentlyViewed: () =>
     request<{ ok: boolean }>("marketplace", "/me/recently-viewed", { method: "DELETE" }),
+  // v1.0.136 — drop a single row from the MRU. Server responds
+  // idempotently: removing an id that isn't in the list still returns
+  // `ok: true` with the remaining count, so the client can update
+  // local state without a follow-up GET.
+  removeRecentlyViewed: (productId: number | string) =>
+    request<{ ok: boolean; count: number }>("marketplace", `/me/recently-viewed/${Number(productId)}`, { method: "DELETE" }),
 
   // Orders
   getBuyerOrders: (query?: Record<string, unknown>) =>

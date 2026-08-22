@@ -77,6 +77,27 @@ export default function RecentlyViewedScreen() {
     if (!user) return router.push("/(auth)/login");
     toggleFavorite(p.id);
   };
+  // v1.0.136 — long-press a card to remove just that product from the MRU.
+  // Confirm first (destructive, feels like a swipe-to-delete) then update
+  // local state optimistically. Best-effort on network error: we still
+  // hide the row locally so the tap doesn't feel dead, and the next
+  // pull-to-refresh reconciles with the server.
+  const onLongPress = (p: Product) => {
+    haptics.tap();
+    Alert.alert("Remove from recently viewed?", p.title, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: async () => {
+        setItems((prev) => prev.filter((r) => r.id !== p.id));
+        try {
+          await nest.removeRecentlyViewed(p.id);
+          haptics.success();
+        } catch (e) {
+          haptics.error();
+          toast.error(e instanceof ApiError ? e.friendly : "Could not remove");
+        }
+      } },
+    ]);
+  };
   const onAdd = async (p: Product) => {
     if (!user) return router.push("/(auth)/login");
     try {
@@ -144,6 +165,7 @@ export default function RecentlyViewedScreen() {
                 layout="full"
                 onAddToCart={() => onAdd(item)}
                 onToggleFavorite={() => onFav(item)}
+                onLongPress={() => onLongPress(item)}
                 isFavorite={isFavorite(item.id)}
                 testID={`rv-card-${item.id}`}
               />

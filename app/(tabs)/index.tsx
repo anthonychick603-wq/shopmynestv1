@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -171,6 +171,28 @@ export default function Blog() {
     }, [user]),
   );
 
+  // v1.0.136 — long-press a Recently Viewed card on Home to drop it from
+  // the MRU. Same UX as the dedicated screen: confirm, then optimistic
+  // local update + server delete. Failures roll back only via toast —
+  // the row stays hidden locally so the tap doesn't feel dead, and the
+  // next Home focus reconciles with the server.
+  const onRemoveRecentlyViewed = useCallback((p: Product) => {
+    haptics.tap();
+    Alert.alert("Remove from recently viewed?", p.title, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: async () => {
+        setRecentlyViewed((prev) => prev.filter((r) => r.id !== p.id));
+        try {
+          await nest.removeRecentlyViewed(p.id);
+          haptics.success();
+        } catch (e) {
+          haptics.error();
+          toast.error(e instanceof ApiError ? e.friendly : "Could not remove");
+        }
+      } },
+    ]);
+  }, []);
+
   const dismissAbandonedBanner = useCallback(async () => {
     setAbandoned(null);
     try {
@@ -330,6 +352,7 @@ export default function Blog() {
                           layout="full"
                           onAddToCart={() => onAdd(item)}
                           onToggleFavorite={() => onFav(item)}
+                          onLongPress={() => onRemoveRecentlyViewed(item)}
                           isFavorite={isFavorite(item.id)}
                           testID={`home-recent-card-${item.id}`}
                         />
