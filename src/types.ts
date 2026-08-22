@@ -77,6 +77,9 @@ export type Product = {
   // v1.0.66 Build #5 - Populated only in seller context (nest.getMyProducts).
   // Left off buyer-facing product cards so the payload stays small.
   favorites_count?: number;
+  // v1.0.132 — seller opt-in for customization requests. When true, the
+  // buyer sees a "Request customization" button on the product detail page.
+  customizable?: boolean;
 };
 
 export type Category = { id: string; name: string; slug: string; icon?: string };

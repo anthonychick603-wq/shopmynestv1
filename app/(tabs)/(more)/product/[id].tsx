@@ -18,7 +18,7 @@ import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
-import { safeBack } from "@/src/utils/nav";
+import { pushDetail, safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
 import { ProductDetailSkeleton } from "@/src/components/ProductDetailSkeleton";
@@ -182,7 +182,7 @@ export default function ProductDetail() {
         </View>
       </View>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: insets.bottom + 130 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
       >
@@ -332,15 +332,29 @@ export default function ProductDetail() {
             </Text>
           </TouchableOpacity>
         ) : (
-          <>
-            <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-add-cart">
-              <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
-              <Text style={styles.actionSecondaryText}>Add to cart</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && { opacity: 0.5 }]} testID="product-buy-now">
-              {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
-            </TouchableOpacity>
-          </>
+          <View style={styles.purchaseActions}>
+            <View style={styles.purchaseRow}>
+              <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-add-cart">
+                <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
+                <Text style={styles.actionSecondaryText}>Add to cart</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-buy-now">
+                {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
+              </TouchableOpacity>
+            </View>
+            {product.customizable === true && user?.id !== product.seller?.id ? (
+              <TouchableOpacity
+                style={styles.requestCustomization}
+                onPress={() => { haptics.tap(); pushDetail(router, `/custom-request/new?productId=${product.id}`); }}
+                testID="product-request-customization"
+                accessibilityRole="button"
+                accessibilityLabel="Request customization"
+              >
+                <Ionicons name="hammer-outline" size={19} color={colors.brand} />
+                <Text style={styles.requestCustomizationText}>Request customization</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         )}
       </View>
     </SafeAreaView>
@@ -384,12 +398,17 @@ const styles = StyleSheet.create({
   infoText: { flex: 1, color: colors.onSurface, fontSize: 13 },
   reportBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, alignSelf: "flex-start" },
   reportText: { color: colors.onSurfaceMuted, textDecorationLine: "underline", fontSize: 13 },
-  bottomBar: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", backgroundColor: colors.surfaceSecondary, padding: spacing.md, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  bottomBar: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+  purchaseActions: { width: "100%" },
+  purchaseRow: { flexDirection: "row", gap: spacing.sm },
   actionSecondary: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, minHeight: 52 },
   actionSecondaryText: { color: colors.onSurface, fontWeight: "700" },
   actionPrimary: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand, borderRadius: radius.pill, minHeight: 52 },
   actionPrimaryText: { color: colors.onBrand, fontWeight: "800", fontSize: 15 },
-  restockAction: { flex: 1, minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1.5, borderColor: colors.brand },
+  actionDisabled: { opacity: 0.5 },
+  requestCustomization: { minHeight: 46, marginTop: spacing.sm, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1.5, borderColor: colors.brand },
+  requestCustomizationText: { color: colors.brand, fontWeight: "800", fontSize: 14 },
+  restockAction: { width: "100%", minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1.5, borderColor: colors.brand },
   restockActionActive: { backgroundColor: colors.brand },
   restockActionText: { color: colors.brand, fontWeight: "800", fontSize: 15 },
   restockActionTextActive: { color: colors.onBrand },

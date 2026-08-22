@@ -782,6 +782,38 @@ export const nest = {
     createBoost: (payload: { product_id: number; tier: string }) =>
       request<NestBoostRaw>("trust", "/boosts", { method: "POST", body: payload }),
   },
+
+  // -------------------------------------------------------------------------
+  // v1.0.132 — Customization requests. Buyer opens a request against a
+  // seller's product marked customizable, they exchange messages + a quote,
+  // buyer accepts → backend spins up a private one-off WooCommerce product
+  // and returns its id + slug so the mobile app can add-to-cart and check
+  // out through the existing native flow.
+  // -------------------------------------------------------------------------
+  custom: {
+    createRequest: (payload: {
+      product_id: number;
+      title: string;
+      description: string;
+      budget_cents?: number;
+      quantity?: number;
+      reference_photo_ids?: number[];
+    }) => request<NestCustomRequestRaw>("marketplace", "/custom-requests", { method: "POST", body: payload }),
+    listRequests: (query?: { role?: "buyer" | "seller"; status?: string; page?: number; per_page?: number }) =>
+      request<NestCustomRequestListRaw>("marketplace", "/custom-requests", { query }),
+    getRequest: (id: number | string) =>
+      request<NestCustomRequestDetailRaw>("marketplace", `/custom-requests/${id}`),
+    postMessage: (id: number | string, payload: { body: string; photo_attachments?: number[] }) =>
+      request<NestCustomRequestMessageRaw>("marketplace", `/custom-requests/${id}/messages`, { method: "POST", body: payload }),
+    postQuote: (id: number | string, payload: { price_cents: number; lead_days: number; note?: string }) =>
+      request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/quote`, { method: "POST", body: payload }),
+    acceptQuote: (id: number | string) =>
+      request<NestCustomRequestAcceptRaw>("marketplace", `/custom-requests/${id}/accept`, { method: "POST" }),
+    declineRequest: (id: number | string, reason?: string) =>
+      request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/decline`, { method: "POST", body: { reason } }),
+    withdrawRequest: (id: number | string) =>
+      request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/withdraw`, { method: "POST" }),
+  },
 };
 
 // WebView checkout URL. Since we're in Expo Go, we open the site's own /checkout/
@@ -1026,6 +1058,10 @@ export type NestProductRaw = {
   type?: "simple" | "variable" | "grouped" | "external" | string;
   attributes?: NestProductAttributeRaw[];
   variations?: NestProductVariationRaw[];
+  // v1.0.132 — seller opt-in per-product flag that enables the "Request
+  // customization" button on this listing. Backed by the `_mnu_customizable`
+  // post meta.
+  customizable?: boolean;
 };
 
 export type NestProductAttributeRaw = {
@@ -1749,3 +1785,102 @@ export type NestSellerShippingProfile = {
 // the mobile app; every seller ships on the platform's own Shippo
 // account. The type is preserved in git history if it ever needs to
 // come back for an admin/diagnostic screen.
+
+// -----------------------------------------------------------------------------
+// v1.0.132 — Customization requests. Shape matches the plugin's hydrated
+// request object (class-mnu-custom-requests.php). Money is integer cents.
+// -----------------------------------------------------------------------------
+export type NestCustomRequestStatus =
+  | "open"
+  | "quoted"
+  | "accepted"
+  | "paid"
+  | "completed"
+  | "declined"
+  | "withdrawn";
+
+export type NestCustomRequestUserBrief = {
+  id: number;
+  display_name?: string;
+  avatar_url?: string;
+  shop_url?: string;
+};
+
+export type NestCustomRequestProductBrief = {
+  id: number;
+  name?: string;
+  image_url?: string;
+  permalink?: string;
+};
+
+export type NestCustomRequestRaw = {
+  id: number;
+  buyer_id: number;
+  seller_id: number;
+  product_id: number;
+  title: string;
+  description: string;
+  budget_cents: number;
+  quantity: number;
+  reference_photo_ids?: number[];
+  reference_photo_urls?: string[];
+  status: NestCustomRequestStatus;
+  quoted_price_cents: number;
+  quoted_lead_days: number;
+  quoted_at?: string | null;
+  quote_note?: string | null;
+  decline_reason?: string | null;
+  private_product_id: number;
+  private_product_slug?: string | null;
+  order_id: number;
+  buyer?: NestCustomRequestUserBrief;
+  seller?: NestCustomRequestUserBrief;
+  product?: NestCustomRequestProductBrief;
+  unread_for_caller?: number;
+  last_activity_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type NestCustomRequestMessageKind =
+  | "message"
+  | "system_quote"
+  | "system_accept"
+  | "system_decline"
+  | "system_withdraw"
+  | "system_paid"
+  | "system_completed";
+
+export type NestCustomRequestMessageRaw = {
+  id: number;
+  request_id: number;
+  sender_id: number;
+  sender?: NestCustomRequestUserBrief;
+  kind: NestCustomRequestMessageKind;
+  body: string;
+  photo_attachments?: number[];
+  photo_urls?: string[];
+  created_at: string;
+};
+
+export type NestCustomRequestDetailRaw = NestCustomRequestRaw & {
+  messages: NestCustomRequestMessageRaw[];
+};
+
+export type NestCustomRequestListRaw = {
+  items: NestCustomRequestRaw[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+};
+
+// Returned by POST /custom-requests/{id}/accept. `private_product_id` is the
+// new hidden WooCommerce SKU created for this quote so the buyer can add it
+// to their cart and pay through native checkout.
+export type NestCustomRequestAcceptRaw = {
+  request: NestCustomRequestRaw;
+  private_product_id: number;
+  private_product_slug: string;
+  add_to_cart_url: string;
+};

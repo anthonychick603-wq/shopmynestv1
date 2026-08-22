@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -101,6 +101,7 @@ export default function ProductForm() {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [sku, setSku] = useState("");
+  const [customizable, setCustomizable] = useState(false);
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
 
   // Photo: existing remote URL (edit) and/or a freshly picked local asset to upload.
@@ -138,6 +139,7 @@ export default function ProductForm() {
           setPrice(p.price != null ? String(p.price) : "");
           setStock(p.stock_quantity != null ? String(p.stock_quantity) : "");
           setImageUrl(p.image || null);
+          setCustomizable(p.customizable === true);
           setSelectedCats((p.categories || []).map((c) => c.slug));
           // Pre-fill the size selector + dimensions from stored shipping meta so an
           // edit reflects (and re-sends) the product's real package size.
@@ -271,12 +273,13 @@ export default function ProductForm() {
       const image_id = await uploadIfNeeded();
       const category_ids = selectedCats.map((slug) => catIdBySlug[slug]).filter((n) => Number.isFinite(n));
 
-      const payload: NestProductWritePayload = {
+      const payload: NestProductWritePayload & { customizable: boolean } = {
         name: title.trim(),
         description,
         price: Number(price),
         stock: stock === "" ? 0 : Math.max(0, parseInt(stock, 10) || 0),
         category_ids,
+        customizable,
       };
       if (sku.trim()) payload.sku = sku.trim();
       if (image_id) payload.image_id = image_id;
@@ -386,6 +389,18 @@ export default function ProductForm() {
           <Input label="Price (USD)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" testID="pf-price" />
           <Input label="Stock quantity" value={stock} onChangeText={setStock} keyboardType="number-pad" testID="pf-stock" />
           <Input label="SKU (optional)" value={sku} onChangeText={setSku} autoCapitalize="characters" testID="pf-sku" />
+          <View style={styles.customizableRow}>
+            <View style={styles.customizableCopy}>
+              <Text style={styles.customizableTitle}>Customizable</Text>
+              <Text style={styles.customizableSubtitle}>Accept custom-work requests from buyers on this listing.</Text>
+            </View>
+            <Switch
+              value={customizable}
+              onValueChange={(value) => { haptics.tap(); setCustomizable(value); }}
+              trackColor={{ true: colors.brand, false: colors.border }}
+              testID="pf-customizable"
+            />
+          </View>
 
           <Text style={styles.label}>Categories</Text>
           <View style={styles.chips}>
@@ -522,6 +537,10 @@ const styles = StyleSheet.create({
   sizeTextOn: { color: colors.onBrand },
   dims: { flexDirection: "row", gap: spacing.sm },
   dimCol: { flex: 1 },
+  customizableRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginTop: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
+  customizableCopy: { flex: 1 },
+  customizableTitle: { color: colors.onSurface, fontSize: 15, fontWeight: "800" },
+  customizableSubtitle: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, marginTop: spacing.xs },
   duplicateBtn: {
     flexDirection: "row",
     alignItems: "center",

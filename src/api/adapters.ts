@@ -73,6 +73,9 @@ export function toProduct(p: NestProductRaw): Product {
           is_purchasable: !!v.is_purchasable,
         }))
       : undefined,
+    // v1.0.132 — customization opt-in. When false/undefined the product
+    // detail screen hides the "Request customization" button.
+    customizable: p.customizable === true,
   };
 }
 
