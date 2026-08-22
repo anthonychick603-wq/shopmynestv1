@@ -9,6 +9,12 @@
 //     so sellers can see "3 orders waiting to ship" at a glance.
 //   • Customer summary (unique + new/repeat counts + repeat-rate KPI) so
 //     sellers can watch marketplace-health metrics over time.
+//
+// v1.0.138 — adds an inline "Recent payouts" strip (3 most recent rows)
+// sourced from the existing /seller/payouts endpoint. Tapping "See all"
+// pushes into the dedicated payouts screen; taps on a row do the same.
+// Kept intentionally compact so the analytics page stays a summary and
+// the payouts screen remains the source of truth.
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,7 +24,7 @@ import { format, parseISO } from "date-fns";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
-import { nest, ApiError, type SellerAnalytics } from "@/src/api/nest";
+import { nest, ApiError, type SellerAnalytics, type NestPayoutRaw } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -45,6 +51,11 @@ export default function SellerAnalytics() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // v1.0.138 — recent payouts strip. Fetched alongside analytics but kept
+  // in its own state so a payouts network failure doesn't blank out the
+  // rest of the dashboard. Silent-fail on error (same pattern as the home
+  // feed carousels).
+  const [payouts, setPayouts] = useState<NestPayoutRaw[]>([]);
   // v1.0.93 (Build #15) — CSV export state; export is a one-off action so
   // we only track a busy flag, not a full request lifecycle.
   const [exporting, setExporting] = useState(false);
@@ -72,10 +83,23 @@ export default function SellerAnalytics() {
     setLoading(true);
     setError(null);
     try {
-      const res = await nest.getSellerAnalytics(next);
-      setData(res);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.friendly : "Could not load analytics.");
+      // v1.0.138 — fetch analytics + payouts in parallel. Payout errors
+      // don't fail the analytics load: they just leave the strip empty.
+      const [analyticsRes, payoutsRes] = await Promise.allSettled([
+        nest.getSellerAnalytics(next),
+        nest.getSellerPayouts(),
+      ]);
+      if (analyticsRes.status === "fulfilled") {
+        setData(analyticsRes.value);
+      } else {
+        const reason = analyticsRes.reason;
+        setError(reason instanceof ApiError ? reason.friendly : "Could not load analytics.");
+      }
+      if (payoutsRes.status === "fulfilled") {
+        setPayouts(payoutsRes.value.payouts || []);
+      } else {
+        setPayouts([]);
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -202,6 +226,46 @@ export default function SellerAnalytics() {
             </>
           ) : null}
 
+          {payouts.length > 0 ? (
+            <>
+              <View style={styles.sectionRow}>
+                <Text style={styles.sectionLabel}>Recent payouts</Text>
+                <TouchableOpacity
+                  onPress={() => { haptics.tap(); router.push("/seller/payouts" as any); }}
+                  style={styles.seeAllBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="See all payouts"
+                  testID="analytics-payouts-see-all"
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.brand} />
+                </TouchableOpacity>
+              </View>
+              {payouts.slice(0, 3).map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.payoutRow}
+                  activeOpacity={0.7}
+                  onPress={() => { haptics.tap(); router.push("/seller/payouts" as any); }}
+                  testID={`analytics-payout-${p.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Payout of $${p.amount.toFixed(2)}, ${payoutStatusLabel(p.status)}`}
+                >
+                  <View style={[styles.payoutIcon, { backgroundColor: payoutTone(p.status) + "22" }]}>
+                    <Ionicons name={payoutIcon(p.status)} size={16} color={payoutTone(p.status)} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.payoutAmount}>${p.amount.toFixed(2)}</Text>
+                    <Text style={styles.payoutMeta} numberOfLines={1}>
+                      {payoutStatusLabel(p.status)} · {payoutDate(p)}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
+                </TouchableOpacity>
+              ))}
+            </>
+          ) : null}
+
           <Text style={styles.sectionLabel}>Top products</Text>
           {data.top_products.length === 0 ? (
             <View style={styles.emptyProducts}>
@@ -270,6 +334,42 @@ function safeFormat(iso: string): string {
   } catch {
     return "";
   }
+}
+
+// v1.0.138 — payout row helpers. Status strings come from the plugin as
+// lowercase snake / kebab-case; we normalize for display.
+function payoutStatusLabel(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "paid") return "Paid";
+  if (s === "processing") return "Processing";
+  if (s === "requested") return "Requested";
+  if (s === "cancelled" || s === "canceled") return "Cancelled";
+  if (s === "failed") return "Failed";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function payoutTone(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "paid") return colors.success;
+  if (s === "processing" || s === "requested") return colors.brand;
+  if (s === "failed") return colors.error;
+  return colors.onSurfaceMuted;
+}
+
+function payoutIcon(status: string): keyof typeof import("@expo/vector-icons").Ionicons.glyphMap {
+  const s = status.toLowerCase();
+  if (s === "paid") return "checkmark-circle-outline";
+  if (s === "processing") return "sync-outline";
+  if (s === "requested") return "time-outline";
+  if (s === "failed") return "alert-circle-outline";
+  if (s === "cancelled" || s === "canceled") return "close-circle-outline";
+  return "wallet-outline";
+}
+
+function payoutDate(p: NestPayoutRaw): string {
+  const iso = p.processed_at || p.requested_at;
+  if (!iso) return "";
+  return safeFormat(iso);
 }
 
 // v1.0.137 — small tile for the Order status row. Purely informational
@@ -420,4 +520,14 @@ const styles = StyleSheet.create({
   },
   statusCount: { fontSize: 18, fontWeight: "800", minWidth: 18 },
   statusLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted, flexShrink: 1 },
+
+  // v1.0.138 — Recent payouts strip. "See all" chip mirrors the CSV
+  // export chip pattern already used elsewhere on this screen. Row layout
+  // is the same shape as the Top products row for visual consistency.
+  seeAllBtn: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  seeAllText: { fontSize: 12, fontWeight: "800", color: colors.brand },
+  payoutRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.sm, ...shadows.card },
+  payoutIcon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
+  payoutAmount: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
+  payoutMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
 });
