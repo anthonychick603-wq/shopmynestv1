@@ -48,6 +48,10 @@ export default function Blog() {
   // absent (same pattern as Fresh from the Nest / Keep browsing) so a bad
   // network doesn't paint an error state on the home tab.
   const [forYouItems, setForYouItems] = useState<Product[]>([]);
+  // v1.0.134 — abandoned-cart banner. Populated by /cart/abandoned when the
+  // user has items in their cart but hasn't checked out. Hidden after tap or
+  // dismiss; server also hides it on order placement (row deleted server-side).
+  const [abandoned, setAbandoned] = useState<{ line_count: number; total_cents: number } | null>(null);
   const { isFavorite, toggle: toggleFavorite, isBlogFavorite, toggleBlog: toggleBlogFavorite } = useFavorites();
   const { addProduct } = useCart();
 
@@ -137,6 +141,46 @@ export default function Blog() {
     }, [load]),
   );
 
+  // v1.0.134 — poll the abandoned-cart snapshot on focus for logged-in
+  // users. This is decoupled from the home-feed load path so a slow blog
+  // fetch never blocks the banner from showing, and vice-versa.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) {
+        setAbandoned(null);
+        return;
+      }
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await nest.getAbandonedCart();
+          if (cancelled) return;
+          if (res.has_cart && (res.line_count ?? 0) > 0) {
+            setAbandoned({ line_count: res.line_count ?? 0, total_cents: res.total_cents ?? 0 });
+          } else {
+            setAbandoned(null);
+          }
+        } catch {
+          // Silent fail — the banner is an ambient assist, not a hard
+          // requirement. Guests get a 401 here (permission_callback is
+          // is_user_logged_in) and land in this branch.
+          if (!cancelled) setAbandoned(null);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [user]),
+  );
+
+  const dismissAbandonedBanner = useCallback(async () => {
+    setAbandoned(null);
+    try {
+      await nest.dismissAbandonedCart();
+    } catch {
+      // Best-effort — the banner is already hidden locally; the row will
+      // re-armed on the next cart mutation regardless.
+    }
+  }, []);
+
   const showBecomeMaker = !user || (!user.is_approved_seller && user.seller_application_status !== "pending");
 
   return (
@@ -199,6 +243,38 @@ export default function Blog() {
           }}
           ListHeaderComponent={
             <View>
+              {abandoned && abandoned.line_count > 0 ? (
+                <View style={styles.abandonedBanner} testID="home-abandoned-banner">
+                  <TouchableOpacity
+                    style={styles.abandonedBannerBody}
+                    accessibilityRole="button"
+                    accessibilityLabel={`You have ${abandoned.line_count} item${abandoned.line_count === 1 ? "" : "s"} in your cart. Tap to open your cart.`}
+                    onPress={() => { haptics.tap(); router.push("/(tabs)/cart"); }}
+                    testID="home-abandoned-open"
+                  >
+                    <View style={styles.abandonedBannerIcon}>
+                      <Ionicons name="bag-outline" size={20} color={colors.brand} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.abandonedBannerTitle}>
+                        You left {abandoned.line_count} item{abandoned.line_count === 1 ? "" : "s"} in your cart
+                      </Text>
+                      <Text style={styles.abandonedBannerSub}>Pick up where you left off</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => { haptics.tap(); void dismissAbandonedBanner(); }}
+                    style={styles.abandonedBannerDismiss}
+                    accessibilityLabel="Dismiss cart reminder"
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    testID="home-abandoned-dismiss"
+                  >
+                    <Ionicons name="close" size={16} color={colors.onSurfaceMuted} />
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               {forYouItems.length > 0 ? (
                 <View style={styles.homeFeedSection}>
                   <View style={styles.homeFeedHeader}>
@@ -352,4 +428,31 @@ const styles = StyleSheet.create({
   homeFeedSeeAll: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted },
   homeFeedRow: { gap: spacing.md, paddingRight: spacing.md },
   homeFeedItem: { width: 200 },
+  abandonedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surfaceTertiary,
+    borderRadius: radius.lg,
+    marginBottom: spacing.lg,
+    paddingRight: spacing.sm,
+    ...shadows.card,
+  },
+  abandonedBannerBody: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  abandonedBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  abandonedBannerTitle: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
+  abandonedBannerSub: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  abandonedBannerDismiss: { padding: spacing.sm },
 });

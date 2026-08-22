@@ -230,6 +230,22 @@ export const nest = {
     request<{ valid: boolean; email: string; expires_in: number }>("marketplace", "/auth/password-reset/verify", { method: "POST", body: { email, code }, auth: false }),
   confirmPasswordReset: (payload: { email: string; code: string; new_password: string }) =>
     request<{ success: boolean; email: string; token?: string; user?: NestUserRaw }>("marketplace", "/auth/password-reset/confirm", { method: "POST", body: payload, auth: false }),
+  // v1.0.134 — abandoned-cart banner support. `getAbandonedCart` returns
+  // the buyer's most recent uncompleted cart snapshot (line count + item
+  // list). Server drops the row on order placement and re-arms the 24-hour
+  // reminder clock on every cart mutation, so a fresh add-to-cart will
+  // hide the banner until 24h without further interaction. Silently
+  // 401-safe: the request layer swallows guest calls at the call site.
+  getAbandonedCart: () =>
+    request<{
+      has_cart: boolean;
+      line_count?: number;
+      total_cents?: number;
+      items?: Array<{ product_id: number; title: string; qty: number; unit_cents: number; image?: string; permalink?: string }>;
+      updated_at?: string;
+    }>("marketplace", "/cart/abandoned"),
+  dismissAbandonedCart: () =>
+    request<{ dismissed: boolean }>("marketplace", "/cart/abandoned/dismiss", { method: "POST" }),
   me: () => request<NestUserRaw>("marketplace", "/auth/me"),
   updateMe: (payload: Record<string, unknown>) =>
     request<NestUserRaw>("marketplace", "/auth/me", { method: "PATCH", body: payload }),
