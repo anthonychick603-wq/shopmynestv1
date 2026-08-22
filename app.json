@@ -2,7 +2,7 @@
   "expo": {
     "name": "ShopMyNest",
     "slug": "the-nest-marketplace",
-    "version": "1.0.139",
+    "version": "1.0.140",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -21,12 +21,12 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFF8EF"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.shopmynest",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 105,
+      "versionCode": 106,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"
@@ -100,7 +100,7 @@
           "image": "./assets/images/splash-image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#FFF8EF"
+          "backgroundColor": "#FFFFFF"
         }
       ],
       [
