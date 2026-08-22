@@ -143,7 +143,7 @@ export default function Account() {
           <Row icon="heart-outline" label="Shops you follow" onPress={() => pushFromTab(router, "/following")} testID="acc-following" />
           <Row icon="home-outline" label="Address book" onPress={() => pushFromTab(router, "/me/addresses")} testID="acc-addresses" />
           {/* v1.0.94 (Build #17b) — push notification preferences center. */}
-          <Row icon="notifications-outline" label="Notifications" onPress={() => pushFromTab(router, "/me/notifications")} testID="acc-notifications" />
+          <Row icon="notifications-outline" label="Notifications" onPress={() => pushFromTab(router, "/settings/notifications")} testID="acc-notifications" />
           <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} testID="acc-disputes" />
         </Section>
 

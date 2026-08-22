@@ -686,9 +686,73 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
           ) : null}
         </View>
         <SellerFulfillment orderId={String(data.id)} data={data} onUpdated={onUpdated} />
+        <OrderBuyerMessageCard data={data} />
         <Text style={styles.placedAt}>Placed {data.date_created ? format(parseServerDate(data.date_created) ?? new Date(0), "PPpp") : ""}</Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// v1.0.130 — seller-side counterpart to OrderSellerMessagesCard. Deep-links
+// into the existing DM thread with the buyer, pre-populating the order
+// context so the reply is stamped with [Order #<id>] and shows an ORDER
+// CONVERSATION chip on both ends. Rendered only when the seller order
+// carries a real buyer id (customer_id or customer.id) — guest checkouts and
+// legacy rows without a buyer uid are silently skipped.
+function OrderBuyerMessageCard({ data }: { data: NestSellerOrderRaw }) {
+  const router = useRouter();
+  const buyerId = data.customer_id ?? data.customer?.id;
+  if (!buyerId || Number(buyerId) <= 0) return null;
+
+  const buyerName = (data.customer?.name || "").trim() || "Buyer";
+  const firstItem = data.items?.[0];
+  const otherCount = (data.items?.length ?? 0) - 1;
+  const contextTitle = firstItem
+    ? otherCount > 0
+      ? `${firstItem.name} +${otherCount} more`
+      : firstItem.name
+    : `Order #${data.number || data.id}`;
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.protectRow}>
+        <Ionicons name="chatbubble-ellipses-outline" size={20} color={colors.brand} />
+        <Text style={styles.protectTitle}>Message buyer</Text>
+      </View>
+      <Text style={styles.protectText}>
+        Reach out about this order. Messages sent from here are tagged with Order #{data.number || data.id} so the thread keeps its context.
+      </Text>
+      <View style={styles.orderMessageList}>
+        <TouchableOpacity
+          style={styles.orderMessageRow}
+          onPress={() => {
+            haptics.tap();
+            router.push({
+              pathname: "/messages/[userId]",
+              params: {
+                userId: String(buyerId),
+                name: buyerName,
+                orderId: String(data.id),
+                orderTitle: contextTitle,
+              },
+            });
+          }}
+          testID={`order-message-buyer-${buyerId}`}
+          accessibilityRole="button"
+          accessibilityLabel={`Message ${buyerName} about order ${data.number || data.id}`}
+        >
+          <View style={styles.orderMessageIcon}>
+            <Ionicons name="person-outline" size={18} color={colors.brand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.orderMessageName} numberOfLines={1}>{buyerName}</Text>
+            {firstItem ? <Text style={styles.orderMessageMeta} numberOfLines={1}>{contextTitle}</Text> : null}
+          </View>
+          <Text style={styles.orderMessageAction}>Message</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.onSurfaceMuted} />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
