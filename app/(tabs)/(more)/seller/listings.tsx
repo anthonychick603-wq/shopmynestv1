@@ -30,9 +30,13 @@ const PER_PAGE = 50;
 // product's package details are incomplete. Before v1.0.146 those listings
 // looked identical to published ones because the adapter hardcoded status
 // to "published"; now drafts are honored and visible in their own tab.
-type Filter = "all" | "in" | "oos" | "draft";
+// v1.0.148 — drop the "All" tab. In stock + Out of stock + Drafts already
+// partition the listing set (a product is either published-in-stock,
+// published-out-of-stock, or a draft), so "All" was just a fourth pill that
+// duplicated one of the others. Default to In stock so sellers land on
+// their live inventory.
+type Filter = "in" | "oos" | "draft";
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All" },
   { key: "in", label: "In stock" },
   { key: "oos", label: "Out of stock" },
   { key: "draft", label: "Drafts" },
@@ -47,55 +51,18 @@ export default function SellerListings() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>(() => {
     const q = String(params.filter || "").toLowerCase();
-    return q === "oos" || q === "in" || q === "draft" ? (q as Filter) : "all";
+    return q === "oos" || q === "draft" ? (q as Filter) : "in";
   });
 
-  // Fetch the seller's full inventory (not a capped page) by walking pages until
-  // we've collected every listing the API reports.
-  // v1.0.147 — debug telemetry so we can see server total vs client
-  // filtered counts when a seller reports missing listings. The plugin
-  // (v3.13.9+) emits a debug block on every response so we can compare
-  // the server's view of "who am I and what do I own" against the
-  // token-holder’s view on the device.
-  const [debugInfo, setDebugInfo] = useState<{
-    serverTotal: number;
-    itemsMapped: number;
-    rawStatuses: string[];
-    firstSellerId: string;
-    serverSellerId: string;
-    productIdsCount: string;
-    queryFound: string;
-    postsByStatus: string;
-  } | null>(null);
+  // Fetch the seller's full inventory (not a capped page) by walking pages
+  // until we've collected every listing the API reports.
   const load = useCallback(async () => {
     try {
       const all: Product[] = [];
-      const rawStatuses: string[] = [];
-      let serverTotal = 0;
-      let firstSellerId = "?";
-      let serverSellerId = "?";
-      let productIdsCount = "?";
-      let queryFound = "?";
-      let postsByStatus = "?";
       let page = 1;
       for (;;) {
         const res = await nest.getMyProducts({ per_page: PER_PAGE, page }).catch(() => ({ items: [], total: 0, total_pages: 0 }));
         const items = res.items || [];
-        if (page === 1) {
-          serverTotal = res.total ?? 0;
-          const anySeller = items.find((it) => it?.seller?.id);
-          firstSellerId = anySeller?.seller?.id ? String(anySeller.seller.id) : "(none in items)";
-          const dbg = (res as { debug?: { seller_id?: number; product_ids_count?: number; query_found?: number; posts_by_status?: Record<string, number> } }).debug;
-          if (dbg) {
-            serverSellerId = String(dbg.seller_id ?? "?");
-            productIdsCount = String(dbg.product_ids_count ?? "?");
-            queryFound = String(dbg.query_found ?? "?");
-            postsByStatus = dbg.posts_by_status
-              ? Object.entries(dbg.posts_by_status).map(([k, v]) => `${k}:${v}`).join(",")
-              : "?";
-          }
-        }
-        for (const it of items) rawStatuses.push(String((it as { status?: string }).status ?? "(missing)"));
         all.push(...items.map(toProduct));
         const done =
           items.length < PER_PAGE ||
@@ -105,7 +72,6 @@ export default function SellerListings() {
         page += 1;
       }
       setProducts(all);
-      setDebugInfo({ serverTotal, itemsMapped: all.length, rawStatuses, firstSellerId, serverSellerId, productIdsCount, queryFound, postsByStatus });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -114,23 +80,19 @@ export default function SellerListings() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // v1.0.145 — apply the selected stock filter without refetching. Uses the
-  // same OOS predicate the dashboard uses so counts stay consistent.
-  // v1.0.146 — all filters except "all" hide drafts. Drafts have their own
-  // tab, so we never want to show them in the stock-status views (a draft
-  // can technically be in-stock or out-of-stock, but the seller wants to
-  // see "active listings by stock", not everything mixed together).
+  // v1.0.148 — three-way partition of the seller's listings:
+  //   drafts    = anything not yet published (fix required)
+  //   in stock  = published + stock > 0
+  //   out of stock = published + stock <= 0
+  // Drafts are always separated out (they have their own tab), so a draft
+  // never shows in In stock or Out of stock even if it happens to have
+  // positive/zero stock — otherwise sellers see the same product in two
+  // tabs, which is confusing.
   const isDraft = useCallback((p: Product) => p.status === "draft", []);
-  // v1.0.147 — revert v1.0.146's `!isDraft(p)` exclusion from OOS/In
-  // predicates. Drafts CAN legitimately be OOS or in stock (the ship-from
-  // guard reverts to draft regardless of stock), and hiding them from
-  // those tabs made sellers think their inventory disappeared. Keep the
-  // Drafts tab as a first-class view alongside.
   const visible = useMemo(() => {
     if (filter === "draft") return products.filter(isDraft);
-    if (filter === "oos") return products.filter((p) => !p.in_stock || p.stock <= 0);
-    if (filter === "in") return products.filter((p) => p.in_stock && p.stock > 0);
-    return products;
+    if (filter === "oos") return products.filter((p) => !isDraft(p) && (!p.in_stock || p.stock <= 0));
+    return products.filter((p) => !isDraft(p) && p.in_stock && p.stock > 0);
   }, [products, filter, isDraft]);
   const oosCount = useMemo(
     () => products.filter((p) => !p.in_stock || p.stock <= 0).length,
@@ -198,10 +160,10 @@ export default function SellerListings() {
         </View>
       </View>
 
-      {/* v1.0.145 — All / In stock / Out of stock segmented control, same
-          visual grammar as Sold/Bought on the orders screen. The OOS pill
-          shows the count in red when > 0 so the seller can see at a glance
-          how many listings need restocking, even without switching tabs. */}
+      {/* v1.0.148 — three-tab segmented control: In stock / Out of stock /
+          Drafts. Same visual grammar as Sold/Bought on the orders screen.
+          OOS and Drafts pills show a count when > 0 so the seller can see
+          at a glance what needs attention without switching tabs. */}
       <View style={styles.segRow}>
         {FILTERS.map((f) => {
           const active = filter === f.key;
@@ -217,24 +179,18 @@ export default function SellerListings() {
               accessibilityState={{ selected: active }}
               accessibilityLabel={showCount ? `${f.label}, ${count} items` : f.label}
             >
-              <Text style={[styles.segLabel, active && styles.segLabelActive]}>
+              <Text
+                style={[styles.segLabel, active && styles.segLabelActive]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 {f.label}{showCount ? ` (${count})` : ""}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
-
-      {debugInfo ? (
-        <View style={styles.debugBar}>
-          <Text style={styles.debugText} selectable>
-            server_seller_id={debugInfo.serverSellerId} product_ids={debugInfo.productIdsCount} query_found={debugInfo.queryFound} by_status=[{debugInfo.postsByStatus}]
-          </Text>
-          <Text style={styles.debugText} selectable>
-            client: total={debugInfo.serverTotal} mapped={debugInfo.itemsMapped} first_seller={debugInfo.firstSellerId} statuses=[{debugInfo.rawStatuses.join(",")}]
-          </Text>
-        </View>
-      ) : null}
 
       {loading ? (
         <View style={{ padding: spacing.lg }}>
@@ -263,7 +219,7 @@ export default function SellerListings() {
                       <Text style={styles.rowDraftPillText}>Draft</Text>
                     </View>
                     {item.draft_reason?.label ? (
-                      <Text style={styles.rowDraftReason} numberOfLines={1}>
+                      <Text style={styles.rowDraftReason} numberOfLines={2}>
                         Fix: {item.draft_reason.label}
                       </Text>
                     ) : null}
@@ -347,9 +303,9 @@ const styles = StyleSheet.create({
   topRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
   segRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  seg: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center" },
+  seg: { flex: 1, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center", minHeight: 36 },
   segActive: { backgroundColor: colors.brand },
-  segLabel: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted },
+  segLabel: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted, textAlign: "center" },
   segLabelActive: { color: colors.onBrand },
   addBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.md, height: 40, borderRadius: radius.pill, backgroundColor: colors.brand, ...shadows.card },
   addBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 14 },
@@ -359,11 +315,9 @@ const styles = StyleSheet.create({
   rowMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
   rowFavRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 },
   rowFavText: { fontSize: 12, color: colors.brand, fontWeight: "600" },
-  rowDraftRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 6 },
-  rowDraftPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.warning },
-  debugBar: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderColor: colors.divider },
-  debugText: { fontSize: 11, color: colors.onSurfaceMuted, fontFamily: "Courier" },
+  rowDraftRow: { flexDirection: "row", alignItems: "flex-start", marginTop: 4, gap: 6 },
+  rowDraftPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.warning, flexShrink: 0, marginTop: 1 },
   rowDraftPillText: { fontSize: 11, fontWeight: "800", color: colors.onBrand },
-  rowDraftReason: { fontSize: 12, color: colors.onSurfaceMuted, flex: 1 },
+  rowDraftReason: { fontSize: 12, color: colors.onSurfaceMuted, flex: 1, lineHeight: 16 },
   rowAction: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
 });
