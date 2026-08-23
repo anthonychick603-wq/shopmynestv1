@@ -1285,7 +1285,7 @@ export type NestPostCommentRaw = {
   author: { id: number; name: string; avatar: string };
 };
 
-export type NestPaginated<T> = { items: T[]; page?: number; total: number; total_pages?: number };
+export type NestPaginated<T> = { items: T[]; page?: number; total: number; total_pages?: number; debug?: { seller_id?: number; product_ids_count?: number; product_ids?: number[]; query_found?: number; posts_by_status?: Record<string, number> } };
 
 export type NestWpAddress = {
   first_name?: string;

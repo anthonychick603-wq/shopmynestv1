@@ -52,14 +52,50 @@ export default function SellerListings() {
 
   // Fetch the seller's full inventory (not a capped page) by walking pages until
   // we've collected every listing the API reports.
+  // v1.0.147 — debug telemetry so we can see server total vs client
+  // filtered counts when a seller reports missing listings. The plugin
+  // (v3.13.9+) emits a debug block on every response so we can compare
+  // the server's view of "who am I and what do I own" against the
+  // token-holder’s view on the device.
+  const [debugInfo, setDebugInfo] = useState<{
+    serverTotal: number;
+    itemsMapped: number;
+    rawStatuses: string[];
+    firstSellerId: string;
+    serverSellerId: string;
+    productIdsCount: string;
+    queryFound: string;
+    postsByStatus: string;
+  } | null>(null);
   const load = useCallback(async () => {
     try {
       const all: Product[] = [];
+      const rawStatuses: string[] = [];
+      let serverTotal = 0;
+      let firstSellerId = "?";
+      let serverSellerId = "?";
+      let productIdsCount = "?";
+      let queryFound = "?";
+      let postsByStatus = "?";
       let page = 1;
-      // Guard against a missing total by stopping when a page returns nothing.
       for (;;) {
         const res = await nest.getMyProducts({ per_page: PER_PAGE, page }).catch(() => ({ items: [], total: 0, total_pages: 0 }));
         const items = res.items || [];
+        if (page === 1) {
+          serverTotal = res.total ?? 0;
+          const anySeller = items.find((it) => it?.seller?.id);
+          firstSellerId = anySeller?.seller?.id ? String(anySeller.seller.id) : "(none in items)";
+          const dbg = (res as { debug?: { seller_id?: number; product_ids_count?: number; query_found?: number; posts_by_status?: Record<string, number> } }).debug;
+          if (dbg) {
+            serverSellerId = String(dbg.seller_id ?? "?");
+            productIdsCount = String(dbg.product_ids_count ?? "?");
+            queryFound = String(dbg.query_found ?? "?");
+            postsByStatus = dbg.posts_by_status
+              ? Object.entries(dbg.posts_by_status).map(([k, v]) => `${k}:${v}`).join(",")
+              : "?";
+          }
+        }
+        for (const it of items) rawStatuses.push(String((it as { status?: string }).status ?? "(missing)"));
         all.push(...items.map(toProduct));
         const done =
           items.length < PER_PAGE ||
@@ -69,6 +105,7 @@ export default function SellerListings() {
         page += 1;
       }
       setProducts(all);
+      setDebugInfo({ serverTotal, itemsMapped: all.length, rawStatuses, firstSellerId, serverSellerId, productIdsCount, queryFound, postsByStatus });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -84,15 +121,20 @@ export default function SellerListings() {
   // can technically be in-stock or out-of-stock, but the seller wants to
   // see "active listings by stock", not everything mixed together).
   const isDraft = useCallback((p: Product) => p.status === "draft", []);
+  // v1.0.147 — revert v1.0.146's `!isDraft(p)` exclusion from OOS/In
+  // predicates. Drafts CAN legitimately be OOS or in stock (the ship-from
+  // guard reverts to draft regardless of stock), and hiding them from
+  // those tabs made sellers think their inventory disappeared. Keep the
+  // Drafts tab as a first-class view alongside.
   const visible = useMemo(() => {
     if (filter === "draft") return products.filter(isDraft);
-    if (filter === "oos") return products.filter((p) => !isDraft(p) && (!p.in_stock || p.stock <= 0));
-    if (filter === "in") return products.filter((p) => !isDraft(p) && p.in_stock && p.stock > 0);
+    if (filter === "oos") return products.filter((p) => !p.in_stock || p.stock <= 0);
+    if (filter === "in") return products.filter((p) => p.in_stock && p.stock > 0);
     return products;
   }, [products, filter, isDraft]);
   const oosCount = useMemo(
-    () => products.filter((p) => !isDraft(p) && (!p.in_stock || p.stock <= 0)).length,
-    [products, isDraft],
+    () => products.filter((p) => !p.in_stock || p.stock <= 0).length,
+    [products],
   );
   const draftCount = useMemo(() => products.filter(isDraft).length, [products, isDraft]);
 
@@ -182,6 +224,17 @@ export default function SellerListings() {
           );
         })}
       </View>
+
+      {debugInfo ? (
+        <View style={styles.debugBar}>
+          <Text style={styles.debugText} selectable>
+            server_seller_id={debugInfo.serverSellerId} product_ids={debugInfo.productIdsCount} query_found={debugInfo.queryFound} by_status=[{debugInfo.postsByStatus}]
+          </Text>
+          <Text style={styles.debugText} selectable>
+            client: total={debugInfo.serverTotal} mapped={debugInfo.itemsMapped} first_seller={debugInfo.firstSellerId} statuses=[{debugInfo.rawStatuses.join(",")}]
+          </Text>
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={{ padding: spacing.lg }}>
@@ -308,6 +361,8 @@ const styles = StyleSheet.create({
   rowFavText: { fontSize: 12, color: colors.brand, fontWeight: "600" },
   rowDraftRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 6 },
   rowDraftPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.warning },
+  debugBar: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, backgroundColor: colors.surfaceSecondary, borderBottomWidth: 1, borderColor: colors.divider },
+  debugText: { fontSize: 11, color: colors.onSurfaceMuted, fontFamily: "Courier" },
   rowDraftPillText: { fontSize: 11, fontWeight: "800", color: colors.onBrand },
   rowDraftReason: { fontSize: 12, color: colors.onSurfaceMuted, flex: 1 },
   rowAction: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
