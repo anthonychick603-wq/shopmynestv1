@@ -64,8 +64,14 @@ export default function Account() {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.header}>
           <NestLogo compact title="Account" />
-          <AlertsBellButton />
-          <CartHeaderButton />
+          {/* v1.0.149 — group the bell and cart so justifyContent
+              space-between sees two children (logo | actions), matching
+              every other tab. Otherwise the bell floats to the horizontal
+              middle of the screen. */}
+          <View style={styles.headerActions}>
+            <AlertsBellButton />
+            <CartHeaderButton />
+          </View>
         </View>
         <View style={{ padding: spacing.xl, alignItems: "center" }}>
           <View style={styles.avatarLarge}>
@@ -99,8 +105,12 @@ export default function Account() {
           >
             <NestLogo compact title="Account" />
           </TouchableOpacity>
-          <AlertsBellButton />
-          <CartHeaderButton />
+          {/* v1.0.149 — grouped so the bell sits next to the cart, not
+              floating to the middle of the header. */}
+          <View style={styles.headerActions}>
+            <AlertsBellButton />
+            <CartHeaderButton />
+          </View>
         </View>
 
         <View style={styles.profile}>
@@ -245,6 +255,7 @@ function Row({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   profile: { alignItems: "center", padding: spacing.lg },
   avatarWrap: { position: "relative", marginBottom: spacing.md },
   avatarEditBadge: {
