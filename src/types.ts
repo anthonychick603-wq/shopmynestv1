@@ -70,6 +70,16 @@ export type Product = {
   attributes?: ProductAttribute[];
   variation_details?: ProductVariationDetail[];
   status: "draft" | "published";
+  // v1.0.146 — when the plugin reverts a listing to draft (usually because
+  // the ship-from profile or package details are incomplete), it also sends
+  // back an actionable reason so the seller can fix it. `kind` categorizes
+  // the fix (ship_from / package / manual) and `label` is a human-readable
+  // string like "ship-from ZIP" or "package weight (oz)".
+  draft_reason?: {
+    kind: "ship_from" | "package" | "manual";
+    field: string;
+    label: string;
+  };
   featured?: boolean;
   seller?: { id: string; name: string; profile_photo?: string | null; rating?: number; review_count?: number };
   product_rating?: { rating: number; review_count: number };

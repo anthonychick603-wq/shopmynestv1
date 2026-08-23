@@ -1105,6 +1105,16 @@ export type NestProductRaw = {
   // customization" button on this listing. Backed by the `_mnu_customizable`
   // post meta.
   customizable?: boolean;
+  // v1.0.146 — seller-context only. The plugin (v3.13.6+) returns the raw
+  // WooCommerce post status ("publish" | "draft" | "pending" | "private")
+  // when the caller is the owning seller, plus an actionable reason when
+  // the status is "draft" (see class-tnm-marketplace.php::product_to_array).
+  status?: string;
+  draft_reason?: {
+    kind?: string;
+    field?: string;
+    label?: string;
+  };
 };
 
 export type NestProductAttributeRaw = {

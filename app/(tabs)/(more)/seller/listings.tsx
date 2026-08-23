@@ -25,11 +25,17 @@ const PER_PAGE = 50;
 // consistent for sellers. The dashboard's "Out of stock (N)" link deep-links
 // into this screen with `?filter=oos` so tapping the red count opens the
 // filtered view directly.
-type Filter = "all" | "in" | "oos";
+// v1.0.146 — added Drafts tab. The plugin's ship-from guard reverts newly
+// created listings to draft when the seller's ship-from address or the
+// product's package details are incomplete. Before v1.0.146 those listings
+// looked identical to published ones because the adapter hardcoded status
+// to "published"; now drafts are honored and visible in their own tab.
+type Filter = "all" | "in" | "oos" | "draft";
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "in", label: "In stock" },
   { key: "oos", label: "Out of stock" },
+  { key: "draft", label: "Drafts" },
 ];
 
 export default function SellerListings() {
@@ -41,7 +47,7 @@ export default function SellerListings() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>(() => {
     const q = String(params.filter || "").toLowerCase();
-    return q === "oos" || q === "in" ? (q as Filter) : "all";
+    return q === "oos" || q === "in" || q === "draft" ? (q as Filter) : "all";
   });
 
   // Fetch the seller's full inventory (not a capped page) by walking pages until
@@ -73,12 +79,22 @@ export default function SellerListings() {
 
   // v1.0.145 — apply the selected stock filter without refetching. Uses the
   // same OOS predicate the dashboard uses so counts stay consistent.
+  // v1.0.146 — all filters except "all" hide drafts. Drafts have their own
+  // tab, so we never want to show them in the stock-status views (a draft
+  // can technically be in-stock or out-of-stock, but the seller wants to
+  // see "active listings by stock", not everything mixed together).
+  const isDraft = useCallback((p: Product) => p.status === "draft", []);
   const visible = useMemo(() => {
-    if (filter === "oos") return products.filter((p) => !p.in_stock || p.stock <= 0);
-    if (filter === "in") return products.filter((p) => p.in_stock && p.stock > 0);
+    if (filter === "draft") return products.filter(isDraft);
+    if (filter === "oos") return products.filter((p) => !isDraft(p) && (!p.in_stock || p.stock <= 0));
+    if (filter === "in") return products.filter((p) => !isDraft(p) && p.in_stock && p.stock > 0);
     return products;
-  }, [products, filter]);
-  const oosCount = useMemo(() => products.filter((p) => !p.in_stock || p.stock <= 0).length, [products]);
+  }, [products, filter, isDraft]);
+  const oosCount = useMemo(
+    () => products.filter((p) => !isDraft(p) && (!p.in_stock || p.stock <= 0)).length,
+    [products, isDraft],
+  );
+  const draftCount = useMemo(() => products.filter(isDraft).length, [products, isDraft]);
 
   const createNew = () => router.push("/seller/product-form");
   const edit = (p: Product) => router.push(`/seller/product-form?id=${p.id}`);
@@ -122,7 +138,13 @@ export default function SellerListings() {
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>
-          {filter === "oos" ? "Out of stock" : filter === "in" ? "In stock" : "Your listings"}
+          {filter === "oos"
+            ? "Out of stock"
+            : filter === "in"
+            ? "In stock"
+            : filter === "draft"
+            ? "Drafts"
+            : "Your listings"}
         </Text>
         <View style={styles.topRight}>
           <TouchableOpacity onPress={() => { haptics.press(); createNew(); }} style={styles.addBtn} testID="listings-add-new" accessibilityRole="button" accessibilityLabel="Add a new listing">
@@ -141,7 +163,8 @@ export default function SellerListings() {
       <View style={styles.segRow}>
         {FILTERS.map((f) => {
           const active = filter === f.key;
-          const showCount = f.key === "oos" && oosCount > 0;
+          const count = f.key === "oos" ? oosCount : f.key === "draft" ? draftCount : 0;
+          const showCount = count > 0;
           return (
             <TouchableOpacity
               key={f.key}
@@ -150,10 +173,10 @@ export default function SellerListings() {
               testID={`listings-seg-${f.key}`}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={showCount ? `${f.label}, ${oosCount} items` : f.label}
+              accessibilityLabel={showCount ? `${f.label}, ${count} items` : f.label}
             >
               <Text style={[styles.segLabel, active && styles.segLabelActive]}>
-                {f.label}{showCount ? ` (${oosCount})` : ""}
+                {f.label}{showCount ? ` (${count})` : ""}
               </Text>
             </TouchableOpacity>
           );
@@ -176,6 +199,23 @@ export default function SellerListings() {
               <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{decodeEntities(item.title)}</Text>
                 <Text style={styles.rowMeta}>Stock: {item.stock} · ${item.price.toFixed(2)}</Text>
+                {/* v1.0.146 — draft badge + reason so the seller can see WHY
+                    something didn't publish. The plugin surfaces the first
+                    missing field (ship-from ZIP, package weight, etc.); we
+                    render it inline so the fix is obvious without opening
+                    the listing. */}
+                {item.status === "draft" ? (
+                  <View style={styles.rowDraftRow}>
+                    <View style={styles.rowDraftPill}>
+                      <Text style={styles.rowDraftPillText}>Draft</Text>
+                    </View>
+                    {item.draft_reason?.label ? (
+                      <Text style={styles.rowDraftReason} numberOfLines={1}>
+                        Fix: {item.draft_reason.label}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
                 {/* v1.0.66 - Build #5: surface favorites so the seller knows
                     which listings are drawing interest. Only shown when at
                     least one buyer has favorited the item so brand-new
@@ -208,7 +248,14 @@ export default function SellerListings() {
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            filter === "oos" ? (
+            filter === "draft" ? (
+              <EmptyState
+                icon="checkmark-circle"
+                title="No drafts"
+                message="Every listing is live. Drafts show up here when a product can't be published\u2014usually because your ship-from address or a product's package details are missing."
+                testID="listings-empty-draft"
+              />
+            ) : filter === "oos" ? (
               <EmptyState
                 icon="checkmark-circle"
                 title="You're fully stocked"
@@ -259,5 +306,9 @@ const styles = StyleSheet.create({
   rowMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
   rowFavRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 },
   rowFavText: { fontSize: 12, color: colors.brand, fontWeight: "600" },
+  rowDraftRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 6 },
+  rowDraftPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.warning },
+  rowDraftPillText: { fontSize: 11, fontWeight: "800", color: colors.onBrand },
+  rowDraftReason: { fontSize: 12, color: colors.onSurfaceMuted, flex: 1 },
   rowAction: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
 });

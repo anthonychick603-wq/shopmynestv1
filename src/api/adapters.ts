@@ -37,7 +37,18 @@ export function toProduct(p: NestProductRaw): Product {
     sku: "",
     in_stock: p.stock_status !== "outofstock",
     variations: [],
-    status: "published",
+    // v1.0.146 — honor the real WooCommerce status so the seller UI can
+    // surface drafts. The ship-from guard silently reverts to draft when
+    // the seller ships-from profile is incomplete; without this, drafts
+    // looked identical to published listings on the seller side.
+    status: p.status === "draft" || p.status === "pending" || p.status === "private" ? "draft" : "published",
+    draft_reason: p.draft_reason
+      ? {
+          kind: (p.draft_reason.kind as "ship_from" | "package" | "manual") || "manual",
+          field: String(p.draft_reason.field || ""),
+          label: String(p.draft_reason.label || "saved as draft"),
+        }
+      : undefined,
     seller: p.seller
       ? {
           id: String(p.seller.id),
