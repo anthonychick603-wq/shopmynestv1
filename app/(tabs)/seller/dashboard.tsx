@@ -315,7 +315,11 @@ export default function SellerDashboard() {
                 <TouchableOpacity
                   onPress={() => {
                     haptics.tap();
-                    pushFromTab(router, "/seller/out-of-stock");
+                    // v1.0.145 — deep-link the dashboard's OOS count into the
+                    // Your listings screen's Out of stock tab so the filter
+                    // lives in one place (the listings screen), not on a
+                    // separate route.
+                    pushFromTab(router, "/seller/listings?filter=oos");
                   }}
                   testID="dash-oos-link"
                   accessibilityLabel={`View ${oosCount} out of stock items`}

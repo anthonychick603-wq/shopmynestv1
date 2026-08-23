@@ -1,8 +1,8 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
@@ -20,12 +20,29 @@ import { haptics } from "@/src/utils/haptics";
 
 const PER_PAGE = 50;
 
+// v1.0.145 — filter chip modes for the listings screen. Mirrors the
+// Sold/Bought segmented control on the orders screen so the pattern is
+// consistent for sellers. The dashboard's "Out of stock (N)" link deep-links
+// into this screen with `?filter=oos` so tapping the red count opens the
+// filtered view directly.
+type Filter = "all" | "in" | "oos";
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "in", label: "In stock" },
+  { key: "oos", label: "Out of stock" },
+];
+
 export default function SellerListings() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{ filter?: string }>();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<Filter>(() => {
+    const q = String(params.filter || "").toLowerCase();
+    return q === "oos" || q === "in" ? (q as Filter) : "all";
+  });
 
   // Fetch the seller's full inventory (not a capped page) by walking pages until
   // we've collected every listing the API reports.
@@ -53,6 +70,15 @@ export default function SellerListings() {
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // v1.0.145 — apply the selected stock filter without refetching. Uses the
+  // same OOS predicate the dashboard uses so counts stay consistent.
+  const visible = useMemo(() => {
+    if (filter === "oos") return products.filter((p) => !p.in_stock || p.stock <= 0);
+    if (filter === "in") return products.filter((p) => p.in_stock && p.stock > 0);
+    return products;
+  }, [products, filter]);
+  const oosCount = useMemo(() => products.filter((p) => !p.in_stock || p.stock <= 0).length, [products]);
 
   const createNew = () => router.push("/seller/product-form");
   const edit = (p: Product) => router.push(`/seller/product-form?id=${p.id}`);
@@ -95,7 +121,9 @@ export default function SellerListings() {
         <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }} style={styles.topBtn} testID="listings-back" accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
-        <Text style={styles.topTitle} numberOfLines={1}>Your listings</Text>
+        <Text style={styles.topTitle} numberOfLines={1}>
+          {filter === "oos" ? "Out of stock" : filter === "in" ? "In stock" : "Your listings"}
+        </Text>
         <View style={styles.topRight}>
           <TouchableOpacity onPress={() => { haptics.press(); createNew(); }} style={styles.addBtn} testID="listings-add-new" accessibilityRole="button" accessibilityLabel="Add a new listing">
             <Ionicons name="add" size={18} color={colors.onBrand} />
@@ -106,13 +134,39 @@ export default function SellerListings() {
         </View>
       </View>
 
+      {/* v1.0.145 — All / In stock / Out of stock segmented control, same
+          visual grammar as Sold/Bought on the orders screen. The OOS pill
+          shows the count in red when > 0 so the seller can see at a glance
+          how many listings need restocking, even without switching tabs. */}
+      <View style={styles.segRow}>
+        {FILTERS.map((f) => {
+          const active = filter === f.key;
+          const showCount = f.key === "oos" && oosCount > 0;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => { haptics.tap(); setFilter(f.key); }}
+              style={[styles.seg, active && styles.segActive]}
+              testID={`listings-seg-${f.key}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={showCount ? `${f.label}, ${oosCount} items` : f.label}
+            >
+              <Text style={[styles.segLabel, active && styles.segLabelActive]}>
+                {f.label}{showCount ? ` (${oosCount})` : ""}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       {loading ? (
         <View style={{ padding: spacing.lg }}>
           <ProductGridSkeleton count={6} />
         </View>
       ) : (
         <FlatList
-          data={products}
+          data={visible}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
@@ -154,14 +208,30 @@ export default function SellerListings() {
             </TouchableOpacity>
           )}
           ListEmptyComponent={
-            <EmptyState
-              icon="cube-outline"
-              title="No listings yet"
-              message="Add your first product to start selling on My Nest."
-              actionLabel="Add your first listing"
-              onAction={createNew}
-              testID="listings-empty"
-            />
+            filter === "oos" ? (
+              <EmptyState
+                icon="checkmark-circle"
+                title="You're fully stocked"
+                message="Every listing in your shop has stock available. Great work."
+                testID="listings-empty-oos"
+              />
+            ) : filter === "in" ? (
+              <EmptyState
+                icon="cube-outline"
+                title="No in-stock listings"
+                message="Every listing is out of stock right now. Switch to Out of stock to restock them."
+                testID="listings-empty-in"
+              />
+            ) : (
+              <EmptyState
+                icon="cube-outline"
+                title="No listings yet"
+                message="Add your first product to start selling on My Nest."
+                actionLabel="Add your first listing"
+                onAction={createNew}
+                testID="listings-empty"
+              />
+            )
           }
         />
       )}
@@ -176,6 +246,11 @@ const styles = StyleSheet.create({
   topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface, flex: 1 },
   topRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  segRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  seg: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center" },
+  segActive: { backgroundColor: colors.brand },
+  segLabel: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted },
+  segLabelActive: { color: colors.onBrand },
   addBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.md, height: 40, borderRadius: radius.pill, backgroundColor: colors.brand, ...shadows.card },
   addBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 14 },
   row: { flexDirection: "row", alignItems: "center", padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.card },
