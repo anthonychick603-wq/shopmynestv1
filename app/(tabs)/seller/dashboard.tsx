@@ -65,6 +65,14 @@ export default function SellerDashboard() {
 
       if (dashboard) {
         setTotals(dashboard.totals || {});
+        // v1.0.144 — the dashboard endpoint returns a truncated top-N slice of
+        // products, which meant out-of-stock items past that slice never showed
+        // up in the seller's product list. Always fetch the seller's full list
+        // in parallel so the OOS section header link (and the dedicated OOS
+        // screen) can count and surface every affected item.
+        nest.getMyProducts({ per_page: 200 }).then((full) => {
+          if (full?.items?.length) setProducts(full.items.map(toProduct));
+        }).catch(() => { /* fall back to the dashboard slice below */ });
         if (dashboard.products) setProducts(dashboard.products.map(toProduct));
         if (dashboard.recent_orders) {
           // v1.0.46 — the seller-scoped order shape ships `gross`/`total`
@@ -295,7 +303,32 @@ export default function SellerDashboard() {
           ))
         )}
 
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Your products</Text></View>
+        {/* v1.0.144 — surface out-of-stock count in the section header. Tapping
+            it routes to a dedicated /seller/out-of-stock page. Only rendered
+            when the count is > 0 so a healthy shop sees no red text. */}
+        {(() => {
+          const oosCount = products.filter((p) => !p.in_stock || p.stock <= 0).length;
+          return (
+            <View style={[styles.sectionHeader, styles.productsHeaderRow]}>
+              <Text style={styles.sectionTitle}>Your products</Text>
+              {oosCount > 0 ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.tap();
+                    pushFromTab(router, "/seller/out-of-stock");
+                  }}
+                  testID="dash-oos-link"
+                  accessibilityLabel={`View ${oosCount} out of stock items`}
+                  style={styles.oosLink}
+                >
+                  <Ionicons name="alert-circle" size={14} color={colors.error} />
+                  <Text style={styles.oosLinkText}>Out of stock ({oosCount})</Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.error} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          );
+        })()}
         {products.length === 0 ? (
           <Text style={styles.empty}>{'No products yet. Tap "Create a new listing".'}</Text>
         ) : (
@@ -538,6 +571,9 @@ const styles = StyleSheet.create({
   statHint: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2 },
   statHintWarn: { color: colors.error, fontWeight: "700" },
   sectionHeader: { marginTop: spacing.lg, marginBottom: spacing.sm },
+  productsHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  oosLink: { flexDirection: "row", alignItems: "center", gap: 4 },
+  oosLinkText: { color: colors.error, fontWeight: "800", fontSize: 12 },
   sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   hint: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.sm },
   empty: { color: colors.onSurfaceMuted, fontStyle: "italic", marginTop: spacing.sm },
