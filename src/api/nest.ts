@@ -281,7 +281,10 @@ export const nest = {
   // with recent products from anywhere. Returns items with from_followed:bool.
   getHomeFeed: (query?: { per_page?: number }) =>
     request<{ items: (NestProductRaw & { from_followed?: boolean })[]; followed_count: number; has_followed: boolean; is_authenticated: boolean }>("marketplace", "/home", { query, auth: false }),
-  getProduct: (id: number | string) => request<NestProductRaw>("marketplace", `/products/${id}`, { auth: false }),
+  // v1.0.152 — send auth when available so owners can pre-fill the edit form
+  // for their own drafts / OOS listings. Anonymous callers still see only
+  // published, in-stock listings (server-side gate in class-tnm-rest.php).
+  getProduct: (id: number | string) => request<NestProductRaw>("marketplace", `/products/${id}`),
   getFeed: (query?: Record<string, unknown>) => request<NestPaginated<NestFeedItemRaw> & { mode: string }>("marketplace", "/feed", { query }),
   // Publishes a Nest social post (seller-only; 403 otherwise). Returns the created
   // post shaped identically to a feed post item.
