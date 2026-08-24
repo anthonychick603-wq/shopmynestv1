@@ -103,7 +103,12 @@ export default function Blog() {
     if (!user) { setForYouItems([]); return; }
     try {
       const res = await nest.trust.getPersonalizedFeed({ per_page: 12 });
-      const items = (res.items || []).map(feedRowToProduct);
+      // v1.0.159 — also filter OOS from Picked for you so the whole home
+      // tab is consistent: no home carousel should ever surface a listing
+      // the buyer can't add to cart.
+      const items = (res.items || [])
+        .map(feedRowToProduct)
+        .filter((p) => p.in_stock && p.stock > 0);
       setForYouItems(items.length >= 6 ? items : []);
     } catch {
       setForYouItems([]);
@@ -116,7 +121,14 @@ export default function Blog() {
     if (!user) { setRecentlyViewed([]); return; }
     try {
       const res = await nest.getRecentlyViewed(12);
-      setRecentlyViewed((res.items || []).map(toProduct));
+      // v1.0.159 — hide out-of-stock items from Keep browsing. A greyed-out
+      // "you viewed this but can't buy it" row is worse than not showing
+      // the item at all; when it restocks it will come back into the feed
+      // via the same MRU list.
+      const items = (res.items || [])
+        .map(toProduct)
+        .filter((p) => p.in_stock && p.stock > 0);
+      setRecentlyViewed(items);
     } catch {
       setRecentlyViewed([]);
     }
