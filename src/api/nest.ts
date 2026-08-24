@@ -1553,6 +1553,9 @@ export type NestPaymentIntentRaw = {
   shipping_method_id?: string;
   // True when the picked rate was gone and the server fell back to cheapest.
   shipping_selection_changed?: boolean;
+  // v1.0.158 — items subtotal recomputed by the server from live WC prices.
+  // Compared against the cart display to catch stale-price drift.
+  subtotal?: number;
 };
 
 // Stored shipping meta for a product (nest-shipping/v1). Dimensions come back as

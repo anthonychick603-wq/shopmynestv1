@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { storage } from "@/src/utils/storage";
 import type { Product, Cart, CartItem, ProductVariationDetail } from "@/src/types";
+import { nest } from "@/src/api/nest";
+import { toProduct } from "@/src/api/adapters";
 import { useAuth } from "./AuthContext";
 
 const CART_STORAGE_KEY = "nest.cart.items";
@@ -32,6 +34,11 @@ type CartContextValue = {
   applyCoupon: (code: string) => Promise<void>;
   removeCoupon: () => Promise<void>;
   clear: () => Promise<void>;
+  // v1.0.158 — refresh every line's price/stock from the server. Fixes
+  // "seller edited price, cart still shows old value" because LocalItem
+  // stores a snapshot of the product taken at add-to-cart time and has
+  // no other way to notice a subsequent price / stock change.
+  refreshPrices: () => Promise<void>;
   itemCount: number;
 };
 
@@ -112,6 +119,56 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     // client-side; nothing to fetch
   }, []);
 
+  // v1.0.158 — Re-fetch every distinct product in the cart and patch the
+  // stored snapshot with the current price / sale_price / stock / in_stock.
+  // We keep the rest of the snapshot (title, image, etc.) because the
+  // catalog endpoint that filled it is the same endpoint we'd hit here.
+  // Variation prices are also refreshed by looking up the pinned variation
+  // by id inside the refreshed product's variations array.
+  const refreshPrices = useCallback(async () => {
+    setItems((cur) => {
+      if (cur.length === 0) return cur;
+      // Kick off the fetches from a snapshot; we apply results in a later
+      // setItems call so React sees a single update.
+      const ids = Array.from(new Set(cur.map((it) => it.product.id)));
+      Promise.all(
+        ids.map(async (id) => {
+          try {
+            const raw = await nest.getProduct(id);
+            return { id, product: toProduct(raw) };
+          } catch {
+            return { id, product: null };
+          }
+        }),
+      ).then((results) => {
+        const byId = new Map<string | number, Product>();
+        for (const r of results) if (r.product) byId.set(r.id, r.product);
+        if (byId.size === 0) return;
+        setItems((prev) =>
+          prev
+            .map((it) => {
+              const fresh = byId.get(it.product.id);
+              if (!fresh) return it;
+              // Refresh the variation-picked price too, when applicable.
+              let variation_price = it.variation_price;
+              if (it.variation_id != null && Array.isArray(fresh.variation_details)) {
+                const v = fresh.variation_details.find((x) => x.id === it.variation_id);
+                if (v && v.price != null) variation_price = v.price;
+              }
+              return {
+                ...it,
+                product: fresh,
+                variation_price,
+                quantity: clamp(fresh, it.quantity),
+              };
+            })
+            .filter((it) => it.quantity > 0),
+        );
+      });
+      return cur;
+    });
+  }, []);
+
   const addProduct = useCallback((product: Product, quantity: number = 1, variation: ProductVariationDetail | null = null) => {
     // v1.0.91 — when a variation is picked, its stock/purchasability
     // gates the add (not the parent product). Stock quantity is copied
@@ -188,9 +245,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       applyCoupon,
       removeCoupon,
       clear,
+      refreshPrices,
       itemCount,
     }),
-    [cart, refresh, addItem, addProduct, updateItem, removeItem, applyCoupon, removeCoupon, clear, itemCount],
+    [cart, refresh, addItem, addProduct, updateItem, removeItem, applyCoupon, removeCoupon, clear, refreshPrices, itemCount],
   );
 
   // Clear cart on logout

@@ -53,7 +53,7 @@ export default function Cart() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { cart, updateItem, removeItem, clear } = useCart();
+  const { cart, updateItem, removeItem, clear, refreshPrices } = useCart();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { setPublishableKey } = useStripeKey();
   const [paying, setPaying] = React.useState(false);
@@ -134,6 +134,17 @@ export default function Cart() {
       if (saved && saved.country) setAddress(saved);
     })();
   }, []);
+
+  // v1.0.158 — Re-hydrate cart line prices from the server every time the
+  // cart tab gains focus. Fixes stale prices when a seller edits a listing
+  // after the buyer added it. Fire-and-forget; user sees the same cart
+  // instantly and the numbers snap to the current server prices when the
+  // fetches resolve.
+  useFocusEffect(
+    useCallback(() => {
+      refreshPrices();
+    }, [refreshPrices]),
+  );
 
   // Fetch live carrier rates whenever there is an address + items. Failure or an
   // empty list is non-fatal — checkout still works with a flat estimate.
@@ -366,6 +377,18 @@ export default function Cart() {
         return;
       }
 
+      // v1.0.158 — Same guard for items subtotal drift (seller edited a listing
+      // between add-to-cart and checkout). Fire a background refresh of every
+      // line so the buyer sees the new prices when they retry.
+      const serverSubtotal = typeof intent.subtotal === "number" ? intent.subtotal : null;
+      const subtotalDiffers =
+        serverSubtotal != null && Math.abs(serverSubtotal - cart.subtotal) >= 0.01;
+      if (subtotalDiffers) {
+        refreshPrices();
+        toast.show("Prices changed. Review the new total and tap Checkout again.", "info");
+        return;
+      }
+
       // 2. Make sure the native SDK is initialized with the live publishable key
       //    (the key is only known after create-intent, so initialize it here).
       setPublishableKey(intent.publishable_key);
@@ -416,6 +439,15 @@ export default function Cart() {
       toast.success("Payment successful! Your order is on its way.");
       pushFromTab(router, "/orders");
     } catch (e) {
+      // v1.0.158 — Server rejects with `quote_changed` (409) when the item
+      // subtotal in the reused quote no longer matches live product prices.
+      // Recover the same way as the client-side drift branch above: refresh
+      // the local snapshots and prompt the buyer to review.
+      if (e instanceof ApiError && e.code === "quote_changed") {
+        refreshPrices();
+        toast.show("Prices changed. Review the new total and tap Checkout again.", "info");
+        return;
+      }
       const message = e instanceof ApiError ? e.friendly : "Could not complete checkout. Please try again.";
       toast.error(message);
     } finally {
