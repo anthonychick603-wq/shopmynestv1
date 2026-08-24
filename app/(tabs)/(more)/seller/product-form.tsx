@@ -414,29 +414,31 @@ export default function ProductForm() {
             })}
           </View>
 
-          {isEdit ? null : (
-            <>
-              <Text style={styles.label}>Shipping package</Text>
-              <View style={styles.sizeRow}>
-                {PACKAGE_SIZES.map((s) => {
-                  const on = packageSize === s.value;
-                  return (
-                    <TouchableOpacity key={s.value} onPress={() => { haptics.tap(); setPackageSize(s.value); }} style={[styles.sizeOpt, on && styles.sizeOptOn]} testID={`pf-size-${s.value}`} accessibilityRole="button" accessibilityLabel={`Package size ${s.label}`}>
-                      <Text style={[styles.sizeText, on && styles.sizeTextOn]}>{s.label}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              <Input label="Weight (oz)" value={weightOz} onChangeText={setWeightOz} keyboardType="decimal-pad" testID="pf-weight" />
-              {packageSize === "custom" ? (
-                <View style={styles.dims}>
-                  <View style={styles.dimCol}><Input label="Length (in)" value={lengthIn} onChangeText={setLengthIn} keyboardType="decimal-pad" testID="pf-length" /></View>
-                  <View style={styles.dimCol}><Input label="Width (in)" value={widthIn} onChangeText={setWidthIn} keyboardType="decimal-pad" testID="pf-width" /></View>
-                  <View style={styles.dimCol}><Input label="Height (in)" value={heightIn} onChangeText={setHeightIn} keyboardType="decimal-pad" testID="pf-height" /></View>
-                </View>
-              ) : null}
-            </>
-          )}
+          {/* v1.0.156 — shipping fields now render on BOTH create and edit.
+              Previously wrapped in {isEdit ? null : (...)} which meant a
+              seller who saved a draft with missing weight/dims had no way
+              to fix it in-app; they had to go to WooCommerce. The form
+              already pre-fills from getProductShipping(id) and submit
+              already sends package_size / weight_oz / L·W·H. */}
+          <Text style={styles.label}>Shipping package</Text>
+          <View style={styles.sizeRow}>
+            {PACKAGE_SIZES.map((s) => {
+              const on = packageSize === s.value;
+              return (
+                <TouchableOpacity key={s.value} onPress={() => { haptics.tap(); setPackageSize(s.value); }} style={[styles.sizeOpt, on && styles.sizeOptOn]} testID={`pf-size-${s.value}`} accessibilityRole="button" accessibilityLabel={`Package size ${s.label}`}>
+                  <Text style={[styles.sizeText, on && styles.sizeTextOn]}>{s.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Input label="Weight (oz)" value={weightOz} onChangeText={setWeightOz} keyboardType="decimal-pad" testID="pf-weight" />
+          {packageSize === "custom" ? (
+            <View style={styles.dims}>
+              <View style={styles.dimCol}><Input label="Length (in)" value={lengthIn} onChangeText={setLengthIn} keyboardType="decimal-pad" testID="pf-length" /></View>
+              <View style={styles.dimCol}><Input label="Width (in)" value={widthIn} onChangeText={setWidthIn} keyboardType="decimal-pad" testID="pf-width" /></View>
+              <View style={styles.dimCol}><Input label="Height (in)" value={heightIn} onChangeText={setHeightIn} keyboardType="decimal-pad" testID="pf-height" /></View>
+            </View>
+          ) : null}
 
           <Button title={isEdit ? "Save changes" : "Create listing"} onPress={() => { haptics.press(); submit(); }} loading={busy} testID="pf-submit" style={{ marginTop: spacing.md }} />
 
