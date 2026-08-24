@@ -223,11 +223,21 @@ export default function SellerListings() {
                     <View style={styles.rowDraftPill}>
                       <Text style={styles.rowDraftPillText}>Draft</Text>
                     </View>
-                    {item.draft_reason?.label ? (
+                    {/* v1.0.155 — only prefix "Fix:" when there's an
+                        actionable missing field (ship-from or package).
+                        Manual drafts are the seller's own choice and don't
+                        need a scolding "Fix: saved as draft" line. */}
+                    {item.draft_reason?.kind === "ship_from" || item.draft_reason?.kind === "package" ? (
+                      item.draft_reason.label ? (
+                        <Text style={styles.rowDraftReason} numberOfLines={2}>
+                          Fix: {item.draft_reason.label}
+                        </Text>
+                      ) : null
+                    ) : (
                       <Text style={styles.rowDraftReason} numberOfLines={2}>
-                        Fix: {item.draft_reason.label}
+                        Tap to edit and publish
                       </Text>
-                    ) : null}
+                    )}
                   </View>
                 ) : null}
                 {/* v1.0.66 - Build #5: surface favorites so the seller knows
