@@ -57,6 +57,26 @@ function friendlyFor(status: number, code: string, message: string): string {
   if (code === "invalid_json") {
     return "The website is having trouble responding. Please try again.";
   }
+  // v1.0.150 — bare 404s from a WP_Error that the plugin returns for a stale
+  // or trashed product/order/coupon ID should never appear as a user-facing
+  // toast on the seller dashboard or anywhere else. These are almost always
+  // background hydration failures (a cart item, a favorite, a saved search,
+  // a boost target) where the ID no longer exists. Downgrade to a calm,
+  // non-alarming message; the callsite decides whether to show it at all.
+  if (status === 404) {
+    if (code === "product_not_found" || /^product not found\.?$/i.test(message)) {
+      return "That listing is no longer available.";
+    }
+    if (code === "order_not_found" || /^order not found\.?$/i.test(message)) {
+      return "That order is no longer available.";
+    }
+    if (code === "coupon_not_found" || /^coupon not found\.?$/i.test(message)) {
+      return "That coupon is no longer available.";
+    }
+    if (code === "seller_not_found" || /^seller not found\.?$/i.test(message)) {
+      return "That shop is no longer available.";
+    }
+  }
   if (status >= 500) {
     const hasSpecific = !!message && !/^HTTP \d+$/.test(message);
     return hasSpecific ? message : "The website is having trouble responding. Please try again.";
