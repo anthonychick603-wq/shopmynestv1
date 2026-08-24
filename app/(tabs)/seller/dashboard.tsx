@@ -152,7 +152,10 @@ export default function SellerDashboard() {
   }
 
   const earnings = totals.earnings ?? totals.revenue ?? 0;
-  const oosCount = products.filter((p) => !p.in_stock || p.stock <= 0).length;
+  // v1.0.153 — drafts have stock=0 while waiting on ship-from / package
+  // details; excluding them keeps this count aligned with the listings
+  // screen's Out of stock tab.
+  const oosCount = products.filter((p) => p.status !== "draft" && (!p.in_stock || p.stock <= 0)).length;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -307,7 +310,7 @@ export default function SellerDashboard() {
             it routes to a dedicated /seller/out-of-stock page. Only rendered
             when the count is > 0 so a healthy shop sees no red text. */}
         {(() => {
-          const oosCount = products.filter((p) => !p.in_stock || p.stock <= 0).length;
+          const oosCount = products.filter((p) => p.status !== "draft" && (!p.in_stock || p.stock <= 0)).length;
           return (
             <View style={[styles.sectionHeader, styles.productsHeaderRow]}>
               <Text style={styles.sectionTitle}>Your products</Text>
@@ -337,7 +340,7 @@ export default function SellerDashboard() {
           <Text style={styles.empty}>{'No products yet. Tap "Create a new listing".'}</Text>
         ) : (
           products.map((p) => {
-            const oos = !p.in_stock || p.stock <= 0;
+            const oos = p.status !== "draft" && (!p.in_stock || p.stock <= 0);
             const low = !oos && p.stock > 0 && p.stock <= 3;
             return (
               <View key={p.id} style={styles.prodRow}>

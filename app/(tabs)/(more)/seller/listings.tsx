@@ -94,9 +94,14 @@ export default function SellerListings() {
     if (filter === "oos") return products.filter((p) => !isDraft(p) && (!p.in_stock || p.stock <= 0));
     return products.filter((p) => !isDraft(p) && p.in_stock && p.stock > 0);
   }, [products, filter, isDraft]);
+  // v1.0.153 — exclude drafts from the OOS count so the pill matches what
+  // the Out-of-stock tab actually shows. Before this, a draft (which has
+  // stock=0 while it's waiting on ship-from / package details) got counted
+  // as OOS in the pill but was hidden in the tab — the pill said "(3)" and
+  // the tab said "You're fully stocked."
   const oosCount = useMemo(
-    () => products.filter((p) => !p.in_stock || p.stock <= 0).length,
-    [products],
+    () => products.filter((p) => !isDraft(p) && (!p.in_stock || p.stock <= 0)).length,
+    [products, isDraft],
   );
   const draftCount = useMemo(() => products.filter(isDraft).length, [products, isDraft]);
 
