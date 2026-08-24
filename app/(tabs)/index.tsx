@@ -78,8 +78,16 @@ export default function Blog() {
 
   const loadHomeFeed = useCallback(async () => {
     try {
-      const res = await nest.getHomeFeed({ per_page: 12 });
-      setHomeItems((res.items || []).map(toProduct));
+      // v1.0.157 — request 25 items and enforce in-stock client-side so
+      // Fresh from the Nest is exactly "25 most recent, in stock."
+      // Server (plugin ≥ v3.13.18) already hides OOS, but the client
+      // filter is a belt-and-suspenders for older plugin builds.
+      const res = await nest.getHomeFeed({ per_page: 25 });
+      const items = (res.items || [])
+        .map(toProduct)
+        .filter((p) => p.in_stock && p.stock > 0)
+        .slice(0, 25);
+      setHomeItems(items);
       setHasFollowed(res.has_followed);
     } catch {
       // Non-fatal; home feed just stays empty.
@@ -364,9 +372,11 @@ export default function Blog() {
               {homeItems.length > 0 ? (
                 <View style={styles.homeFeedSection}>
                   <View style={styles.homeFeedHeader}>
-                    <Text style={styles.homeFeedTitle}>
-                      {hasFollowed ? "Fresh from shops you follow" : "Fresh from the Nest"}
-                    </Text>
+                    {/* v1.0.157 — always title as "Fresh from the Nest". Per
+                        user spec: 25 most recent, in stock, regardless of
+                        who they follow. Followed-shops row was misleading
+                        because it hid new listings from unfollowed sellers. */}
+                    <Text style={styles.homeFeedTitle}>Fresh from the Nest</Text>
                     <TouchableOpacity accessibilityLabel="See all products in browse" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/browse"); }} testID="home-feed-see-all">
                       <Text style={styles.homeFeedSeeAll}>See all</Text>
                     </TouchableOpacity>
