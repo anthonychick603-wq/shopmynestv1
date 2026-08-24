@@ -116,8 +116,15 @@ export default function Browse() {
         pa_size: appliedAttrs.size || undefined,
         pa_brand: appliedAttrs.brand || undefined,
       });
-      setItems(res.items.map(toProduct));
-      setTotal(res.total || res.items.length);
+      // v1.0.154 — belt-and-suspenders OOS filter. Older plugin builds could
+      // leak listings whose stock_status stayed 'instock' while stock_quantity
+      // dropped to 0 (seller left manage_stock off). Server-side v3.13.18
+      // catches this, but keep the client filter so older installs behave.
+      const filtered = res.items
+        .map(toProduct)
+        .filter((p) => p.in_stock && p.stock > 0);
+      setItems(filtered);
+      setTotal(res.total || filtered.length);
     } catch (e) {
       setError(e instanceof ApiError ? e.friendly : "Could not load products.");
     } finally {
