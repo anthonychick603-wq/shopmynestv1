@@ -304,13 +304,16 @@ export default function Cart() {
   const displayShipping = couponFreeShipping ? 0 : (shippingAmount ?? 0);
   const displayTotal = Math.max(0, cart.subtotal - couponDiscount + displayShipping);
 
-  let shippingRowLabel = "Shipping";
+  // v1.0.158 — Buyer-facing label reads "Shipping & Handling" because the row
+  // now bakes in a $1.05 handling fee on top of the real carrier rate (see
+  // plugin v3.13.23 mnu_v380_processing_fee_cents).
+  let shippingRowLabel = "Shipping & Handling";
   let shippingRowValue: string;
   if (!address) shippingRowValue = "Add an address";
   else if (ratesLoading) shippingRowValue = "Calculating…";
   else if (shippingAmount != null) shippingRowValue = shippingAmount === 0 ? "Free" : `$${shippingAmount.toFixed(2)}`;
   else shippingRowValue = "—";
-  if (address && ratesError) shippingRowLabel = "Shipping (estimated)";
+  if (address && ratesError) shippingRowLabel = "Shipping & Handling (estimated)";
 
   const onCheckout = async () => {
     if (paying || !cart || cart.items.length === 0) return;
