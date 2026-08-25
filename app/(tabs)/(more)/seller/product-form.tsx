@@ -59,7 +59,13 @@ export default function ProductForm() {
 
   const [loading, setLoading] = useState(isEdit);
   const [busy, setBusy] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+
+  // v1.0.164 — Track whether the loaded listing is currently a draft so
+  // the primary button reads "Publish" for drafts vs "Save changes" for
+  // live listings. Defaults to false; hydrated below in the load effect.
+  const [existingIsDraft, setExistingIsDraft] = useState(false);
 
   // v1.0.64 (Build #3) — server clones and returns the new draft; we then
   // navigate to the form for that new id. `router.replace` (not push) so the
@@ -141,6 +147,9 @@ export default function ProductForm() {
           setImageUrl(p.image || null);
           setCustomizable(p.customizable === true);
           setSelectedCats((p.categories || []).map((c) => c.slug));
+          // v1.0.164 — remember draft state so we can label the primary CTA
+          // "Publish" (for drafts) vs "Save changes" (for live listings).
+          setExistingIsDraft(p.status === "draft" || p.status === "pending" || p.status === "private");
           // Pre-fill the size selector + dimensions from stored shipping meta so an
           // edit reflects (and re-sends) the product's real package size.
           const ship = await nest.getProductShipping(id).then((r) => r.shipping).catch(() => null);
@@ -232,43 +241,49 @@ export default function ProductForm() {
     return media.id;
   };
 
-  const submit = async () => {
+  // v1.0.164 — One submit function, two modes. `mode='publish'` behaves
+  // exactly like the old submit did (with the bank + ship-from gates on
+  // new listings). `mode='draft'` skips those publish-time gates, sends
+  // status='draft' so the plugin saves without a price or photo, and
+  // only requires a product name so the draft has something searchable.
+  type SaveMode = "publish" | "draft";
+  const submit = async (mode: SaveMode = "publish") => {
     if (!title.trim()) return toast.error("Product name is required.");
-    if (price === "" || Number(price) < 0 || Number.isNaN(Number(price))) {
-      return toast.error("Enter a valid price.");
-    }
-    // v1.0.124 — Authoritative gate for new listings: re-verify a bank account
-    // is on file before creating. Editing an existing listing is never gated.
-    if (!isEdit) {
-      try {
-        const bank = await nest.getSellerBank();
-        setHasBank(!!bank.has_bank);
-        if (!bank.has_bank) {
-          toast.error("Add a bank account before you publish a new listing.");
+    if (mode === "publish") {
+      if (price === "" || Number(price) < 0 || Number.isNaN(Number(price))) {
+        return toast.error("Enter a valid price.");
+      }
+      // v1.0.124 — Authoritative gate for new-and-publishing listings:
+      // re-verify a bank account is on file. Drafts skip this (the plugin
+      // re-checks when the seller publishes the draft later).
+      if (!isEdit) {
+        try {
+          const bank = await nest.getSellerBank();
+          setHasBank(!!bank.has_bank);
+          if (!bank.has_bank) {
+            toast.error("Add a bank account before you publish a new listing.");
+            return;
+          }
+        } catch (e) {
+          toast.error(e instanceof ApiError ? e.friendly : "Could not verify your payout account. Please try again.");
           return;
         }
-      } catch (e) {
-        toast.error(e instanceof ApiError ? e.friendly : "Could not verify your payout account. Please try again.");
-        return;
-      }
-      // v1.0.127 — Authoritative ship-from gate for new listings. Mirrors
-      // the server's mnu_seller_has_complete_ship_from(). Editing an
-      // existing listing is never gated (the address only matters when
-      // buying a label for a new order).
-      try {
-        const ship = await nest.getSellerShippingProfile();
-        const ok = isShipFromComplete(ship.profile);
-        setHasShipFrom(ok);
-        if (!ok) {
-          toast.error("Add your ship-from address before you publish a new listing.");
+        // v1.0.127 — Authoritative ship-from gate; drafts skip.
+        try {
+          const ship = await nest.getSellerShippingProfile();
+          const ok = isShipFromComplete(ship.profile);
+          setHasShipFrom(ok);
+          if (!ok) {
+            toast.error("Add your ship-from address before you publish a new listing.");
+            return;
+          }
+        } catch (e) {
+          toast.error(e instanceof ApiError ? e.friendly : "Could not verify your ship-from address. Please try again.");
           return;
         }
-      } catch (e) {
-        toast.error(e instanceof ApiError ? e.friendly : "Could not verify your ship-from address. Please try again.");
-        return;
       }
     }
-    setBusy(true);
+    if (mode === "draft") setSavingDraft(true); else setBusy(true);
     try {
       const image_id = await uploadIfNeeded();
       const category_ids = selectedCats.map((slug) => catIdBySlug[slug]).filter((n) => Number.isFinite(n));
@@ -276,7 +291,9 @@ export default function ProductForm() {
       const payload: NestProductWritePayload & { customizable: boolean } = {
         name: title.trim(),
         description,
-        price: Number(price),
+        // Drafts allow blank price — send 0 so WC has a numeric value; the
+        // seller fills it in before publishing.
+        price: price === "" || Number.isNaN(Number(price)) ? 0 : Number(price),
         stock: stock === "" ? 0 : Math.max(0, parseInt(stock, 10) || 0),
         category_ids,
         customizable,
@@ -294,20 +311,29 @@ export default function ProductForm() {
         if (heightIn.trim()) payload.height_in = Number(heightIn);
       }
 
+      // v1.0.164 — On explicit publish of an existing draft, tell the server
+      // to flip status. On "Save changes" for a live listing, omit status so
+      // the server keeps it live. On "Save as draft", always send draft.
+      if (mode === "draft") {
+        payload.status = "draft";
+      } else if (isEdit && existingIsDraft) {
+        payload.status = "publish";
+      }
+
       if (isEdit && id) {
         await nest.updateProduct(id, payload);
         haptics.success();
-        toast.success("Listing updated");
+        toast.success(mode === "draft" ? "Draft saved" : existingIsDraft ? "Listing published" : "Listing updated");
       } else {
         await nest.createProduct(payload);
         haptics.success();
-        toast.success("Listing created");
+        toast.success(mode === "draft" ? "Draft saved" : "Listing created");
       }
       safeBack(router, "/(tabs)/seller/dashboard");
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.friendly : "Could not save the listing.");
+      toast.error(e instanceof ApiError ? e.friendly : mode === "draft" ? "Could not save draft." : "Could not save the listing.");
     } finally {
-      setBusy(false);
+      if (mode === "draft") setSavingDraft(false); else setBusy(false);
     }
   };
 
@@ -440,7 +466,33 @@ export default function ProductForm() {
             </View>
           ) : null}
 
-          <Button title={isEdit ? "Save changes" : "Create listing"} onPress={() => { haptics.press(); submit(); }} loading={busy} testID="pf-submit" style={{ marginTop: spacing.md }} />
+          {/* v1.0.164 — Primary button label depends on state:
+              • New listing → "Publish"
+              • Existing draft being edited → "Publish" (server flips status)
+              • Existing live listing → "Save changes" (status omitted)
+              Secondary "Save as draft" is offered when the listing hasn't
+              been published yet (new, or existing draft). Once a listing is
+              live, going back to draft is a WooCommerce admin action —
+              sellers unlist instead by setting stock to 0. */}
+          <Button
+            title={isEdit ? (existingIsDraft ? "Publish" : "Save changes") : "Publish"}
+            onPress={() => { haptics.press(); submit("publish"); }}
+            loading={busy}
+            disabled={savingDraft}
+            testID="pf-submit"
+            style={{ marginTop: spacing.md }}
+          />
+          {(!isEdit || existingIsDraft) ? (
+            <Button
+              title="Save as draft"
+              variant="secondary"
+              onPress={() => { haptics.tap(); submit("draft"); }}
+              loading={savingDraft}
+              disabled={busy}
+              testID="pf-save-draft"
+              style={{ marginTop: spacing.sm }}
+            />
+          ) : null}
 
           {/* v1.0.92 (Build #8) — open the variations editor for saved listings. */}
           {isEdit && id ? (
