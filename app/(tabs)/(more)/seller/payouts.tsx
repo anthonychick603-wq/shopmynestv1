@@ -29,6 +29,7 @@ export default function Payouts() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!isSeller) return;
@@ -37,6 +38,9 @@ export default function Payouts() {
       setBalances(res.balances);
       setPayouts(res.payouts || []);
       setMinimum(res.minimum ?? 25);
+      setLoadError(null);
+    } catch (e) {
+      setLoadError(e instanceof ApiError ? e.friendly : "Could not load your payout balance.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -51,8 +55,8 @@ export default function Payouts() {
   // v1.0.104 — the plugin (v3.7.122.6+) already clamps `available` to ≥ 0 and
   // exposes any postage debit separately as `shipping_owed`. Guard against
   // older plugin builds by clamping client-side too.
-  const available = Math.max(0, balances?.available ?? 0);
-  const shippingOwed = Math.max(0, balances?.shipping_owed ?? 0);
+  const available = balances ? Math.max(0, balances.available ?? 0) : 0;
+  const shippingOwed = balances ? Math.max(0, balances.shipping_owed ?? 0) : 0;
   const canRequest = available >= minimum && available > 0;
 
   const requestPayout = () => {
@@ -100,6 +104,23 @@ export default function Payouts() {
     );
   }
 
+
+  if (!balances && loadError) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} />
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="Balance unavailable"
+          message={`${loadError} We won't show $0.00 when we can't verify your balance.`}
+          actionLabel="Retry"
+          onAction={() => { setLoading(true); void load(); }}
+          testID="payouts-load-error"
+        />
+      </SafeAreaView>
+    );
+  }
+
   const cur = balances?.currency || "USD";
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -109,7 +130,7 @@ export default function Payouts() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
       >
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Available to withdraw</Text>
+          <Text style={styles.balanceLabel}>Available to request</Text>
           <Text style={styles.balanceValue}>${available.toFixed(2)}</Text>
           <Text style={styles.balanceCurrency}>{cur}</Text>
         </View>
@@ -125,10 +146,15 @@ export default function Payouts() {
             <Ionicons name="cube-outline" size={16} color={colors.onSurfaceMuted} />
             <Text style={styles.shippingText}>
               <Text style={styles.shippingLabel}>Shipping labels: </Text>
-              ${shippingOwed.toFixed(2)} will come off your next paid order.
+              ${shippingOwed.toFixed(2)} is a legacy label charge and will be reconciled before your next payout is sent.
             </Text>
           </View>
         ) : null}
+
+        <View style={styles.payoutInfo}>
+          <Ionicons name="time-outline" size={16} color={colors.onSurfaceMuted} />
+          <Text style={styles.payoutInfoText}>Earnings stay pending during the 7-day hold. When they become available, request an ACH payout here. Most payouts settle in 1–2 business days after processing.</Text>
+        </View>
 
         <Button
           title={canRequest ? "Request payout" : `Minimum payout is $${minimum.toFixed(2)}`}
@@ -209,6 +235,8 @@ const styles = StyleSheet.create({
   shippingRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md },
   shippingText: { flex: 1, fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 16 },
   shippingLabel: { fontWeight: "800", color: colors.onSurface },
+  payoutInfo: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md },
+  payoutInfoText: { flex: 1, fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 17 },
   sectionHeader: { marginTop: spacing.xl, marginBottom: spacing.sm },
   sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   empty: { color: colors.onSurfaceMuted, fontStyle: "italic" },

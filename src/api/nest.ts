@@ -538,7 +538,14 @@ export const nest = {
   submitSellerApplication: (payload: Record<string, unknown>) =>
     request<{ ok: boolean; application_id: number }>("marketplace", "/seller/application", { method: "POST", body: payload }),
   getSellerApplicationStatus: () =>
-    request<{ status: "none" | "pending" | "approved" | "rejected"; application_id?: number; submitted_at?: string }>("marketplace", "/seller/application/status"),
+    request<{
+      status: "none" | "pending" | "approved" | "rejected";
+      application_id?: number;
+      submitted_at?: string;
+      reviewed_at?: string;
+      rejection_reason?: string;
+      can_resubmit?: boolean;
+    }>("marketplace", "/seller/application/status"),
   getSellerDashboard: () => request<NestSellerDashboardRaw>("marketplace", "/seller/dashboard"),
   // v1.0.91 — rolling analytics for the seller dashboard's Analytics tile
   // (plugin v3.7.118 /seller/analytics).

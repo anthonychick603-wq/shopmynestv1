@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
 
-import { nest, ApiError, type NestSellerOrderRaw, type NestLabelRate, type NestShippingLabel, type NestRefundStatus } from "@/src/api/nest";
+import { nest, ApiError, type NestSellerOrderRaw, type NestLabelRate, type NestShippingLabel, type NestRefundStatus, type NestDisputeRaw } from "@/src/api/nest";
 import { toOrder } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Order } from "@/src/types";
@@ -38,6 +38,7 @@ export default function OrderDetail() {
   const [sellerOrder, setSellerOrder] = useState<NestSellerOrderRaw | null>(null);
   // v1.0.49 — refund lifecycle block returned by /orders/{id}.
   const [refund, setRefund] = useState<NestRefundStatus | null>(null);
+  const [orderDispute, setOrderDispute] = useState<NestDisputeRaw | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   // v1.0.94 (Build #16) — in-flight flag for buyer-initiated cancel.
   const [cancelling, setCancelling] = useState(false);
@@ -102,7 +103,15 @@ export default function OrderDetail() {
           .then((res) => setSellerOrder(res.orders?.find((o) => String(o.id) === String(id)) ?? null))
           .catch(() => setSellerOrder(null))
       : Promise.resolve();
-    return Promise.all([buyerP, sellerP]).finally(() => { setLoading(false); setRefreshing(false); });
+    const disputeP = user
+      ? nest.trust.listDisputes()
+          .then((res) => {
+            const rows = Array.isArray(res) ? res : res.disputes || [];
+            setOrderDispute(rows.find((d) => String(d.order_id) === String(id) && !String(d.status).startsWith("resolved_")) ?? null);
+          })
+          .catch(() => setOrderDispute(null))
+      : Promise.resolve();
+    return Promise.all([buyerP, sellerP, disputeP]).finally(() => { setLoading(false); setRefreshing(false); });
   }, [id, isSeller]);
 
   useEffect(() => { load(); }, [load]);
@@ -259,6 +268,7 @@ export default function OrderDetail() {
             orderId={order.id}
             refund={refund}
             onChange={setRefund}
+            activeCaseId={orderDispute?.id ?? null}
           />
         ) : null}
         {order.status === "delivered" ? (
@@ -273,15 +283,33 @@ export default function OrderDetail() {
         <View style={styles.card}>
           <View style={styles.protectRow}>
             <Ionicons name="shield-checkmark" size={20} color={colors.brand} />
-            <Text style={styles.protectTitle}>Buyer protection</Text>
+            <Text style={styles.protectTitle}>Resolution center</Text>
           </View>
-          <Text style={styles.protectText}>Something wrong with this order? Open a dispute and we'll hold the seller's payout while we help sort it out.</Text>
+          <Text style={styles.protectText}>
+            {orderDispute
+              ? "A buyer-protection case is already open for this order. Keep updates and escalation in that case so there is one source of truth."
+              : refund && ["requested", "approved", "processing"].includes(refund.state)
+              ? "Your refund request is active. A separate dispute cannot be started while that resolution is in progress."
+              : refund?.state === "completed"
+              ? "This order's refund has been completed."
+              : refund?.state === "denied"
+              ? "Your refund request was denied. You can escalate the same order issue to buyer protection for review."
+              : refund?.eligibility?.can_request
+              ? "Start with the refund request above. If it cannot be resolved through that process, buyer protection becomes the escalation path."
+              : "If the normal refund path is unavailable for this issue, you can open one buyer-protection case for the order."}
+          </Text>
           <View style={styles.protectBtns}>
-            <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/new?order=${order.id}`)} testID="order-open-dispute">
-              <Text style={styles.protectPrimaryText}>Open a dispute</Text>
-            </TouchableOpacity>
+            {orderDispute ? (
+              <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/${orderDispute.id}`)} testID="order-view-active-dispute">
+                <Text style={styles.protectPrimaryText}>View active case</Text>
+              </TouchableOpacity>
+            ) : refund && ["requested", "approved", "processing", "completed"].includes(refund.state) ? null : refund?.eligibility?.can_request && refund.state !== "denied" ? null : (
+              <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/new?order=${order.id}`)} testID="order-open-dispute">
+                <Text style={styles.protectPrimaryText}>{refund?.state === "denied" ? "Escalate to buyer protection" : "Open buyer-protection case"}</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.protectGhost} onPress={() => router.push("/disputes")} testID="order-view-disputes">
-              <Text style={styles.protectGhostText}>My disputes</Text>
+              <Text style={styles.protectGhostText}>My cases</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -356,12 +384,19 @@ function OrderSellerMessagesCard({ order }: { order: Order }) {
   );
 }
 
-const SELLER_STATUSES: { value: string; label: string }[] = [
-  { value: "processing", label: "Processing" },
-  { value: "shipped", label: "Shipped" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
-];
+const SELLER_STATUS_LABELS: Record<string, string> = {
+  processing: "Processing",
+  shipped: "Shipped",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+function allowedSellerStatuses(currentRaw: string): string[] {
+  const current = (currentRaw || "processing").toLowerCase();
+  if (current === "completed" || current === "cancelled") return [current];
+  if (current === "shipped") return ["shipped"];
+  return ["processing", "shipped", "cancelled"];
+}
 
 function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data: NestSellerOrderRaw; onUpdated: (o: NestSellerOrderRaw) => void }) {
   const [status, setStatus] = useState<string>(data.seller_status || "processing");
@@ -371,6 +406,10 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
 
   const save = async () => {
     haptics.press();
+    if (status === "shipped" && !tracking.trim()) {
+      toast.error("Add a tracking number before marking a manual shipment as shipped, or buy a ShopMyNest label below.");
+      return;
+    }
     setBusy(true);
     try {
       const tracking_number = [carrier.trim(), tracking.trim()].filter(Boolean).join(" ");
@@ -395,11 +434,12 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
       <Text style={styles.sellerNet}>Your net: ${(data.seller_net ?? data.net_before_shipping).toFixed(2)}</Text>
       <Text style={styles.fieldLabel}>Status</Text>
       <View style={styles.statusRow}>
-        {SELLER_STATUSES.map((s) => {
-          const on = status === s.value;
+        {allowedSellerStatuses(data.seller_status).map((value) => {
+          const on = status === value;
+          const label = SELLER_STATUS_LABELS[value] || value;
           return (
-            <TouchableOpacity key={s.value} onPress={() => { haptics.tap(); setStatus(s.value); }} style={[styles.statusChip, on && styles.statusChipOn]} testID={`order-status-${s.value}`} accessibilityLabel={`Set status to ${s.label}`}>
-              <Text style={[styles.statusChipText, on && styles.statusChipTextOn]}>{s.label}</Text>
+            <TouchableOpacity key={value} onPress={() => { haptics.tap(); setStatus(value); }} style={[styles.statusChip, on && styles.statusChipOn]} testID={`order-status-${value}`} accessibilityLabel={`Set status to ${label}`}>
+              <Text style={[styles.statusChipText, on && styles.statusChipTextOn]}>{label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -409,14 +449,14 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
       <Button title="Save fulfillment" onPress={save} loading={busy} testID="order-fulfill-save" />
 
       <View style={styles.labelDivider} />
-      <ShippingLabelSection orderId={orderId} />
+      <ShippingLabelSection orderId={orderId} platformKeepsShipping={data.platform_keeps_shipping === true} />
     </View>
   );
 }
 
 // Buy a real Shippo label and print/share the PDF. Additive to the manual
 // tracking fields above — either path fulfils the order.
-function ShippingLabelSection({ orderId }: { orderId: string }) {
+function ShippingLabelSection({ orderId, platformKeepsShipping }: { orderId: string; platformKeepsShipping: boolean }) {
   const [label, setLabel] = useState<NestShippingLabel | null>(null);
   const [checking, setChecking] = useState(true);
   const [rates, setRates] = useState<NestLabelRate[] | null>(null);
@@ -567,7 +607,9 @@ function ShippingLabelSection({ orderId }: { orderId: string }) {
             const amt = r ? parseFloat(r.amount).toFixed(2) : "0.00";
             return (
               <Text style={styles.labelDeductionNotice} testID="order-label-deduction-notice">
-                ${amt} in postage will be deducted from your next payout.
+                {platformKeepsShipping
+                  ? `ShopMyNest covers the $${amt} postage for this order; it will not reduce your seller payout.`
+                  : `$${amt} postage will be recorded in the seller earnings ledger and reconciled before payout.`}
               </Text>
             );
           })() : null}

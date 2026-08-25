@@ -2,7 +2,7 @@
   "expo": {
     "name": "ShopMyNest",
     "slug": "the-nest-marketplace",
-    "version": "1.0.169",
+    "version": "1.0.170",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -26,7 +26,7 @@
       "edgeToEdgeEnabled": true,
       "package": "com.shopmynest",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 135,
+      "versionCode": 136,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"
@@ -122,7 +122,8 @@
     "extra": {
       "eas": {
         "projectId": "088331f1-979b-41fe-92b4-e04e182e8b5d"
-      }
+      },
+      "stripeMerchantIdentifier": "merchant.com.shopmynest.app"
     },
     "experiments": {
       "typedRoutes": true

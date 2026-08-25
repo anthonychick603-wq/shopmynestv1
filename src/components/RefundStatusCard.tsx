@@ -41,6 +41,7 @@ type Props = {
   orderId: number | string;
   refund: NestRefundStatus;
   onChange: (next: NestRefundStatus) => void;
+  activeCaseId?: number | null;
 };
 
 const REASONS: { key: string; label: string }[] = [
@@ -67,7 +68,7 @@ function badgeColorFor(state: NestRefundState): { bg: string; fg: string; icon: 
   }
 }
 
-export function RefundStatusCard({ orderId, refund, onChange }: Props) {
+export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = null }: Props) {
   const badge = badgeColorFor(refund.state);
   const [modalOpen, setModalOpen] = useState(false);
   const [reason, setReason] = useState<string>(REASONS[0].key);
@@ -77,7 +78,7 @@ export function RefundStatusCard({ orderId, refund, onChange }: Props) {
   const currency = refund.currency || "USD";
   const money = (n: number) => `$${Number(n || 0).toFixed(2)}`;
 
-  const canRequest = refund.eligibility?.can_request === true;
+  const canRequest = refund.eligibility?.can_request === true && !activeCaseId;
   const blockers = refund.eligibility?.blockers || [];
 
   const reasonLabel = useMemo(
@@ -114,6 +115,13 @@ export function RefundStatusCard({ orderId, refund, onChange }: Props) {
           <Text style={[styles.badgeText, { color: badge.fg }]}>{refund.label}</Text>
         </View>
       </View>
+
+      {activeCaseId ? (
+        <View style={styles.caseActive}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={colors.brand} />
+          <Text style={styles.caseActiveText}>Buyer-protection case #{activeCaseId} is active. Refund resolution for this issue should stay in that case so duplicate money actions cannot be started.</Text>
+        </View>
+      ) : null}
 
       {refund.state === "none" ? (
         <Text style={styles.helper}>
@@ -297,6 +305,8 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 12, fontWeight: "600" },
   helper: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: spacing.xs },
+  caseActive: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.sm },
+  caseActiveText: { flex: 1, color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17 },
   amountBox: {
     marginTop: spacing.md,
     backgroundColor: "#FBFAF6",

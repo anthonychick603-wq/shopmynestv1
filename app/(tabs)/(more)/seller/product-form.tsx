@@ -353,7 +353,7 @@ export default function ProductForm() {
         <EmptyState
           icon="business-outline"
           title="Add a payout account first"
-          message="Before you can publish a new listing, save your bank routing and account numbers so we can pay you by ACH after the 7-day holding window."
+          message="Before you can publish a new listing, save your bank routing and account numbers. Earnings become available after the 7-day hold, then you can request an ACH payout."
           actionLabel="Add bank account"
           onAction={() => router.push("/seller/bank")}
           testID="pf-connect-required"

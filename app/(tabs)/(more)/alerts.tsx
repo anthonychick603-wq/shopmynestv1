@@ -248,13 +248,14 @@ export default function Alerts() {
           // simple, we make the row a View and use two Touchables inside:
           // one wraps the icon + text block, the other is the Open button.
           const meta = (item.meta ?? {}) as Record<string, unknown>;
-          const hasRoute = !!routeForPush({
+          const targetRoute = routeForPush({
             type: item.type,
             order_id: meta.order_id as number | string | undefined,
             object_id: meta.object_id as number | string | undefined,
             object_type: meta.object_type as string | undefined,
             actor_id: meta.actor_id as number | string | undefined,
           });
+          const hasRoute = !!targetRoute && targetRoute !== "/alerts";
           return (
             <View style={[styles.row, !item.read && styles.rowUnread]} testID={`alert-${item.id}`}>
               <TouchableOpacity

@@ -457,7 +457,7 @@ export default function Cart() {
       // This attempt is spent: the next checkout must open a new order.
       startNewCheckoutAttempt();
       await clear();
-      toast.success("Payment successful! Your order is on its way.");
+      toast.success("Payment received! Your order is confirmed and the seller has been notified.");
       pushFromTab(router, "/orders");
     } catch (e) {
       // v1.0.160 — Plugin v3.13.32 gates checkout on the buyer having an

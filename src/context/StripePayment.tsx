@@ -4,10 +4,12 @@
 // return the key, so we learn it lazily on the first checkout attempt).
 import React, { createContext, useCallback, useContext, useState } from "react";
 import { StripeProvider } from "@stripe/stripe-react-native";
+import Constants from "expo-constants";
 
-// TODO: Replace with the real Apple merchant ID registered in App Store Connect
-// before Apple Pay will work in production (currently a placeholder).
-export const STRIPE_MERCHANT_ID = "merchant.com.shopmynest.app";
+// Single source of truth shared with the Expo Stripe plugin configuration.
+// Keep this identifier registered in the Apple Developer portal for the
+// production bundle before distributing an iOS build with Apple Pay enabled.
+export const STRIPE_MERCHANT_ID = String(Constants.expoConfig?.extra?.stripeMerchantIdentifier || "merchant.com.shopmynest.app");
 
 // Must match the `scheme` in app.json so return-URL redirects (3DS/wallets) work.
 export const STRIPE_URL_SCHEME = "thenest";

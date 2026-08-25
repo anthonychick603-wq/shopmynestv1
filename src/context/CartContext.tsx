@@ -29,6 +29,7 @@ type CartContextValue = {
   refresh: () => Promise<void>;
   addItem: (product_id: string, quantity: number, variation?: Record<string, string> | null, product?: Product) => Promise<void>;
   addProduct: (product: Product, quantity?: number, variation?: ProductVariationDetail | null) => boolean;
+  ensureProduct: (product: Product, quantity?: number, variation?: ProductVariationDetail | null) => boolean;
   updateItem: (index: number, quantity: number) => Promise<void>;
   removeItem: (index: number) => Promise<void>;
   applyCoupon: (code: string) => Promise<void>;
@@ -206,6 +207,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, []);
 
+  // Add a product only when that exact product/variation is not already in the
+  // cart. Custom-order acceptance uses this so revisiting an accepted quote or
+  // tapping Pay now twice cannot accidentally increase a one-off item's qty.
+  const ensureProduct = useCallback((product: Product, quantity: number = 1, variation: ProductVariationDetail | null = null) => {
+    const gate: Product = variation
+      ? {
+          ...product,
+          stock: Number(variation.stock_quantity ?? 0),
+          in_stock: variation.stock_status !== "outofstock" && variation.is_purchasable,
+        }
+      : product;
+    const q = clamp(gate, quantity);
+    if (q < 1) return false;
+    setItems((cur) => {
+      const exists = cur.some(
+        (it) => it.product.id === product.id && (it.variation_id ?? null) === (variation?.id ?? null),
+      );
+      if (exists) return cur;
+      return [
+        ...cur,
+        {
+          product,
+          quantity: q,
+          variation: variation?.attributes ?? null,
+          variation_id: variation?.id ?? null,
+          variation_price: variation?.price ?? null,
+        },
+      ];
+    });
+    return true;
+  }, []);
+
   const addItem = useCallback<CartContextValue["addItem"]>(async (_product_id, quantity, _variation, product) => {
     if (!product) return;
     addProduct(product, quantity);
@@ -240,6 +273,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       refresh,
       addItem,
       addProduct,
+      ensureProduct,
       updateItem,
       removeItem,
       applyCoupon,
@@ -248,7 +282,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       refreshPrices,
       itemCount,
     }),
-    [cart, refresh, addItem, addProduct, updateItem, removeItem, applyCoupon, removeCoupon, clear, refreshPrices, itemCount],
+    [cart, refresh, addItem, addProduct, ensureProduct, updateItem, removeItem, applyCoupon, removeCoupon, clear, refreshPrices, itemCount],
   );
 
   // Clear cart on logout

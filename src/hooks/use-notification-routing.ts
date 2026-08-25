@@ -100,6 +100,20 @@ export function routeForPush(data: PushData): string | null {
     case "payout_failed":
       return "/seller/payouts";
 
+    case "seller_application_update":
+      return "/seller/apply";
+
+    case "refund_update":
+    case "refund_requested":
+    case "refund_completed":
+      return orderId ? `/order/${orderId}` : "/orders";
+
+    case "dispute_update":
+      return objectId ? `/disputes/${objectId}` : "/disputes";
+
+    case "custom_request_update":
+      return objectId ? `/custom-request/${objectId}` : "/custom-requests";
+
     // Saved-search alert. Single-hit pushes carry object_type='product' so
     // we deep-link straight into the product detail screen. The roll-up
     // (">10 new matches") uses object_type='saved_search' and lands on the

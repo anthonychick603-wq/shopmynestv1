@@ -23,6 +23,8 @@ export default function ApplySeller() {
   const router = useRouter();
   const { user, refresh } = useAuth();
   const [status, setStatus] = useState<"none" | "pending" | "approved" | "rejected" | "loading">("loading");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [canResubmit, setCanResubmit] = useState(true);
   const [shopName, setShopName] = useState("");
   const [description, setDescription] = useState("");
   const [shipping, setShipping] = useState("");
@@ -40,6 +42,8 @@ export default function ApplySeller() {
         const [s, cs] = await Promise.all([nest.getSellerApplicationStatus(), nest.getCategories()]);
         if (cancelled) return;
         setStatus(s.status || "none");
+        setRejectionReason(s.rejection_reason || "");
+        setCanResubmit(s.can_resubmit !== false);
         setCategories(cs.map(toCategory));
       } catch {
         if (cancelled) return;
@@ -124,7 +128,16 @@ export default function ApplySeller() {
       <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="Build your Nest" />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-          <Text style={styles.intro}>Tell us about your shop. Approval usually takes 1–3 days.</Text>
+          {status === "rejected" ? (
+            <View style={styles.rejectedBox} testID="apply-rejected-details">
+              <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rejectedTitle}>Your last application needs changes</Text>
+                <Text style={styles.rejectedText}>{rejectionReason || "Review your shop details and submit an updated application. If you need clarification, contact marketplace support before resubmitting."}</Text>
+              </View>
+            </View>
+          ) : null}
+          <Text style={styles.intro}>{status === "rejected" ? "Update the information below and resubmit." : "Tell us about your shop. Approval usually takes 1–3 days."}</Text>
           <Input label="Shop name" value={shopName} onChangeText={setShopName} testID="apply-shop-name" />
           <Input label="Shop description" value={description} onChangeText={setDescription} multiline style={{ height: 120, textAlignVertical: "top" }} hint="What do you make? Tell buyers your story." testID="apply-description" />
 
@@ -152,7 +165,8 @@ export default function ApplySeller() {
             <Text style={{ color: colors.onSurface, flex: 1 }}>I agree to the My Nest seller terms and marketplace fee policy.</Text>
           </TouchableOpacity>
 
-          <Button title="Submit application" onPress={() => { haptics.press(); submit(); }} loading={busy} testID="apply-submit" />
+          <Button title={status === "rejected" ? "Resubmit application" : "Submit application"} onPress={() => { haptics.press(); submit(); }} loading={busy} disabled={status === "rejected" && !canResubmit} testID="apply-submit" />
+          {status === "rejected" && !canResubmit ? <Text style={styles.resubmitBlocked}>This application cannot be resubmitted yet. Contact marketplace support for the next step.</Text> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -176,6 +190,10 @@ const styles = StyleSheet.create({
   topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
   intro: { color: colors.onSurfaceMuted, marginBottom: spacing.md },
+  rejectedBox: { flexDirection: "row", gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.error, backgroundColor: colors.surfaceTertiary, marginBottom: spacing.md },
+  rejectedTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
+  rejectedText: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  resubmitBlocked: { color: colors.error, fontSize: 12, lineHeight: 17, textAlign: "center", marginTop: spacing.sm },
   label: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.sm },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
   chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },

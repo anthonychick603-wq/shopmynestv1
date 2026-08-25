@@ -18,7 +18,7 @@ import { haptics } from "@/src/utils/haptics";
 
 // v3.8.0 — the Stripe Connect flow has been retired. Sellers now save a
 // routing + account number directly on this screen; the platform ACHs
-// their share from a business checking account after the holding window.
+// their share from a business checking account after the holding window and a seller payout request.
 //
 // v1.0.128 — file moved from /seller/connect → /seller/bank so the path
 // no longer reads like a Stripe Connect leftover. Plugin v3.10.0 emits
@@ -147,7 +147,7 @@ export default function SellerBankAccount() {
           <View style={styles.infoBox}>
             <Ionicons name="information-circle-outline" size={18} color={colors.onSurfaceMuted} />
             <Text style={styles.infoText}>
-              Earnings are held for 7 days after each order is paid, then ACH&apos;d to this account. Payouts settle within 1–2 business days.
+              Earnings are held for 7 days after each order is paid. Once they become available, request a payout from Earnings & payouts. Approved ACH payouts usually settle within 1–2 business days.
             </Text>
           </View>
 
@@ -180,7 +180,7 @@ export default function SellerBankAccount() {
             {isEditing ? "Update your bank account" : "Add your bank account"}
           </Text>
           <Text style={styles.introBody}>
-            ShopMyNest deposits your earnings directly into this account by ACH after the 7-day holding window. We never share your details with buyers or other sellers.
+            ShopMyNest sends requested payouts to this account by ACH after earnings clear the 7-day holding window. We never share your details with buyers or other sellers.
           </Text>
 
           <Input

@@ -139,6 +139,24 @@ export default function AdminDashboard() {
               />
             </View>
 
+            <Text style={styles.sectionTitle}>Operations</Text>
+            <View style={styles.card}>
+              <Row
+                icon="pulse-outline"
+                label="Operational queues"
+                sub="Order exceptions, buyer-protection cases, and pending reports"
+                onPress={() => pushFromTab(router, "/admin/operations")}
+                testID="admin-nav-operations"
+              />
+              <Row
+                icon="bag-check-outline"
+                label="All orders"
+                sub="Marketplace-wide order history"
+                onPress={() => pushFromTab(router, "/admin/orders")}
+                testID="admin-nav-orders"
+              />
+            </View>
+
             <Text style={styles.sectionTitle}>Moderation</Text>
             <View style={styles.card}>
               <Row

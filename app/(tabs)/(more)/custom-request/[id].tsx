@@ -4,9 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { formatDistanceToNow } from "date-fns";
-import * as WebBrowser from "expo-web-browser";
-
 import { ApiError, nest, type NestCustomRequestDetailRaw, type NestCustomRequestMessageRaw, type NestCustomRequestStatus } from "@/src/api/nest";
+import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -14,6 +13,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
+import { useCart } from "@/src/context/CartContext";
 import { pushDetail, safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -24,6 +24,7 @@ export default function CustomRequestDetail() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { user } = useAuth();
+  const { ensureProduct } = useCart();
   const listRef = useRef<FlatList<NestCustomRequestMessageRaw>>(null);
   const [request, setRequest] = useState<NestCustomRequestDetailRaw | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +109,20 @@ export default function CustomRequestDetail() {
     });
   };
 
+  const addPrivateProductAndCheckout = async (privateProductId: number) => {
+    const raw = await nest.getProduct(privateProductId);
+    const product = toProduct(raw);
+    if (!ensureProduct(product, 1)) {
+      throw new Error("This custom item is not currently purchasable.");
+    }
+    router.push("/(tabs)/cart");
+  };
+
+  const payAcceptedQuote = () => {
+    if (!request?.private_product_id || working) return;
+    void runAction(() => addPrivateProductAndCheckout(request.private_product_id));
+  };
+
   const acceptQuote = () => {
     if (!request) return;
     Alert.alert("Accept quote?", `This will add a private one-off product to your cart for ${money(request.quoted_price_cents)}.`, [
@@ -117,9 +132,7 @@ export default function CustomRequestDetail() {
         onPress: () => {
           void runAction(async () => {
             const result = await nest.custom.acceptQuote(request.id);
-            const checkoutUrl = addToCartUrl(result.add_to_cart_url, result.private_product_id);
-            router.push("/(tabs)/cart");
-            await WebBrowser.openBrowserAsync(checkoutUrl);
+            await addPrivateProductAndCheckout(result.private_product_id);
           });
         },
       },
@@ -141,7 +154,7 @@ export default function CustomRequestDetail() {
           keyExtractor={(item) => String(item.id)}
           style={styles.flex}
           contentContainerStyle={styles.messagesContent}
-          ListHeaderComponent={<RequestHeader request={request} isBuyer={isBuyer} working={working} onWithdraw={() => void runAction(() => nest.custom.withdrawRequest(request.id))} onAccept={acceptQuote} onPay={() => router.push("/(tabs)/cart")} onQuote={() => setDialog("quote")} onDecline={() => setDialog("decline")} router={router} />}
+          ListHeaderComponent={<RequestHeader request={request} isBuyer={isBuyer} working={working} onWithdraw={() => void runAction(() => nest.custom.withdrawRequest(request.id))} onAccept={acceptQuote} onPay={payAcceptedQuote} onQuote={() => setDialog("quote")} onDecline={() => setDialog("decline")} router={router} />}
           renderItem={({ item }) => <MessageRow message={item} />}
           ListEmptyComponent={<Text style={styles.noMessages}>No messages yet. Start the conversation below.</Text>}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
@@ -214,7 +227,6 @@ function terminalStatus(status: NestCustomRequestStatus) { return status === "de
 function money(cents: number) { return `$${(Number(cents || 0) / 100).toFixed(2)}`; }
 function relativeTime(value?: string | null) { const date = parseServerDate(value); return date ? formatDistanceToNow(date, { addSuffix: true }) : ""; }
 function systemMessage(message: NestCustomRequestMessageRaw) { if (message.kind === "system_quote") return message.body || "Quote sent"; if (message.kind === "system_accept") return message.body || "Buyer accepted"; if (message.kind === "system_decline") return message.body || "Request declined"; if (message.kind === "system_withdraw") return message.body || "Request withdrawn"; if (message.kind === "system_paid") return message.body || "Payment received"; if (message.kind === "system_completed") return message.body || "Request completed"; return message.body; }
-function addToCartUrl(url: string, productId: number) { try { const parsed = new URL(url); parsed.searchParams.set("add-to-cart", String(productId)); return parsed.toString(); } catch { const separator = url.includes("?") ? "&" : "?"; return `${url}${separator}add-to-cart=${encodeURIComponent(String(productId))}`; } }
 function statusAppearance(status: NestCustomRequestStatus) { if (status === "quoted" || status === "accepted") return { container: styles.statusBrand, text: styles.statusOnBrand }; if (status === "paid") return { container: styles.statusSuccess, text: styles.statusOnBrand }; if (status === "completed") return { container: styles.statusCompleted, text: styles.statusMuted }; if (status === "declined" || status === "withdrawn") return { container: styles.statusMutedBg, text: styles.statusMuted }; return { container: styles.statusNeutral, text: styles.statusNeutralText }; }
 function statusLabel(status: NestCustomRequestStatus) { return status.charAt(0).toUpperCase() + status.slice(1); }
 
