@@ -104,6 +104,7 @@ export function toUser(u: NestUserRaw): NestUser {
   return {
     id: String(u.id),
     email: u.email,
+    phone: u.phone || "",
     name: displayName,
     profile_photo: u.photo_url || u.avatar || null,
     // v1.0.88 — backend now sends an explicit is_admin flag (plugin v3.7.115).

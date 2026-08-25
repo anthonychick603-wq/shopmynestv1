@@ -120,10 +120,11 @@ export default function Cart() {
     if (!address?.country) missing.push("a country");
     // Buyer phone: accept either the phone typed onto the shipping address
     // (what the label carries) or a phone the user saved on their profile.
-    const digits = String(address?.phone ?? "").replace(/\D+/g, "");
-    if (digits.length < 10) missing.push("a phone number");
+    const addrDigits = String(address?.phone ?? "").replace(/\D+/g, "");
+    const acctDigits = String(user?.phone ?? "").replace(/\D+/g, "");
+    if (addrDigits.length < 10 && acctDigits.length < 10) missing.push("a phone number");
     return missing;
-  }, [user?.email, address]);
+  }, [user?.email, user?.phone, address]);
   const canCheckout = contactMissing.length === 0;
 
   // The idempotency key for the current checkout attempt, held per attempt so a

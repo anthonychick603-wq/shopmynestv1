@@ -929,6 +929,10 @@ export type NestUserRaw = {
   seller_status?: string;
   store_name?: string;
   photo_url?: string;
+  // v1.0.161 (plugin v3.13.33) — exposed so the address-edit screen can
+  // hydrate account contact fields (email + phone) alongside the shipping
+  // address in a single trip.
+  phone?: string;
 };
 
 export type NestSellerRaw = {

@@ -19,6 +19,10 @@ export type NestAddress = {
 export type NestUser = {
   id: string;
   email: string;
+  // v1.0.161 — mirrors the plugin's billing_phone user meta, surfaced in
+  // /auth/me so the address-edit screen can show and update it without a
+  // separate profile round trip.
+  phone?: string;
   name: string;
   profile_photo?: string | null;
   role: Role;
