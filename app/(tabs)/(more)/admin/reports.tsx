@@ -6,7 +6,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { nest, ApiError, type AdminReport } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -47,11 +47,9 @@ export default function AdminReports() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load(status);
-    }, [load, status]),
-  );
+  // v1.0.167 — load on mount and when the status filter changes.
+  // Focus refetch removed to preserve state on return.
+  React.useEffect(() => { load(status); }, [load, status]);
 
   const act = async (id: number, action: "resolve" | "dismiss") => {
     setActing(id);

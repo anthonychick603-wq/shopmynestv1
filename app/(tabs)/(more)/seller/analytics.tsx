@@ -19,7 +19,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { format, parseISO } from "date-fns";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -106,7 +106,10 @@ export default function SellerAnalytics() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(range); }, [load, range]));
+  // v1.0.167 — load on mount and when the range changes. Focus
+  // refetch removed so scroll and pagination survive returning from
+  // a pushed screen.
+  React.useEffect(() => { load(range); }, [load, range]);
 
   if (!user || (user.role !== "seller" && user.role !== "admin")) {
     return (

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { nest, type NestConversationRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -57,9 +57,10 @@ export default function MessagesInbox() {
     }
   }, [user]);
 
+  // v1.0.167 — load once on mount. Pull to refresh to force reload.
+  // The old focus refetch was resetting scroll position every time the
+  // user returned to the inbox.
   useEffect(() => { load(); }, [load]);
-  // Refresh whenever the inbox regains focus so a just-sent thread appears.
-  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (!user) {
     return (

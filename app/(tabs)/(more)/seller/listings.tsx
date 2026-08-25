@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
@@ -78,7 +78,10 @@ export default function SellerListings() {
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // v1.0.167 — load once on mount. Pull to refresh to force reload.
+  // Focus refetch removed so scroll position survives returning from
+  // a pushed edit/detail screen.
+  React.useEffect(() => { load(); }, [load]);
 
   // v1.0.148 — three-way partition of the seller's listings:
   //   drafts    = anything not yet published (fix required)

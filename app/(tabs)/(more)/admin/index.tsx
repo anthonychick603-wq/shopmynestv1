@@ -6,13 +6,14 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { nest, ApiError, type AdminStats } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack, pushFromTab } from "@/src/utils/nav";
+import { useLoadOnce } from "@/src/hooks/use-load-once";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -40,11 +41,12 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
+  // v1.0.167 — load once on mount, refetch only if the screen has been
+  // out of focus more than 5 minutes. Preserves scroll and any expanded
+  // state when returning from a pushed admin detail.
+  const { markLoaded } = useLoadOnce(load, { staleMs: 5 * 60_000 });
+  // markLoaded exposed for pull-to-refresh handlers.
+  void markLoaded;
 
   if (user?.role !== "admin") {
     return (

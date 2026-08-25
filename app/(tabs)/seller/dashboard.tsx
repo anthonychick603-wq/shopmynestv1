@@ -103,10 +103,11 @@ export default function SellerDashboard() {
     }
   }, [user]);
 
-  // Only reload on focus if data is older than 60s to eliminate stutter
-  // when quickly switching tabs.
+  // v1.0.167 — only reload on focus if data is older than 5 minutes.
+  // Preserves scroll position when returning from a pushed edit or
+  // detail screen. Pull to refresh forces a reload.
   useFocusEffect(useCallback(() => {
-    const stale = Date.now() - lastLoadAt.current > 60_000;
+    const stale = Date.now() - lastLoadAt.current > 5 * 60_000;
     if (stale) load();
   }, [load]));
 

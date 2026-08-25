@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
 import { toBlogPost } from "@/src/api/adapters";
@@ -45,11 +45,9 @@ export default function BlogModeration() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load(status);
-    }, [load, status]),
-  );
+  // v1.0.167 — load on mount and when the status filter changes.
+  // Focus refetch removed to preserve state on return.
+  React.useEffect(() => { load(status); }, [load, status]);
 
   const moderate = async (id: string, action: "approve" | "reject") => {
     setActing(id);

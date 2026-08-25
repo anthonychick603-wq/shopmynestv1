@@ -6,7 +6,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
 import { nest, ApiError, type AdminOrder } from "@/src/api/nest";
@@ -62,11 +62,10 @@ export default function AdminOrders() {
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load(range);
-    }, [load, range]),
-  );
+  // v1.0.167 — load on mount and when the range filter changes.
+  // Focus refetch removed to preserve scroll / pagination state when
+  // the user returns from a pushed screen.
+  React.useEffect(() => { load(range); }, [load, range]);
 
   if (user?.role !== "admin") {
     return (

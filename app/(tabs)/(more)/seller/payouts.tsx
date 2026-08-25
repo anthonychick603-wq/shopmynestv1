@@ -2,7 +2,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
 import { nest, ApiError, type NestBalances, type NestPayoutRaw } from "@/src/api/nest";
@@ -43,7 +43,10 @@ export default function Payouts() {
     }
   }, [isSeller]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // v1.0.167 — load once on mount. Focus refetch removed so the
+  // scroll position through the payout ledger survives return trips.
+  // Pull to refresh forces a reload.
+  React.useEffect(() => { load(); }, [load]);
 
   // v1.0.104 — the plugin (v3.7.122.6+) already clamps `available` to ≥ 0 and
   // exposes any postage debit separately as `shipping_owed`. Guard against
