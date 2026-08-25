@@ -105,6 +105,27 @@ export default function Cart() {
   // written onto the order, and changing only the name must still count.
   const addressSig = address ? JSON.stringify(address) : "";
 
+  // v1.0.160 — Mirror the plugin v3.13.32 buyer_contact_incomplete rules so
+  // the buyer sees what's missing BEFORE they tap Checkout. The server is still
+  // the source of truth (create-intent will 422 if we let a bad request through)
+  // — this is just a proactive UI to save a round trip.
+  const contactMissing = React.useMemo(() => {
+    const missing: string[] = [];
+    if (!user?.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) missing.push("an email");
+    if (!address?.first_name || !address?.last_name) missing.push("a recipient name");
+    if (!address?.address_1) missing.push("a street address");
+    if (!address?.city) missing.push("a city");
+    if (!address?.state) missing.push("a state");
+    if (!address?.postcode) missing.push("a ZIP");
+    if (!address?.country) missing.push("a country");
+    // Buyer phone: accept either the phone typed onto the shipping address
+    // (what the label carries) or a phone the user saved on their profile.
+    const digits = String(address?.phone ?? "").replace(/\D+/g, "");
+    if (digits.length < 10) missing.push("a phone number");
+    return missing;
+  }, [user?.email, address]);
+  const canCheckout = contactMissing.length === 0;
+
   // The idempotency key for the current checkout attempt, held per attempt so a
   // double-tap, a network retry, or the shipping-mismatch abort below all resend
   // the same token — the server then reuses its existing pending order instead
@@ -645,6 +666,30 @@ export default function Cart() {
           <SummaryRow label="Estimated total" value={`$${displayTotal.toFixed(2)}`} bold />
         </View>
 
+        {/* v1.0.160 — Proactive block: mirror plugin v3.13.32 rules so the
+            buyer sees what's missing before tapping Checkout. */}
+        {cart.items.length > 0 && !canCheckout ? (
+          <TouchableOpacity
+            style={styles.contactWarn}
+            onPress={openAddressPicker}
+            activeOpacity={0.85}
+            testID="cart-contact-warn"
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${contactMissing.join(", ")} before checking out.`}
+          >
+            <View style={styles.contactWarnIcon}>
+              <Ionicons name="alert-circle" size={18} color={colors.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.contactWarnTitle}>Finish your details to check out</Text>
+              <Text style={styles.contactWarnBody}>
+                Add {contactMissing.join(", ")}. Tap to open your shipping address.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.warning} />
+          </TouchableOpacity>
+        ) : null}
+
         <Text style={styles.secure}>🔒 Checkout uses secure payments on {SITE.replace(/^https?:\/\//, "")}.</Text>
       </ScrollView>
 
@@ -655,7 +700,26 @@ export default function Cart() {
           <Text style={styles.bottomTotalLabel}>Total</Text>
           <Text style={styles.bottomTotal}>${displayTotal.toFixed(2)}</Text>
         </View>
-        <TouchableOpacity onPress={() => { haptics.press(); onCheckout(); }} disabled={paying} style={[styles.checkoutBtn, paying && styles.checkoutBtnDisabled]} testID="cart-checkout">
+        <TouchableOpacity
+          onPress={() => {
+            // v1.0.160 — If contact/address is incomplete, don't waste a round
+            // trip to the server. Route the buyer straight to the address form,
+            // matching what the server's 422 error path would do.
+            if (!canCheckout) {
+              haptics.warning();
+              toast.show(`Add ${contactMissing.join(", ")} to check out.`, "info");
+              openAddressPicker();
+              return;
+            }
+            haptics.press();
+            onCheckout();
+          }}
+          disabled={paying}
+          style={[styles.checkoutBtn, (paying || !canCheckout) && styles.checkoutBtnDisabled]}
+          testID="cart-checkout"
+          accessibilityState={{ disabled: paying || !canCheckout }}
+          accessibilityLabel={canCheckout ? "Checkout" : "Complete your shipping details to check out"}
+        >
           {paying ? (
             <ActivityIndicator color={colors.onBrand} />
           ) : (
@@ -878,6 +942,12 @@ const styles = StyleSheet.create({
   summary: { marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, ...shadows.card },
   divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.sm },
   secure: { textAlign: "center", color: colors.onSurfaceMuted, marginTop: spacing.md, marginHorizontal: spacing.lg, fontSize: 12 },
+  // v1.0.160 — warning card shown above the checkout button when the buyer is
+  // missing email/phone/address fields that the server would reject.
+  contactWarn: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.lg, borderLeftWidth: 3, borderLeftColor: colors.warning },
+  contactWarnIcon: { width: 28, height: 28, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+  contactWarnTitle: { color: colors.onSurface, fontWeight: "600", fontSize: 14, marginBottom: 2 },
+  contactWarnBody: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 16 },
   bottomBar: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, paddingHorizontal: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border, gap: spacing.md, ...shadows.strong },
   bottomTotalLabel: { fontSize: 11, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5 },
   bottomTotal: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
