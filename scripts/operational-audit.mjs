@@ -17,6 +17,12 @@ const checks = [
   ['admin payout requires transfer reference UI', 'app/(tabs)/(more)/admin/payouts.tsx', s => s.includes('ACH / bank confirmation reference') && s.includes('adminRetryPayout')],
   ['admin dispute resolution is actionable', 'app/(tabs)/(more)/disputes/[id].tsx', s => s.includes('resolved_refund') && s.includes('resolved_partial') && s.includes('resolved_no_refund')],
   ['merchant id is centralized', 'src/context/StripePayment.tsx', s => s.includes('stripeMerchantIdentifier') && !s.includes('TODO: Replace with the real Apple merchant ID')],
+  ['final tax is reviewed before PaymentSheet', 'app/(tabs)/(more)/cart.tsx', s => s.includes('finalReview') && s.includes('serverTax') && s.includes('Your final shipping, tax, or total changed')],
+  ['atomic contact/address API is used', 'app/(tabs)/(more)/me/address-edit.tsx', s => s.includes('saveContactAddress') && !s.includes('nest.updateMe(accountPayload)')],
+  ['saved addresses match checkout requirements', 'app/(tabs)/(more)/me/address-edit.tsx', s => s.includes('["first_name", "first name"]') && s.includes('["country", "country"]')],
+  ['blog moderation is admin-only', 'app/(tabs)/(more)/blog/moderation.tsx', s => s.includes('user?.role !== "admin"')],
+  ['production build auto-increments', 'eas.json', s => JSON.parse(s).build.production.autoIncrement === true],
+  ['npm is the declared package manager', 'package.json', s => String(JSON.parse(s).packageManager || '').startsWith('npm@')],
 ];
 
 let failed = 0;
@@ -31,3 +37,5 @@ if (failed) {
   process.exit(1);
 }
 console.log(`\nAll ${checks.length} operational regression checks passed.`);
+
+// v1.0.173 additional checks are documented in docs/RELEASE_FIXES_v1.0.173.md

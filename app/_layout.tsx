@@ -8,8 +8,6 @@ import { useDeepLinkRouting } from "@/src/hooks/use-deep-link-routing";
 import { useHardwareBack } from "@/src/hooks/use-hardware-back";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { useNotificationRouting } from "@/src/hooks/use-notification-routing";
-import { useTrackReferringTab } from "@/src/hooks/use-track-referring-tab";
-import { useNavHistory } from "@/src/hooks/use-nav-history";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
@@ -68,9 +66,7 @@ export default function RootLayout() {
               {/* Needs the auth + navigation contexts, so they mount inside them. */}
               <NotificationTapRouter />
               <DeepLinkRouter />
-              <NavHistoryTracker />
               <HardwareBackRouter />
-              <ReferringTabTracker />
             </View>
             </StripePaymentProvider>
             </RestockAlertsProvider>
@@ -101,21 +97,6 @@ function HardwareBackRouter() {
   // pops (more) stack when there's history, routes to the natural parent
   // tab when there isn't, and stays out of the way on tab roots.
   useHardwareBack();
-  return null;
-}
-
-function ReferringTabTracker() {
-  // v1.0.57 - remembers which tab the user was on so safeBack can return
-  // there when the (more) stack has no history to pop.
-  useTrackReferringTab();
-  return null;
-}
-
-function NavHistoryTracker() {
-  // v1.0.117 - records every route the user visits (including params) so
-  // safeBack + Android hardware back can always return to the exact
-  // previous screen, even across tab switches and deep links.
-  useNavHistory();
   return null;
 }
 

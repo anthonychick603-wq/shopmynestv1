@@ -9,6 +9,7 @@ import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { nest, ApiError } from "@/src/api/nest";
 import { haptics } from "@/src/utils/haptics";
+import { safeBack } from "@/src/utils/nav";
 
 // v1.0.133 — Step 2 of the password-reset flow. Six-box code input
 // mirroring the signup verify screen. Verifying the code before we
@@ -114,7 +115,7 @@ export default function ForgotPasswordVerify() {
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
             <TouchableOpacity
-              onPress={() => { haptics.tap(); router.back(); }}
+              onPress={() => { haptics.tap(); safeBack(router, "/(auth)/forgot-password"); }}
               testID="forgot-verify-back"
               accessibilityRole="button"
               accessibilityLabel="Back"

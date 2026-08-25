@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Stack } from "expo-router";
+import { useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerShippingProfile } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -10,6 +10,9 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { haptics } from "@/src/utils/haptics";
+import { safeBack } from "@/src/utils/nav";
+import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 
 /**
  * Seller-side ship-from address form.
@@ -48,6 +51,7 @@ const STATE_DEFAULT = "NH";
 
 export default function SellerShipFromAddress() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [profile, setProfile] = useState<NestSellerShippingProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -112,8 +116,21 @@ export default function SellerShipFromAddress() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }} edges={["bottom"]}>
-      <Stack.Screen options={{ title: "Ship-from address" }} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }} edges={["top", "left", "right"]}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }}
+          style={styles.headerBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          testID="ship-from-back"
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Ship-from address</Text>
+        <AlertsBellButton />
+        <CartHeaderButton />
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + spacing.xl }]}
@@ -263,6 +280,9 @@ export default function SellerShipFromAddress() {
 }
 
 const styles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  headerBtn: { padding: spacing.xs, borderRadius: radius.pill },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", color: colors.onSurface, textAlign: "center" },
   container: { padding: spacing.lg, gap: spacing.lg },
   hero: { gap: spacing.sm },
   heroTitle: { fontSize: 20, fontWeight: "800", color: colors.onSurface },

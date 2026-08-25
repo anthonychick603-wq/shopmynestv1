@@ -93,14 +93,13 @@ export default function Account() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
         <View style={styles.header}>
-          {/* Unlisted entry point to blog moderation. The backend routes are the
-              real gate (403 for non-admins); is_approved_seller is the only
-              store-management flag the API exposes, so it is used here only to
-              keep the affordance away from buyers. */}
+          {/* Unlisted admin-only entry point to blog moderation. The backend
+              remains the final authorization gate, and the client now mirrors it
+              with the explicit admin role instead of seller approval status. */}
           <TouchableOpacity
             activeOpacity={1}
             delayLongPress={800}
-            onLongPress={() => (user.is_approved_seller ? pushFromTab(router, "/blog/moderation") : undefined)}
+            onLongPress={() => (user.role === "admin" ? pushFromTab(router, "/blog/moderation") : undefined)}
             testID="acc-blog-moderation"
           >
             <NestLogo compact title="Account" />

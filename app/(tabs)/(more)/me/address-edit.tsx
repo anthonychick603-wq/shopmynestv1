@@ -61,8 +61,13 @@ export default function AddressEditScreen() {
       try {
         const list = await nest.listAddressBook();
         const a = (list.items || []).find(x => x.id === String(id));
-        if (a) setForm(hydrateForm(a));
-        else toast.error("Address not found");
+        if (a) {
+          setForm(hydrateForm(a));
+          // v1.0.173 — the duplicate address-phone input is gone, so preserve
+          // an existing recipient phone by hydrating the one visible Phone field
+          // when account-level phone metadata has not been populated yet.
+          if (!accountPhone && a.phone) setAccountPhone(a.phone);
+        } else toast.error("Address not found");
       } catch (e) {
         toast.error(e instanceof ApiError ? e.friendly : "Load failed");
       } finally {
@@ -86,35 +91,33 @@ export default function AddressEditScreen() {
       toast.error("Enter a phone number with at least 10 digits");
       return;
     }
-    if (!form.address_1?.trim() || !form.city?.trim() || !form.postcode?.trim()) {
-      toast.error("Street, city, and ZIP are required");
+    const requiredAddress: [keyof NestAddressBookWrite, string][] = [
+      ["first_name", "first name"], ["last_name", "last name"], ["address_1", "street"],
+      ["city", "city"], ["state", "state"], ["postcode", "ZIP"], ["country", "country"],
+    ];
+    const missingAddress = requiredAddress.filter(([key]) => !String(form[key] ?? "").trim()).map(([, label]) => label);
+    if (missingAddress.length > 0) {
+      toast.error(`Add ${missingAddress.join(", ")} before saving`);
       return;
     }
-    // v1.0.168 — Ensure the shipping address itself carries a phone number,
-    // not just the account. USPS labels print the recipient-phone off the
-    // address (not off billing_phone), so a missing address.phone shows up
-    // as "unknown recipient phone" on the carrier side. Default to the
-    // account phone the user just typed above when the field is blank.
-    const addrPhoneDigits = String(form.phone || "").replace(/\D+/g, "");
-    if (addrPhoneDigits.length < 10) {
-      // Copy account phone into the address so the record is complete
-      // (accountPhone was already validated to be ≥ 10 digits above).
-      form.phone = accountPhone;
-    }
+    // There is one visible phone field on this page: Account contact → Phone.
+    // The address record still needs a recipient phone for labels, so mirror
+    // that single visible value into the shipping-address payload on save.
+    const addressPayload: NestAddressBookWrite = {
+      ...form,
+      phone: accountPhone.trim(),
+    };
     setSaving(true);
     try {
-      // Only PATCH /auth/me when a value actually changed. `undefined` fields
-      // are dropped by JSON.stringify, so an unchanged email or phone doesn't
-      // trip email_exists / invalid_phone unnecessarily.
-      const accountPayload: Record<string, string> = {};
-      if (accountEmail.trim() !== (user?.email || "")) accountPayload.email = accountEmail.trim();
-      if (accountPhone !== (user?.phone || "")) accountPayload.phone = accountPhone;
-      if (Object.keys(accountPayload).length > 0) {
-        const updatedRaw = await nest.updateMe(accountPayload);
-        updateUser(toUser(updatedRaw));
-      }
-      if (isEdit && id) await nest.updateAddress(String(id), form);
-      else await nest.createAddress(form);
+      // v1.0.173 — one server operation validates every field first and then
+      // saves account contact + address together. This removes the old partial
+      // save where email/phone could change even if the address request failed.
+      const saved = await nest.saveContactAddress({
+        contact: { email: accountEmail.trim(), phone: accountPhone.trim() },
+        address: addressPayload,
+        ...(isEdit && id ? { address_id: String(id) } : {}),
+      });
+      updateUser(toUser(saved.user));
       toast.success(isEdit ? "Contact and address saved" : "Contact and address added");
       safeBack(router, "/me/addresses");
     } catch (e) {
@@ -165,7 +168,6 @@ export default function AddressEditScreen() {
             <Field label="ZIP" value={form.postcode || ""} onChange={v => set("postcode", v)} keyboard="number-pad" />
           </Row>
           <Field label="Country" value={form.country || ""} onChange={v => set("country", v.toUpperCase())} placeholder="US" />
-          <Field label="Phone*" value={form.phone || ""} onChange={v => set("phone", v)} keyboard="phone-pad" />
 
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>

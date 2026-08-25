@@ -37,12 +37,12 @@ import { router as globalRouter, type Router } from "expo-router";
 // Back.
 //
 //   Priority 1: router.canGoBack() → router.back().
-//   Priority 2: no history to pop (rare — cold-start deep link into a
-//               non-root screen). Replace to /(tabs) so the user isn't
-//               stranded with no way out. This is NOT a normal back
-//               destination; a normal back is always priority 1.
+//   Priority 2: no history to pop (cold-start deep link, restored route,
+//               or a screen opened as the first route). Replace to that
+//               screen's natural parent. This is the only time fallback
+//               is used; normal back always pops the actual stack.
 
-export function safeBack(router: Router, _fallback?: string) {
+export function safeBack(router: Router, fallback = "/(tabs)") {
   try {
     if (router.canGoBack()) {
       router.back();
@@ -51,10 +51,10 @@ export function safeBack(router: Router, _fallback?: string) {
   } catch {
     // canGoBack throws mid-transition sometimes; treat as "no".
   }
-  // Cold-start deep-link path only. The user is on a screen that was
-  // never pushed by this session's stack, so there's genuinely nothing
-  // to pop. Send them to the tab root instead of leaving them stranded.
-  router.replace("/(tabs)" as never);
+  // No stack entry exists to pop. Respect the natural parent supplied by
+  // the screen instead of always jumping to Home. That keeps deep links
+  // and restored screens consistent with the same screen reached normally.
+  router.replace((fallback || "/(tabs)") as never);
 }
 
 // -----------------------------------------------------------------------

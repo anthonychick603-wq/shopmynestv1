@@ -48,10 +48,10 @@ export default function SellerApplicationsAdmin() {
     ]);
   };
 
-  if (user?.role !== "admin") return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router)} /><EmptyState icon="lock-closed-outline" title="Not available" message="Admin access is required." /></SafeAreaView>;
-  if (loading) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router)} /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
+  if (user?.role !== "admin") return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/admin/operations")} /><EmptyState icon="lock-closed-outline" title="Not available" message="Admin access is required." /></SafeAreaView>;
+  if (loading) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/admin/operations")} /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
 
-  return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router)} /><ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={colors.brand} />}>
+  return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/admin/operations")} /><ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={colors.brand} />}>
     {!items.length ? <EmptyState icon="checkmark-circle-outline" title="Queue clear" message="No seller applications are waiting for review." /> : items.map((app) => <View key={app.id} style={styles.card}>
       <Text style={styles.title}>{app.store_name || app.seller_name}</Text>
       <Text style={styles.sub}>{app.seller_name} · {app.seller_email}</Text>

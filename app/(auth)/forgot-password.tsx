@@ -10,6 +10,7 @@ import { Input } from "@/src/components/Input";
 import { NestLogo } from "@/src/components/NestLogo";
 import { nest, ApiError } from "@/src/api/nest";
 import { haptics } from "@/src/utils/haptics";
+import { safeBack } from "@/src/utils/nav";
 
 // v1.0.133 — Step 1 of the password-reset flow. Asks for the email or
 // username on the account, calls /auth/password-reset/request, and
@@ -49,7 +50,7 @@ export default function ForgotPassword() {
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
             <TouchableOpacity
-              onPress={() => { haptics.tap(); router.back(); }}
+              onPress={() => { haptics.tap(); safeBack(router, "/(auth)/login"); }}
               testID="forgot-back"
               accessibilityRole="button"
               accessibilityLabel="Back"

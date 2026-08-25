@@ -63,11 +63,9 @@ export default function BlogModeration() {
     }
   };
 
-  // The API's only "can manage the store" signal is is_approved_seller, which the
-  // backend sets for admins/managers as well as approved sellers. See the report
-  // note: this screen is unlisted, but the server is the real gate (its routes
-  // return 403 for non-admins).
-  if (!user?.is_approved_seller) {
+  // Deep links are guarded locally as well as server-side. Approved sellers
+  // are not admins and cannot enter moderation.
+  if (user?.role !== "admin") {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top onBack={() => safeBack(router, "/(tabs)")} />

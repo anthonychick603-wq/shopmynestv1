@@ -80,6 +80,9 @@ export default function Cart() {
   const [quotedShipping, setQuotedShipping] = React.useState<number | null>(null);
   // Set from create-intent when the server had to change the picked rate.
   const [shippingOverride, setShippingOverride] = React.useState<number | null>(null);
+  // Final money returned by create-intent after WooCommerce calculates tax.
+  // PaymentSheet is not opened until the buyer has seen these values once.
+  const [finalReview, setFinalReview] = React.useState<{ orderId: number; tax: number; total: number; shipping: number | null } | null>(null);
   // v1.0.92 — coupon input. The typed value only becomes an applied code once
   // the buyer taps Apply, so an accidental keystroke does not requote the cart.
   const [couponInput, setCouponInput] = React.useState("");
@@ -103,6 +106,10 @@ export default function Cart() {
   // Whole object, not formatAddress(): recipient name is part of what gets
   // written onto the order, and changing only the name must still count.
   const addressSig = address ? JSON.stringify(address) : "";
+
+  React.useEffect(() => {
+    setFinalReview(null);
+  }, [itemsSig, addressSig, appliedCoupon]);
 
   // v1.0.160 — Mirror the plugin v3.13.32 buyer_contact_incomplete rules so
   // the buyer sees what's missing BEFORE they tap Checkout. The server is still
@@ -334,7 +341,9 @@ export default function Cart() {
   else if (address && ratesError) shippingAmount = quotedShipping ?? flatEstimate(cart.subtotal);
   else shippingAmount = null;
   const displayShipping = couponFreeShipping ? 0 : (shippingAmount ?? 0);
-  const displayTotal = Math.max(0, cart.subtotal - couponDiscount + displayShipping);
+  const estimatedTotal = Math.max(0, cart.subtotal - couponDiscount + displayShipping);
+  const displayTax = finalReview?.tax ?? null;
+  const displayTotal = finalReview?.total ?? estimatedTotal;
 
   // v1.0.158 — Buyer-facing label reads "Shipping & Handling" because the row
   // now bakes in a $1.05 handling fee on top of the real carrier rate (see
@@ -377,36 +386,33 @@ export default function Cart() {
         return;
       }
 
-      // The server recomputes shipping at intent time and only trusts the rate id,
-      // so its figure can differ from the one on screen (picked rate expired, live
-      // rates came back after a flat estimate, admin changed the flat amount…).
-      // Only shipping is compared: the order total also picks up tax from
-      // calculate_taxes(), which the quote never includes.
-      const serverShipping = typeof intent.shipping_total === "number" ? intent.shipping_total : null;
-      const shippingDiffers =
-        serverShipping != null && shippingAmount != null && Math.abs(serverShipping - shippingAmount) >= 0.01;
-
-      if (intent.shipping_selection_changed || shippingDiffers) {
-        if (serverShipping != null) setShippingOverride(serverShipping);
-        if (intent.shipping_method_id) setSelectedRateId(intent.shipping_method_id);
-        // Stop here rather than falling through to the payment sheet — otherwise
-        // the buyer is charged an amount that was never rendered to them. The
-        // attempt token is intentionally left alone: the pending order the server
-        // just created (now carrying its corrected shipping) is reused by the
-        // retry rather than being orphaned alongside a duplicate.
-        toast.show("Shipping cost changed. Review the new total and tap Checkout again.", "info");
+      // The server is authoritative for every money field. First catch stale
+      // item prices, then require an explicit second tap whenever shipping, tax,
+      // discount, or the final amount differs from what was rendered before this
+      // create-intent call. The same checkout token reuses the pending order on
+      // that second tap, so review does not create duplicates.
+      const serverSubtotal = typeof intent.subtotal === "number" ? intent.subtotal : null;
+      const subtotalDiffers = serverSubtotal != null && Math.abs(serverSubtotal - cart.subtotal) >= 0.01;
+      if (subtotalDiffers) {
+        refreshPrices();
+        setFinalReview(null);
+        toast.show("Prices changed. Review the new total and tap Checkout again.", "info");
         return;
       }
 
-      // v1.0.158 — Same guard for items subtotal drift (seller edited a listing
-      // between add-to-cart and checkout). Fire a background refresh of every
-      // line so the buyer sees the new prices when they retry.
-      const serverSubtotal = typeof intent.subtotal === "number" ? intent.subtotal : null;
-      const subtotalDiffers =
-        serverSubtotal != null && Math.abs(serverSubtotal - cart.subtotal) >= 0.01;
-      if (subtotalDiffers) {
-        refreshPrices();
-        toast.show("Prices changed. Review the new total and tap Checkout again.", "info");
+      const serverShipping = typeof intent.shipping_total === "number" ? intent.shipping_total : null;
+      const serverTax = typeof intent.tax_total === "number" ? intent.tax_total : 0;
+      const shippingDiffers = serverShipping != null && shippingAmount != null && Math.abs(serverShipping - shippingAmount) >= 0.01;
+      const alreadyReviewed = finalReview?.orderId === intent.order_id
+        && Math.abs(finalReview.total - intent.amount) < 0.01
+        && Math.abs(finalReview.tax - serverTax) < 0.01;
+      const finalDiffers = Math.abs(intent.amount - displayTotal) >= 0.01;
+
+      if (!alreadyReviewed && (intent.shipping_selection_changed || shippingDiffers || finalDiffers)) {
+        if (serverShipping != null) setShippingOverride(serverShipping);
+        if (intent.shipping_method_id) setSelectedRateId(intent.shipping_method_id);
+        setFinalReview({ orderId: intent.order_id, tax: serverTax, total: intent.amount, shipping: serverShipping });
+        toast.show("Your final shipping, tax, or total changed. Review the final amount and tap Checkout again.", "info");
         return;
       }
 
@@ -572,6 +578,7 @@ export default function Cart() {
                     onPress={() => {
                       setSelectedRateId(r.id);
                       setShippingOverride(null);
+                      setFinalReview(null);
                       // Picking a different rate by hand is a new order, not a
                       // retry — the server won't re-price an order it reuses.
                       startNewCheckoutAttempt();
@@ -618,6 +625,7 @@ export default function Cart() {
                   setCouponDiscount(0);
                   setCouponFreeShipping(false);
                   setCouponError(null);
+                  setFinalReview(null);
                   startNewCheckoutAttempt();
                 }}
                 accessibilityLabel="Remove coupon"
@@ -643,6 +651,7 @@ export default function Cart() {
                   if (!code) return;
                   haptics.press();
                   setAppliedCoupon(code);
+                  setFinalReview(null);
                   startNewCheckoutAttempt();
                 }}
                 style={styles.couponApplyBtn}
@@ -661,9 +670,9 @@ export default function Cart() {
             <SummaryRow label={`Discount${appliedCoupon ? ` (${appliedCoupon})` : ""}`} value={`-$${couponDiscount.toFixed(2)}`} />
           ) : null}
           <SummaryRow label={shippingRowLabel} value={couponFreeShipping ? "Free" : shippingRowValue} />
-          <SummaryRow label="Tax" value="Calculated at checkout" />
+          <SummaryRow label="Tax" value={displayTax == null ? "Calculated at checkout" : `$${displayTax.toFixed(2)}`} />
           <View style={styles.divider} />
-          <SummaryRow label="Estimated total" value={`$${displayTotal.toFixed(2)}`} bold />
+          <SummaryRow label={finalReview ? "Final total" : "Estimated total"} value={`$${displayTotal.toFixed(2)}`} bold />
         </View>
 
         {/* v1.0.160 — Proactive block: mirror plugin v3.13.32 rules so the

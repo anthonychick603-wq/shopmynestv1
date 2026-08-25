@@ -11,6 +11,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { nest, ApiError } from "@/src/api/nest";
 import { haptics } from "@/src/utils/haptics";
+import { safeBack } from "@/src/utils/nav";
 
 // v1.0.133 — Step 3 of the password-reset flow. Collects a new
 // password + confirmation, calls /auth/password-reset/confirm, and
@@ -83,7 +84,7 @@ export default function ForgotPasswordReset() {
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
             <TouchableOpacity
-              onPress={() => { haptics.tap(); router.back(); }}
+              onPress={() => { haptics.tap(); safeBack(router, "/(auth)/forgot-password"); }}
               testID="forgot-reset-back"
               accessibilityRole="button"
               accessibilityLabel="Back"

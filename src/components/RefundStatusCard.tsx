@@ -80,6 +80,8 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
 
   const canRequest = refund.eligibility?.can_request === true && !activeCaseId;
   const blockers = refund.eligibility?.blockers || [];
+  const requestType = refund.eligibility?.request_type || refund.request_type || "return";
+  const requestLabel = requestType === "cancellation" ? "Request cancellation" : "Request refund";
 
   const reasonLabel = useMemo(
     () => REASONS.find((r) => r.key === reason)?.label || REASONS[0].label,
@@ -94,7 +96,7 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
       onChange(next);
       setModalOpen(false);
       setDetails("");
-      toast.show("Refund request sent");
+      toast.show(requestType === "cancellation" ? "Cancellation request sent" : "Refund request sent");
     } catch (err) {
       const msg =
         err instanceof ApiError
@@ -127,7 +129,9 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
         <Text style={styles.helper}>
           No refund activity on this order.{" "}
           {canRequest
-            ? `Refunds are available within ${refund.eligibility.policy_days} days of delivery for unused items.`
+            ? requestType === "cancellation"
+              ? "This order has not shipped yet, so you can request cancellation."
+              : `Returns are available within ${refund.eligibility.policy_days} days of delivery for unused items.`
             : ""}
         </Text>
       ) : null}
@@ -191,7 +195,7 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
           testID="refund-request-open"
         >
           <Ionicons name="return-down-back-outline" size={18} color={colors.onBrand} />
-          <Text style={styles.ctaText}>Request refund</Text>
+          <Text style={styles.ctaText}>{requestLabel}</Text>
         </TouchableOpacity>
       ) : refund.state === "none" && blockers.length > 0 ? (
         <View style={styles.blockerBlock}>
@@ -217,9 +221,11 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
         >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalOpen(false)} />
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Request a refund</Text>
+            <Text style={styles.modalTitle}>{requestType === "cancellation" ? "Request cancellation" : "Request a refund"}</Text>
             <Text style={styles.modalSub}>
-              Tell us what happened. If approved, the refund will be issued to the card used at checkout.
+              {requestType === "cancellation"
+                ? "Tell us why you need to cancel. If approved, the payment will be returned to the card used at checkout."
+                : "Tell us what happened. If approved, the refund will be issued to the card used at checkout."}
             </Text>
             <Text style={styles.modalKey}>Reason</Text>
             <ScrollView style={styles.reasonList} showsVerticalScrollIndicator={false}>

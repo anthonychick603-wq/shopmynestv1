@@ -55,7 +55,7 @@ export default function AddressBookScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/more"); }} style={styles.iconBtn} accessibilityLabel="Back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.iconBtn} accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Addresses</Text>

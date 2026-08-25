@@ -734,6 +734,10 @@ export const nest = {
   getAddresses: () => request<{ billing: NestWpAddress; shipping: NestWpAddress }>("ops", "/addresses"),
   saveAddresses: (payload: { billing?: NestWpAddress; shipping?: NestWpAddress }) =>
     request<{ ok: boolean }>("ops", "/addresses", { method: "POST", body: payload }),
+  // Atomically saves account contact + one address-book row. The server
+  // validates the complete checkout shape before writing either side.
+  saveContactAddress: (payload: { contact: { email: string; phone: string }; address: NestAddressBookWrite; address_id?: string }) =>
+    request<{ ok: boolean; user: NestUserRaw; address: NestAddressBookEntry }>("marketplace", "/me/contact-address", { method: "POST", body: payload }),
   registerDeviceToken: (payload: { token: string; platform: string }) =>
     request<{ ok: boolean }>("ops", "/device-token", { method: "POST", body: payload }),
 
@@ -1511,11 +1515,13 @@ export type NestRefundStatus = {
   reason: string;
   details: string;
   denial_note: string;
+  request_type?: "cancellation" | "return" | "in_transit" | "";
   timeline: NestRefundTimelineEntry[];
   eligibility: {
     can_request: boolean;
     blockers: string[];
     policy_days: number;
+    request_type?: "cancellation" | "return" | "in_transit" | "";
   };
 };
 
@@ -1648,6 +1654,11 @@ export type NestPaymentIntentRaw = {
   currency: string;
   // Server-resolved shipping selection (present on the native checkout intent).
   shipping_total?: number;
+  // Final server-calculated tax/discount included in `amount`. Quote tax is only
+  // an estimate; cart.tsx uses these to require one explicit review tap when the
+  // final total differs before PaymentSheet can open.
+  tax_total?: number;
+  discount_total?: number;
   shipping_label?: string;
   shipping_method_id?: string;
   // True when the picked rate was gone and the server fell back to cheapest.

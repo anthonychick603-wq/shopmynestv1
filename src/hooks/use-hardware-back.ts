@@ -21,7 +21,6 @@ import { BackHandler, Platform } from "react-native";
 import { useRouter, useSegments } from "expo-router";
 
 import { safeBack } from "@/src/utils/nav";
-import { peekPreviousRoute } from "@/src/utils/nav-history";
 
 export function useHardwareBack(): void {
   const router = useRouter();
@@ -31,19 +30,19 @@ export function useHardwareBack(): void {
     if (Platform.OS !== "android") return;
 
     const onBack = (): boolean => {
-      // Tab roots: only intercept if the nav-history tracker knows the
-      // user got here from another screen (e.g. tapped the bell on a
-      // product to land on Alerts). Otherwise let Android handle back
-      // — that's the normal "exit the app from Home" behaviour.
+      // Bottom-tab roots have no in-app back destination; let Android use
+      // its normal tab/app behavior. Every detail/tool screen lives in
+      // (more) and is handled exactly like its visible chevron.
       const inMore = segments.includes("(more)" as never);
-      if (!inMore && !peekPreviousRoute()) return false;
+      if (!inMore) return false;
 
-      // v1.0.117: delegate to safeBack so hardware back and in-app back
-      // are guaranteed to behave identically. safeBack walks the
-      // nav-history tracker, prefers a real router.back() when both
-      // agree, otherwise router.replace()s the previous entry.
       const isSellerFlow = segments.some((s) => s === "seller");
-      const fallback = isSellerFlow ? "/(tabs)/seller/dashboard" : "/(tabs)/account";
+      const isAdminFlow = segments.some((s) => s === "admin");
+      const fallback = isAdminFlow
+        ? "/admin"
+        : isSellerFlow
+          ? "/(tabs)/seller/dashboard"
+          : "/(tabs)/account";
       safeBack(router, fallback);
       return true;
     };
