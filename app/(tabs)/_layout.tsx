@@ -105,6 +105,16 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // v1.0.163 — Stop random tab-swap crashes.
+        // freezeOnBlur pauses inactive tab subtrees so their timers, animated
+        // values, and pending image loads don't keep churning in the
+        // background — the biggest source of memory pressure on mid-range
+        // Android devices, which was manifesting as silent app closes when
+        // switching between the bottom tabs.
+        // lazy defers mounting a tab until the user visits it, so first
+        // launch doesn't fire every screen's on-mount fetches at once.
+        freezeOnBlur: true,
+        lazy: true,
         tabBarShowLabel: true,
         tabBarActiveTintColor: colors.brand,
         tabBarInactiveTintColor: colors.onSurfaceMuted,

@@ -86,7 +86,12 @@ export default function Alerts() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // v1.0.163 — Token so a resolve after unmount / user change can't stomp
+  // fresher state or hard-close the app.
+  const loadTokenRef = React.useRef(0);
+
   const load = useCallback(async () => {
+    const token = ++loadTokenRef.current;
     if (!user) {
       setItems([]);
       setLoading(false);
@@ -94,16 +99,23 @@ export default function Alerts() {
     }
     try {
       const data = await nest.getNotifications({ per_page: 50 });
+      if (token !== loadTokenRef.current) return;
       setItems(data.items.map(toNotification));
     } catch {
+      if (token !== loadTokenRef.current) return;
       setItems([]);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (token === loadTokenRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    return () => { loadTokenRef.current++; };
+  }, [load]);
 
   const markAllRead = async () => {
     // v1.0.107 — optimistic flip so the badge/count updates immediately even

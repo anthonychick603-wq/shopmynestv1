@@ -78,18 +78,25 @@ export default function Browse() {
   const [savingAlert, setSavingAlert] = useState(false);
 
   useEffect(() => {
-    nest.getCategories().then((cs) => setCategories(cs.map(toCategory))).catch(() => {});
+    // v1.0.163 — Guard every resolve with an `alive` flag so a fetch that
+    // finishes after the tab is torn down (freezeOnBlur/lazy tore it down,
+    // or the user backed out to another route) cannot call setState on an
+    // unmounted native view. Fabric release builds could hard-close on this.
+    let alive = true;
+    nest.getCategories().then((cs) => { if (alive) setCategories(cs.map(toCategory)); }).catch(() => {});
     // v1.0.83 — show the first 25 shops here (sorted by product count desc);
     // "See all" opens the searchable directory. Fails silently — the row just
     // doesn't render if the endpoint errors or returns nothing.
     nest
       .getSellers({ per_page: 25, page: 1 })
       .then((res) => {
+        if (!alive) return;
         const sorted = [...(res.items || [])].sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
         setShops(sorted.slice(0, 25));
       })
-      .catch(() => setShops([]));
-    loadRecentSearches().then(setRecent);
+      .catch(() => { if (alive) setShops([]); });
+    loadRecentSearches().then((r) => { if (alive) setRecent(r); });
+    return () => { alive = false; };
   }, []);
 
   const commitSearch = useCallback((q: string) => {
@@ -100,7 +107,14 @@ export default function Browse() {
     }
   }, []);
 
+  // v1.0.163 — Store the latest in-flight load's identity so that if the
+  // user changes filters (or leaves the tab) before it resolves, the old
+  // response is dropped instead of stomping the fresher one — which also
+  // avoids a setState-after-unmount hard close.
+  const loadTokenRef = React.useRef(0);
+
   const load = useCallback(async () => {
+    const token = ++loadTokenRef.current;
     setError(null);
     setLoading(true);
     try {
@@ -116,6 +130,7 @@ export default function Browse() {
         pa_size: appliedAttrs.size || undefined,
         pa_brand: appliedAttrs.brand || undefined,
       });
+      if (token !== loadTokenRef.current) return;
       // v1.0.154 — belt-and-suspenders OOS filter. Older plugin builds could
       // leak listings whose stock_status stayed 'instock' while stock_quantity
       // dropped to 0 (seller left manage_stock off). Server-side v3.13.18
@@ -126,14 +141,22 @@ export default function Browse() {
       setItems(filtered);
       setTotal(res.total || filtered.length);
     } catch (e) {
+      if (token !== loadTokenRef.current) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load products.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (token === loadTokenRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [category, submitted, sort, minPrice, maxPrice, appliedAttrs]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    // Bumping the token on unmount invalidates any in-flight load so its
+    // resolve becomes a no-op.
+    return () => { loadTokenRef.current++; };
+  }, [load]);
 
   const onAdd = async (p: Product) => {
     if (!user) return pushFromTab(router, "/(auth)/login");
