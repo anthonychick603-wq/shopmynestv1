@@ -439,6 +439,31 @@ export default function Cart() {
       toast.success("Payment successful! Your order is on its way.");
       pushFromTab(router, "/orders");
     } catch (e) {
+      // v1.0.160 — Plugin v3.13.32 gates checkout on the buyer having an
+      // email + phone on file AND a complete shipping address (first_name,
+      // last_name, address_1, city, state, postcode, country, phone). The
+      // 422 response carries missing_fields[] plus an action_url. Route the
+      // buyer straight to the fix instead of surfacing a raw error.
+      if (e instanceof ApiError && e.code === "buyer_contact_incomplete") {
+        const missing = Array.isArray(e.data?.missing_fields) ? (e.data.missing_fields as string[]) : [];
+        const actionUrl = typeof e.data?.action_url === "string" && e.data.action_url.length > 0
+          ? e.data.action_url
+          : "/(tabs)/(more)/me/address-edit";
+        const needsAccountEmail = missing.includes("account_email");
+        const needsAccountPhone = missing.includes("account_phone");
+        const needsAddress = missing.some((f) => f.startsWith("shipping_"));
+        const parts: string[] = [];
+        if (needsAccountEmail) parts.push("an email");
+        if (needsAccountPhone) parts.push("a phone number");
+        if (needsAddress) parts.push("a complete shipping address");
+        const summary = parts.length > 0 ? parts.join(", ") : "contact info";
+        toast.show(
+          `Add ${summary} before checking out. Opening your address settings…`,
+          "info",
+        );
+        pushFromTab(router, actionUrl as any);
+        return;
+      }
       // v1.0.158 — Server rejects with `quote_changed` (409) when the item
       // subtotal in the reused quote no longer matches live product prices.
       // Recover the same way as the client-side drift branch above: refresh
