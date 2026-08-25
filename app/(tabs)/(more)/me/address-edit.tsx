@@ -90,6 +90,17 @@ export default function AddressEditScreen() {
       toast.error("Street, city, and ZIP are required");
       return;
     }
+    // v1.0.168 — Ensure the shipping address itself carries a phone number,
+    // not just the account. USPS labels print the recipient-phone off the
+    // address (not off billing_phone), so a missing address.phone shows up
+    // as "unknown recipient phone" on the carrier side. Default to the
+    // account phone the user just typed above when the field is blank.
+    const addrPhoneDigits = String(form.phone || "").replace(/\D+/g, "");
+    if (addrPhoneDigits.length < 10) {
+      // Copy account phone into the address so the record is complete
+      // (accountPhone was already validated to be ≥ 10 digits above).
+      form.phone = accountPhone;
+    }
     setSaving(true);
     try {
       // Only PATCH /auth/me when a value actually changed. `undefined` fields
@@ -154,7 +165,7 @@ export default function AddressEditScreen() {
             <Field label="ZIP" value={form.postcode || ""} onChange={v => set("postcode", v)} keyboard="number-pad" />
           </Row>
           <Field label="Country" value={form.country || ""} onChange={v => set("country", v.toUpperCase())} placeholder="US" />
-          <Field label="Phone" value={form.phone || ""} onChange={v => set("phone", v)} keyboard="phone-pad" />
+          <Field label="Phone*" value={form.phone || ""} onChange={v => set("phone", v)} keyboard="phone-pad" />
 
           <View style={styles.switchRow}>
             <View style={{ flex: 1 }}>

@@ -225,7 +225,7 @@ export default function SellerShipFromAddress() {
                 testID="ship-from-country"
               />
               <Input
-                label="Phone (optional)"
+                label="Phone"
                 value={profile.ship_from_phone}
                 onChangeText={(v) => update({ ship_from_phone: v })}
                 keyboardType="phone-pad"

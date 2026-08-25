@@ -775,6 +775,12 @@ function AddressFormModal({
   const [state, setState] = React.useState("");
   const [postcode, setPostcode] = React.useState("");
   const [country, setCountry] = React.useState("US");
+  // v1.0.168 — Phone is required for USPS labels + carrier notifications; the
+  // cart's "Finish your details" gate already checks address.phone || user.phone
+  // and refuses to check out without it. Adding the field here means the
+  // buyer can satisfy the gate from the same sheet they entered the address
+  // in, instead of bouncing to /me/addresses to hunt for the field.
+  const [phone, setPhone] = React.useState("");
 
   // Re-seed the fields each time the sheet opens (new/edit).
   React.useEffect(() => {
@@ -786,9 +792,11 @@ function AddressFormModal({
     setState(initial?.state ?? "");
     setPostcode(initial?.postcode ?? "");
     setCountry(initial?.country ?? "US");
+    setPhone(initial?.phone ?? "");
   }, [visible, initial]);
 
-  const canSave = fullName.trim() && line1.trim() && city.trim() && state.trim() && postcode.trim() && country.trim();
+  const phoneDigits = phone.replace(/\D+/g, "");
+  const canSave = fullName.trim() && line1.trim() && city.trim() && state.trim() && postcode.trim() && country.trim() && phoneDigits.length >= 10;
 
   const submit = () => {
     if (!canSave) return;
@@ -804,6 +812,7 @@ function AddressFormModal({
       state: state.trim(),
       postcode: postcode.trim(),
       country: country.trim().toUpperCase(),
+      phone: phone.trim(),
     });
   };
 
@@ -825,6 +834,7 @@ function AddressFormModal({
               <View style={{ flex: 1 }}><Field label="Postcode" value={postcode} onChangeText={setPostcode} testID="address-postcode" keyboardType="numbers-and-punctuation" /></View>
             </View>
             <Field label="Country" value={country} onChangeText={setCountry} testID="address-country" autoCapitalize="characters" />
+            <Field label="Phone" value={phone} onChangeText={setPhone} testID="address-phone" keyboardType="phone-pad" />
           </ScrollView>
           <TouchableOpacity
             style={[styles.modalSave, !canSave && styles.checkoutBtnDisabled]}
