@@ -140,30 +140,46 @@ export default function Alerts() {
     }
   };
 
-  // v1.0.107 — tapping a row now (a) marks that single notification read
-  // optimistically, (b) POSTs the read to the server, and (c) navigates to
-  // the target described by the notification metadata. The route mapping is
-  // shared with push tap handling via routeForPush() so both entry points
-  // land in the same place for the same notification type.
-  const onRowPress = useCallback(
-    async (item: NotificationItem) => {
-      haptics.tap();
-      if (!item.read) {
-        setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
-        const numericId = Number(item.id);
-        // v1.0.116 — decrement the shared badge before the network call
-        // so the bell drops in real time; if the server rejects we roll
-        // back below.
-        decrementUnread(1);
-        if (Number.isFinite(numericId) && numericId > 0) {
-          nest.markNotificationsRead([numericId]).catch(() => {
-            // Rollback if the server rejected it — better to show the true
-            // state than a stale optimistic one.
-            setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: false } : n)));
-            refreshAlertsBadge();
-          });
-        }
+  // v1.0.107 — mark a single notification read optimistically, roll back
+  // if the server rejects. Shared by the card body tap and the Open button.
+  const markOneRead = useCallback(
+    (item: NotificationItem) => {
+      if (item.read) return;
+      setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: true } : n)));
+      // v1.0.116 — decrement the shared badge before the network call so
+      // the bell drops in real time; roll back below if the server rejects.
+      decrementUnread(1);
+      const numericId = Number(item.id);
+      if (Number.isFinite(numericId) && numericId > 0) {
+        nest.markNotificationsRead([numericId]).catch(() => {
+          setItems((prev) => prev.map((n) => (n.id === item.id ? { ...n, read: false } : n)));
+          refreshAlertsBadge();
+        });
       }
+    },
+    [decrementUnread, refreshAlertsBadge],
+  );
+
+  // v1.0.165 — tapping the row body only marks it read; the explicit
+  // "Open" button on the right is what navigates. This makes the row
+  // feel like a read receipt with a dedicated action button, so a user
+  // scanning alerts can dismiss unread state without being yanked to
+  // another screen.
+  const onRowPress = useCallback(
+    (item: NotificationItem) => {
+      haptics.tap();
+      markOneRead(item);
+    },
+    [markOneRead],
+  );
+
+  // v1.0.165 — Open button: mark read + navigate. The route mapping is
+  // shared with push tap handling via routeForPush() so tapping the
+  // Open button and tapping a push notification land in the same place.
+  const onOpenPress = useCallback(
+    (item: NotificationItem) => {
+      haptics.press();
+      markOneRead(item);
       const meta = (item.meta ?? {}) as Record<string, unknown>;
       const path = routeForPush({
         type: item.type,
@@ -176,7 +192,7 @@ export default function Alerts() {
         pushFromTab(router, path);
       }
     },
-    [router],
+    [markOneRead, router],
   );
 
   if (!user) {
@@ -227,31 +243,59 @@ export default function Alerts() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 100 }}
         ListEmptyComponent={<EmptyState icon="notifications-outline" title="You're all caught up" message="No notifications yet. New orders and updates will land here." testID="alerts-empty" />}
-        renderItem={({ item }) => (
-          // v1.0.110 — rows now read visually as buttons: a chevron on the
-          // right signals navigation, the whole card has an explicit press
-          // state (activeOpacity 0.6 + accessibilityRole 'button'), and
-          // empty body text is collapsed so a shipped-order row doesn't
-          // leave dead vertical space that made the card feel static.
-          <TouchableOpacity
-            activeOpacity={0.6}
-            onPress={() => onRowPress(item)}
-            style={[styles.row, !item.read && styles.rowUnread]}
-            testID={`alert-${item.id}`}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}${item.body ? ". " + item.body : ""}`}
-            accessibilityHint="Opens details"
-          >
-            <View style={styles.rowIcon}><Ionicons name={ICON_FOR[item.type] ?? "notifications-outline"} size={20} color={colors.brand} /></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.rowTitle}>{item.title}</Text>
-              {item.body ? <Text style={styles.rowBody}>{item.body}</Text> : null}
-              <Text style={styles.rowTime}>{formatDistanceToNow(parseServerDate(item.created_at) ?? new Date(0), { addSuffix: true })}</Text>
+        renderItem={({ item }) => {
+          // v1.0.165 — Row body marks-as-read, right-side "Open" button
+          // navigates. Nested Touchables need the outer one to allow child
+          // presses; on RN we get that by hitting stopPropagation on the
+          // inner press via a separate TouchableOpacity that is a sibling
+          // (not a child) of the outer press target. To keep the layout
+          // simple, we make the row a View and use two Touchables inside:
+          // one wraps the icon + text block, the other is the Open button.
+          const meta = (item.meta ?? {}) as Record<string, unknown>;
+          const hasRoute = !!routeForPush({
+            type: item.type,
+            order_id: meta.order_id as number | string | undefined,
+            object_id: meta.object_id as number | string | undefined,
+            object_type: meta.object_type as string | undefined,
+            actor_id: meta.actor_id as number | string | undefined,
+          });
+          return (
+            <View style={[styles.row, !item.read && styles.rowUnread]} testID={`alert-${item.id}`}>
+              <TouchableOpacity
+                activeOpacity={0.6}
+                onPress={() => onRowPress(item)}
+                style={styles.rowBody}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}${item.body ? ". " + item.body : ""}`}
+                accessibilityHint={item.read ? undefined : "Marks as read"}
+              >
+                <View style={styles.rowIcon}>
+                  <Ionicons name={ICON_FOR[item.type] ?? "notifications-outline"} size={20} color={colors.brand} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowTitle}>{item.title}</Text>
+                  {item.body ? <Text style={styles.rowBodyText}>{item.body}</Text> : null}
+                  <Text style={styles.rowTime}>{formatDistanceToNow(parseServerDate(item.created_at) ?? new Date(0), { addSuffix: true })}</Text>
+                </View>
+                {!item.read ? <View style={styles.dot} /> : null}
+              </TouchableOpacity>
+              {hasRoute ? (
+                <TouchableOpacity
+                  activeOpacity={0.75}
+                  onPress={() => onOpenPress(item)}
+                  style={styles.openBtn}
+                  testID={`alert-${item.id}-open`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${item.title}`}
+                  hitSlop={8}
+                >
+                  <Text style={styles.openBtnText}>Open</Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.onBrand} style={{ marginLeft: 2 }} />
+                </TouchableOpacity>
+              ) : null}
             </View>
-            {!item.read ? <View style={styles.dot} /> : null}
-            <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} style={styles.chev} />
-          </TouchableOpacity>
-        )}
+          );
+        }}
       />
     </SafeAreaView>
   );
@@ -263,12 +307,17 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
   markRead: { color: colors.brand, fontWeight: "700" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  row: { flexDirection: "row", alignItems: "flex-start", backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, gap: spacing.md, ...shadows.card },
+  // v1.0.165 — Card became a View wrapping two Touchables. `row` is the
+  // container; `rowBody` is the tappable area for mark-as-read; `openBtn`
+  // is the pill-shaped action button on the right that navigates.
+  row: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, paddingLeft: spacing.lg, paddingRight: spacing.md, paddingVertical: spacing.md, marginBottom: spacing.md, gap: spacing.md, ...shadows.card },
+  rowBody: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: spacing.md, paddingVertical: spacing.sm },
   rowUnread: { borderLeftWidth: 3, borderLeftColor: colors.brand },
   rowIcon: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   rowTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
-  rowBody: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
+  rowBodyText: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
   rowTime: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6 },
-  chev: { marginLeft: spacing.sm, alignSelf: "center" },
+  openBtn: { flexDirection: "row", alignItems: "center", backgroundColor: colors.brand, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, alignSelf: "center" },
+  openBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 13 },
 });
