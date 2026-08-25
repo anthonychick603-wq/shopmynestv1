@@ -109,6 +109,8 @@ export function routeForPush(data: PushData): string | null {
       return orderId ? `/order/${orderId}` : "/orders";
 
     case "dispute_update":
+    case "buyer_dispute_opened":
+    case "buyer_dispute_response":
       return objectId ? `/disputes/${objectId}` : "/disputes";
 
     case "custom_request_update":

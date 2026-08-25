@@ -346,6 +346,28 @@ export const nest = {
       "/admin/orders",
       { query },
     ),
+  // v1.0.171 — server-authoritative operational queues (MNU 3.13.37).
+  adminOperations: () => request<AdminOperationsSummary>("marketplace", "/admin/operations"),
+  adminListSellerApplications: (query?: { status?: "pending" | "approved" | "rejected"; page?: number; per_page?: number }) =>
+    request<AdminSellerApplicationList>("marketplace", "/admin/seller-applications", { query }),
+  adminApproveSellerApplication: (id: number | string) =>
+    request<AdminSellerApplication>("marketplace", `/admin/seller-applications/${id}/approve`, { method: "POST" }),
+  adminRejectSellerApplication: (id: number | string, payload: { reason?: string; can_resubmit?: boolean }) =>
+    request<AdminSellerApplication>("marketplace", `/admin/seller-applications/${id}/reject`, { method: "POST", body: payload }),
+  adminListRefunds: (query?: { status?: "requested" | "approved" | "processing" | "completed" | "denied" | "open" | "all"; page?: number; per_page?: number }) =>
+    request<AdminRefundList>("marketplace", "/admin/refunds", { query }),
+  adminProcessRefund: (orderId: number | string, payload?: { amount?: number; note?: string }) =>
+    request<unknown>("marketplace", `/admin/orders/${orderId}/refund/process`, { method: "POST", body: payload || {} }),
+  adminDenyRefund: (orderId: number | string, note?: string) =>
+    request<unknown>("marketplace", `/admin/orders/${orderId}/refund/deny`, { method: "POST", body: { note: note || "" } }),
+  adminListPayouts: (query?: { status?: "pending" | "processing" | "requested" | "failed" | "returned" | "paid" | "cancelled" | "all"; page?: number; per_page?: number }) =>
+    request<AdminPayoutList>("marketplace", "/admin/payouts", { query }),
+  adminProcessPayout: (id: number | string, payload?: { external_id?: string; notes?: string }) =>
+    request<AdminPayout>("marketplace", `/admin/payouts/${id}/process`, { method: "POST", body: payload || {} }),
+  adminRetryPayout: (id: number | string) =>
+    request<AdminPayout>("marketplace", `/admin/payouts/${id}/retry`, { method: "POST" }),
+  adminCancelPayout: (id: number | string, notes?: string) =>
+    request<AdminPayout>("marketplace", `/admin/payouts/${id}/cancel`, { method: "POST", body: { notes: notes || "" } }),
 
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
@@ -1253,6 +1275,72 @@ export type AdminOrder = {
   buyer: string;
   created_at: string | null;
 };
+
+export type AdminQueueMetric = { count: number; oldest_hours: number };
+
+export type AdminOperationsSummary = {
+  seller_applications: AdminQueueMetric;
+  refunds: AdminQueueMetric;
+  disputes: AdminQueueMetric;
+  payouts_pending: AdminQueueMetric;
+  payouts_failed: AdminQueueMetric;
+  shipping_exceptions: AdminQueueMetric;
+  order_exceptions: AdminQueueMetric;
+  reports: AdminQueueMetric;
+  refreshed_at: string;
+};
+
+export type AdminSellerApplication = {
+  id: number;
+  seller_id: number;
+  seller_name: string;
+  seller_email: string;
+  store_name: string;
+  about: string;
+  products: string;
+  website: string;
+  categories: string;
+  submitted_at: string;
+  status: "pending" | "approved" | "rejected";
+  rejection_reason: string;
+  reviewed_at: string;
+  reviewed_by: string;
+  can_resubmit: boolean;
+};
+export type AdminSellerApplicationList = { items: AdminSellerApplication[]; page: number; total: number; total_pages: number; status: string };
+
+export type AdminRefund = {
+  order_id: number;
+  order_number: string;
+  buyer_name: string;
+  buyer_email: string;
+  order_total: number;
+  currency: string;
+  state: "requested" | "approved" | "processing" | "completed" | "denied";
+  requested_amount: number;
+  refunded_amount: number;
+  reason: string;
+  details: string;
+  requested_at: string;
+};
+export type AdminRefundList = { items: AdminRefund[]; page: number; total: number; total_pages: number; status: string };
+
+export type AdminPayout = {
+  id: number;
+  seller_id: number;
+  seller_name: string;
+  seller_email: string;
+  amount: number;
+  currency: string;
+  method: string;
+  destination: string;
+  external_id: string;
+  status: "requested" | "processing" | "paid" | "cancelled" | "failed" | "returned";
+  notes: string;
+  requested_at: string;
+  processed_at: string;
+};
+export type AdminPayoutList = { items: AdminPayout[]; page: number; total: number; total_pages: number; status: string };
 
 export type AdminReport = {
   id: number;

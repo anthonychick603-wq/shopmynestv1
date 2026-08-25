@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -28,6 +28,7 @@ export default function DisputeDetail() {
   const [dispute, setDispute] = useState<Dispute | null>(null);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState("");
+  const [partialAmount, setPartialAmount] = useState("");
   const [working, setWorking] = useState(false);
 
   const load = useCallback(async () => {
@@ -71,11 +72,41 @@ export default function DisputeDetail() {
     }
   };
 
+  const resolveAsAdmin = async (status: "resolved_refund" | "resolved_partial" | "resolved_no_refund") => {
+    const amount = Number(partialAmount.replace(/[^0-9.]/g, ""));
+    if (status === "resolved_partial" && (!Number.isFinite(amount) || amount <= 0)) {
+      return toast.error("Enter the partial refund amount first");
+    }
+    const label = status === "resolved_refund" ? "full refund" : status === "resolved_partial" ? `partial refund of $${amount.toFixed(2)}` : "no refund";
+    Alert.alert("Resolve buyer protection?", `This will close the case with ${label}.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Resolve", style: status === "resolved_no_refund" ? "destructive" : "default", onPress: async () => {
+        setWorking(true);
+        try {
+          const raw = await nest.trust.updateDispute(id!, {
+            status,
+            resolution_note: note.trim() || (status === "resolved_no_refund" ? "Reviewed by My Nest; no refund approved." : "Refund approved by My Nest buyer protection."),
+            ...(status === "resolved_partial" ? { refund_amount: amount } : {}),
+          });
+          setDispute(toDispute(raw));
+          setNote("");
+          setPartialAmount("");
+          toast.success("Buyer-protection case resolved");
+        } catch (e) {
+          toast.error(e instanceof ApiError ? e.friendly : "Could not resolve case");
+        } finally {
+          setWorking(false);
+        }
+      } },
+    ]);
+  };
+
   if (loading) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
   if (!dispute) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><EmptyState icon="alert-circle-outline" title="Not found" message="This dispute could not be loaded." /></SafeAreaView>;
 
   const s = statusStyle(dispute.status);
-  const isSeller = user?.role === "seller" || user?.role === "admin";
+  const isAdmin = user?.role === "admin";
+  const isSeller = user?.role === "seller";
   const canRespond = isSeller && (dispute.status === "open" || dispute.status === "awaiting_seller");
 
   return (
@@ -133,7 +164,19 @@ export default function DisputeDetail() {
           </View>
         ) : null}
 
-        {!isSeller && dispute.can_escalate && !isResolved(dispute.status) && dispute.status !== "escalated" ? (
+        {isAdmin && !isResolved(dispute.status) ? (
+          <View style={styles.actionBlock}>
+            <Text style={styles.label}>Admin resolution</Text>
+            <Text style={styles.escalateHint}>Resolve the case here. Refund decisions are processed through the same server refund lifecycle used by the order.</Text>
+            <TextInput value={note} onChangeText={setNote} placeholder="Decision note…" placeholderTextColor={colors.onSurfaceMuted} multiline style={styles.textarea} />
+            <TextInput value={partialAmount} onChangeText={setPartialAmount} placeholder="Partial refund amount" placeholderTextColor={colors.onSurfaceMuted} keyboardType="decimal-pad" style={styles.amountInput} />
+            <Button title="Approve full refund" onPress={() => void resolveAsAdmin("resolved_refund")} loading={working} style={{ marginTop: spacing.sm }} />
+            <Button title="Approve partial refund" variant="outline" onPress={() => void resolveAsAdmin("resolved_partial")} disabled={working} style={{ marginTop: spacing.sm }} />
+            <Button title="Resolve with no refund" variant="ghost" onPress={() => void resolveAsAdmin("resolved_no_refund")} disabled={working} style={{ marginTop: spacing.xs }} />
+          </View>
+        ) : null}
+
+        {!isSeller && !isAdmin && dispute.can_escalate && !isResolved(dispute.status) && dispute.status !== "escalated" ? (
           <View style={styles.actionBlock}>
             <Text style={styles.escalateHint}>Not resolved yet? You can ask My Nest to step in and review.</Text>
             <Button title="Escalate to My Nest" variant="outline" onPress={() => { haptics.warning(); escalate(); }} loading={working} testID="dispute-escalate" />
@@ -175,4 +218,5 @@ const styles = StyleSheet.create({
   actionBlock: { marginTop: spacing.xl, borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: spacing.lg },
   escalateHint: { fontSize: 13, color: colors.onSurfaceMuted, marginBottom: spacing.md },
   textarea: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.md, minHeight: 90, color: colors.onSurface, fontSize: 15, textAlignVertical: "top" },
+  amountInput: { backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, paddingHorizontal: spacing.md, minHeight: 48, color: colors.onSurface, fontSize: 15, marginTop: spacing.sm },
 });

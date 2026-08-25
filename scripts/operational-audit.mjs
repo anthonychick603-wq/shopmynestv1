@@ -7,11 +7,15 @@ const checks = [
   ['checkout confirmation copy is accurate', 'app/(tabs)/(more)/cart.tsx', s => s.includes('Payment received! Your order is confirmed') && !s.includes('Your order is on its way')],
   ['dead alert Open buttons are suppressed', 'app/(tabs)/(more)/alerts.tsx', s => s.includes('targetRoute !== "/alerts"')],
   ['seller application notifications route', 'src/hooks/use-notification-routing.ts', s => s.includes('case "seller_application_update"') && s.includes('return "/seller/apply"')],
+  ['buyer protection notifications route', 'src/hooks/use-notification-routing.ts', s => s.includes('case "buyer_dispute_opened"') && s.includes('case "buyer_dispute_response"') && s.includes('`/disputes/${objectId}`')],
   ['refund and dispute are de-duplicated', 'app/(tabs)/(more)/disputes/new.tsx', s => s.includes('A buyer-protection case is already open') && s.includes('Start with the refund request')],
   ['dispute evidence is uploaded', 'app/(tabs)/(more)/disputes/new.tsx', s => s.includes('uploadEvidence') && s.includes('evidence: evidenceUrls')],
   ['seller fulfillment transitions are constrained', 'app/(tabs)/(more)/order/[id].tsx', s => s.includes('allowedSellerStatuses') && !s.includes('const SELLER_STATUSES')],
   ['shipping accounting respects platform flag', 'app/(tabs)/(more)/order/[id].tsx', s => s.includes('platformKeepsShipping') && s.includes('will not reduce your seller payout')],
-  ['admin operational queues exist', 'app/(tabs)/(more)/admin/operations.tsx', s => s.includes('Order exceptions') && s.includes('Buyer-protection cases')],
+  ['admin operational queues use backend summary', 'app/(tabs)/(more)/admin/operations.tsx', s => s.includes('nest.adminOperations()') && s.includes('Seller applications') && s.includes('Payout processing')],
+  ['admin queue API contracts are wired', 'src/api/nest.ts', s => s.includes('adminListSellerApplications') && s.includes('adminListRefunds') && s.includes('adminListPayouts') && s.includes('adminProcessPayout')],
+  ['admin payout requires transfer reference UI', 'app/(tabs)/(more)/admin/payouts.tsx', s => s.includes('ACH / bank confirmation reference') && s.includes('adminRetryPayout')],
+  ['admin dispute resolution is actionable', 'app/(tabs)/(more)/disputes/[id].tsx', s => s.includes('resolved_refund') && s.includes('resolved_partial') && s.includes('resolved_no_refund')],
   ['merchant id is centralized', 'src/context/StripePayment.tsx', s => s.includes('stripeMerchantIdentifier') && !s.includes('TODO: Replace with the real Apple merchant ID')],
 ];
 

@@ -1,0 +1,31 @@
+import React, { useCallback, useState } from "react";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
+
+import { nest, ApiError, type AdminRefund } from "@/src/api/nest";
+import { Button } from "@/src/components/Button";
+import { EmptyState } from "@/src/components/EmptyState";
+import { toast } from "@/src/components/Toast";
+import { useAuth } from "@/src/context/AuthContext";
+import { colors, radius, shadows, spacing } from "@/src/theme";
+import { haptics } from "@/src/utils/haptics";
+import { pushFromTab, safeBack } from "@/src/utils/nav";
+
+const money=(n:number,c:string)=>`${c || "USD"} ${Number(n||0).toFixed(2)}`;
+export default function RefundAdmin() {
+  const router=useRouter(); const insets=useSafeAreaInsets(); const {user}=useAuth();
+  const [items,setItems]=useState<AdminRefund[]>([]); const [notes,setNotes]=useState<Record<number,string>>({}); const [working,setWorking]=useState<number|null>(null); const [loading,setLoading]=useState(true); const [refreshing,setRefreshing]=useState(false);
+  const load=useCallback(async()=>{if(user?.role!=="admin")return;try{const r=await nest.adminListRefunds({status:"open",per_page:50});setItems(r.items||[]);}catch(e){toast.error(e instanceof ApiError?e.friendly:"Could not load refunds");}finally{setLoading(false);setRefreshing(false);}},[user?.role]);
+  React.useEffect(()=>{void load();},[load]);
+  const process=(r:AdminRefund)=>Alert.alert("Process refund?",`Refund ${money(r.requested_amount,r.currency)} for order #${r.order_number}?`,[{text:"Cancel",style:"cancel"},{text:"Refund",onPress:async()=>{setWorking(r.order_id);try{await nest.adminProcessRefund(r.order_id,{amount:r.requested_amount,note:(notes[r.order_id]||"").trim()||"Approved by MyNest operations."});toast.success("Refund submitted");await load();}catch(e){toast.error(e instanceof ApiError?e.friendly:"Could not process refund");}finally{setWorking(null);}}}]);
+  const deny=(r:AdminRefund)=>Alert.alert("Deny refund?","The buyer will receive the decision and can use buyer protection as the escalation path.",[{text:"Cancel",style:"cancel"},{text:"Deny",style:"destructive",onPress:async()=>{setWorking(r.order_id);try{await nest.adminDenyRefund(r.order_id,(notes[r.order_id]||"").trim()||"Refund request denied after review.");setItems(x=>x.filter(i=>i.order_id!==r.order_id));toast.success("Refund denied");}catch(e){toast.error(e instanceof ApiError?e.friendly:"Could not deny refund");}finally{setWorking(null);}}}]);
+  if(user?.role!=="admin")return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={()=>safeBack(router)}/><EmptyState icon="lock-closed-outline" title="Not available" message="Admin access is required."/></SafeAreaView>;
+  if(loading)return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={()=>safeBack(router)}/><View style={styles.center}><ActivityIndicator color={colors.brand}/></View></SafeAreaView>;
+  return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={()=>safeBack(router)}/><ScrollView contentContainerStyle={{padding:spacing.lg,paddingBottom:insets.bottom+40}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);void load();}} tintColor={colors.brand}/>}>
+    {!items.length?<EmptyState icon="checkmark-circle-outline" title="Queue clear" message="No refunds are waiting for review."/>:items.map(r=><View key={r.order_id} style={styles.card}><View style={styles.row}><View style={{flex:1}}><Text style={styles.title}>Order #{r.order_number}</Text><Text style={styles.sub}>{r.buyer_name} · {r.state}</Text></View><TouchableOpacity onPress={()=>pushFromTab(router,`/order/${r.order_id}`)}><Text style={styles.link}>Order</Text></TouchableOpacity></View><Text style={styles.amount}>{money(r.requested_amount,r.currency)} requested</Text><Text style={styles.body}>{r.reason.replace(/_/g," ")}{r.details?` — ${r.details}`:""}</Text><TextInput value={notes[r.order_id]||""} onChangeText={v=>setNotes(n=>({...n,[r.order_id]:v}))} placeholder="Admin note (recommended)…" placeholderTextColor={colors.onSurfaceMuted} multiline style={styles.input}/><View style={styles.actions}><Button title="Process refund" size="sm" onPress={()=>process(r)} loading={working===r.order_id} style={{flex:1}}/><Button title="Deny" size="sm" variant="outline" onPress={()=>deny(r)} disabled={working===r.order_id||r.state!=="requested"} style={{flex:1}}/></View></View>)}
+  </ScrollView></SafeAreaView>;
+}
+function Top({onBack}:{onBack:()=>void}){return <View style={styles.top}><TouchableOpacity onPress={()=>{haptics.tap();onBack();}} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface}/></TouchableOpacity><Text style={styles.topTitle}>Refund review</Text><View style={{width:40}}/></View>}
+const styles=StyleSheet.create({safe:{flex:1,backgroundColor:colors.surface},center:{flex:1,alignItems:"center",justifyContent:"center"},top:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:spacing.md},topBtn:{width:40,height:40,alignItems:"center",justifyContent:"center",borderRadius:radius.pill,backgroundColor:colors.surfaceSecondary,...shadows.card},topTitle:{fontSize:17,fontWeight:"800",color:colors.onSurface},card:{backgroundColor:colors.surfaceSecondary,borderRadius:radius.lg,padding:spacing.lg,marginBottom:spacing.md,...shadows.card},row:{flexDirection:"row",alignItems:"center"},title:{fontSize:16,fontWeight:"800",color:colors.onSurface},sub:{fontSize:12,color:colors.onSurfaceMuted,marginTop:2,textTransform:"capitalize"},link:{fontSize:13,fontWeight:"800",color:colors.brand},amount:{fontSize:20,fontWeight:"800",color:colors.onSurface,marginTop:spacing.md},body:{fontSize:13,color:colors.onSurfaceMuted,lineHeight:19,marginTop:spacing.sm},input:{backgroundColor:colors.surfaceTertiary,borderRadius:radius.md,padding:spacing.md,minHeight:64,color:colors.onSurface,textAlignVertical:"top",marginTop:spacing.md},actions:{flexDirection:"row",gap:spacing.sm,marginTop:spacing.md}});
