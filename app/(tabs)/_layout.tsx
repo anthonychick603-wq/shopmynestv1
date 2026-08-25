@@ -174,17 +174,18 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* Registered as tabs (so entering them is a tab switch, no back arrow)
-          but hidden from the visible bar; reached via header icons.
-          `tabBarItemStyle: display none` removes their flex slot entirely so the
-          visible tabs split the full width evenly instead of leaving empty gaps. */}
-      <Tabs.Screen name="alerts" options={{ title: "Alerts", tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
-      <Tabs.Screen name="cart" options={{ title: "Cart", tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
+      {/* v1.0.168 — Alerts and Cart moved from Tabs.Screen into (more)/ so
+          the header bell + cart button do a real stack push instead of a
+          peer tab switch. That's what makes router.back() from Alerts /
+          Cart return to the exact screen the user tapped the button on,
+          instead of doing nothing (peer tabs) or falling back to a
+          parallel history tracker.
 
-      {/* The nested Stack holding every pushed screen (product detail, seller
-          tools, orders, disputes, composers…). Hidden from the bar the same way,
-          but registered here so those screens render inside the Tabs layout and
-          keep the tab bar visible. */}
+          The nested Stack holding every pushed screen (product detail,
+          seller tools, orders, disputes, composers, alerts, cart…) lives
+          under (more). Hidden from the bar but registered here so those
+          screens render inside the Tabs layout and keep the tab bar
+          visible. */}
       <Tabs.Screen name="(more)" options={{ tabBarButton: () => null, tabBarItemStyle: { display: "none" } }} />
     </Tabs>
   );

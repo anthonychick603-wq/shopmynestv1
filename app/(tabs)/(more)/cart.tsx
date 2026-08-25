@@ -28,7 +28,6 @@ import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate, type N
 import { toast } from "@/src/components/Toast";
 import { storage } from "@/src/utils/storage";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
-import { peekPreviousRoute } from "@/src/utils/nav-history";
 import { haptics } from "@/src/utils/haptics";
 import { CartSkeleton } from "@/src/components/CartSkeleton";
 import { AppImage } from "@/src/components/AppImage";
@@ -872,11 +871,17 @@ function Field({
 // tapping another tab.
 function Top({ title }: { title: string }) {
   const router = useRouter();
-  const [hasPrev, setHasPrev] = useState<boolean>(!!peekPreviousRoute());
+  // v1.0.168 — Cart lives inside (more)/ now, so router.canGoBack() is
+  // true whenever the user got here from another screen (product page,
+  // header cart button, etc.) and false only on a cold-start deep link
+  // directly into /cart.
+  const [hasPrev, setHasPrev] = useState<boolean>(() => {
+    try { return router.canGoBack(); } catch { return false; }
+  });
   useFocusEffect(
     useCallback(() => {
-      setHasPrev(!!peekPreviousRoute());
-    }, []),
+      try { setHasPrev(router.canGoBack()); } catch { setHasPrev(false); }
+    }, [router]),
   );
   return (
     <View style={styles.top}>

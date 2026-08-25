@@ -2,7 +2,7 @@
   "expo": {
     "name": "ShopMyNest",
     "slug": "the-nest-marketplace",
-    "version": "1.0.168",
+    "version": "1.0.169",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -26,7 +26,7 @@
       "edgeToEdgeEnabled": true,
       "package": "com.shopmynest",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 134,
+      "versionCode": 135,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"

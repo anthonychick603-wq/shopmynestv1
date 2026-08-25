@@ -17,7 +17,6 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAlerts } from "@/src/context/AlertsContext";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
-import { peekPreviousRoute } from "@/src/utils/nav-history";
 import { haptics } from "@/src/utils/haptics";
 import { routeForPush } from "@/src/hooks/use-notification-routing";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -41,23 +40,20 @@ const ICON_FOR: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 /**
- * v1.0.117 — chevron shown only when the nav-history tracker knows the
- * user got here from another screen (e.g. tapped the bell on a product).
- * On a cold start where Alerts is the first thing shown, the tracker
- * has one entry (this screen) and peekPreviousRoute() returns null, so
- * nothing renders. That keeps the header clean when there's genuinely
- * nowhere to go back to.
+ * v1.0.168 — chevron shown whenever the underlying navigation stack
+ * has an entry to pop. Alerts now lives inside the (more) Stack, so
+ * router.canGoBack() is true whenever the user got here via the
+ * header bell from another screen, and false when they cold-started
+ * directly into /alerts (deep link). No parallel history tracker.
  */
 function BackChip({ router }: { router: ReturnType<typeof useRouter> }) {
-  const [hasPrev, setHasPrev] = useState<boolean>(!!peekPreviousRoute());
-  // Re-check on every focus — the tracker only updates when segments
-  // change, and useFocusEffect fires whenever the screen becomes the
-  // active one. Together they guarantee the chip reflects whether
-  // history exists to walk back through.
+  const [hasPrev, setHasPrev] = useState<boolean>(() => {
+    try { return router.canGoBack(); } catch { return false; }
+  });
   useFocusEffect(
     useCallback(() => {
-      setHasPrev(!!peekPreviousRoute());
-    }, []),
+      try { setHasPrev(router.canGoBack()); } catch { setHasPrev(false); }
+    }, [router]),
   );
   if (!hasPrev) return null;
   return (
