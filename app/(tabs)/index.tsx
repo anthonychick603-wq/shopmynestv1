@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -154,10 +154,29 @@ export default function Blog() {
     }
   }, [loadHomeFeed, loadRecentlyViewed, loadForYouFeed]);
 
-  // Reload on focus so a newly approved post shows up without a manual pull.
+  // v1.0.166 — Vinted-style state preservation. Load the home feed once
+  // on mount; do NOT reload on every focus. Returning to Home from a
+  // pushed screen (product, seller, cart) used to blow away the user's
+  // scroll position and pagination because useFocusEffect fired load(1)
+  // every time. Now we only refetch when the user explicitly pulls to
+  // refresh, or when the tab has been out of focus for a very long time
+  // (>5 min) so an app resumed hours later still feels fresh.
+  const mountedRef = useRef(false);
+  const lastLoadRef = useRef(0);
+  useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+    load(1);
+    lastLoadRef.current = Date.now();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount
+  }, []);
   useFocusEffect(
     useCallback(() => {
-      load(1);
+      const STALE_MS = 5 * 60 * 1000;
+      if (mountedRef.current && Date.now() - lastLoadRef.current > STALE_MS) {
+        load(1);
+        lastLoadRef.current = Date.now();
+      }
     }, [load]),
   );
 
