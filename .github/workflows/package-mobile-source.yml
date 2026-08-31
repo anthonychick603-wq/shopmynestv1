@@ -1,0 +1,33 @@
+name: Package Expo mobile source
+
+on:
+  push:
+    branches:
+      - artifact/mobile-source-package
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Add package notes
+        shell: bash
+        run: |
+          cat > MOBILE_PACKAGE_INFO.txt <<'EOF'
+          ShopMyNest / The Nest mobile source package
+          Source: GitHub main + merged category/sub-category taxonomy update
+          Launcher label: My Nest
+          Important: repository app.json still reports version 1.0.173 / Android versionCode 139.
+          Validated v1.0.185 source was not present in GitHub when this package was generated.
+          Do not treat this archive as a replacement for v1.0.185-specific fixes unless you intentionally reconcile those changes first.
+          EOF
+
+      - name: Upload Expo source
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopMyNest-Mobile-current-main
+          path: .
+          include-hidden-files: true
+          retention-days: 7
