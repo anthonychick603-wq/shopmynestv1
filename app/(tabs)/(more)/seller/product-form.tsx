@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,11 +6,11 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import { nest, ApiError, type NestProductWritePayload, type NestSellerShippingProfile } from "@/src/api/nest";
-import { toCategory, toProduct } from "@/src/api/adapters";
+import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
-import type { Category } from "@/src/types";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
+import { CategorySubcategoryPicker } from "@/src/components/CategorySubcategoryPicker";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
@@ -18,6 +18,13 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import {
+  categoryIdsForSelection,
+  isCategorySelectionComplete,
+  selectionFromProductSlugs,
+  toHierarchicalCategory,
+  type HierarchicalCategory,
+} from "@/src/utils/categories";
 
 type PackageSize = "small" | "medium" | "large" | "custom";
 
@@ -85,7 +92,10 @@ export default function ProductForm() {
       setDuplicating(false);
     }
   };
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<HierarchicalCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null);
+  const [existingCategoryIds, setExistingCategoryIds] = useState<number[]>([]);
   // v1.0.124 — Payout account gate. Only enforced for brand-new listings,
   // never for edits. Under the v3.8.0 money model the seller just needs to
   // have a bank account saved (routing + account number) so ACH payouts can
@@ -108,7 +118,6 @@ export default function ProductForm() {
   const [stock, setStock] = useState("");
   const [sku, setSku] = useState("");
   const [customizable, setCustomizable] = useState(false);
-  const [selectedCats, setSelectedCats] = useState<string[]>([]);
 
   // Photo: existing remote URL (edit) and/or a freshly picked local asset to upload.
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -121,12 +130,6 @@ export default function ProductForm() {
   const [widthIn, setWidthIn] = useState("");
   const [heightIn, setHeightIn] = useState("");
 
-  const catIdBySlug = useMemo(() => {
-    const map: Record<string, number> = {};
-    categories.forEach((c) => { map[c.slug] = Number(c.id); });
-    return map;
-  }, [categories]);
-
   // v1.0.95 — cancel guard: quickly navigating away from the edit form
   // used to fire setState after unmount when the product/shipping fetches
   // resolved.
@@ -136,7 +139,8 @@ export default function ProductForm() {
       try {
         const cs = await nest.getCategories().catch(() => []);
         if (cancelled) return;
-        setCategories(cs.map(toCategory));
+        const mappedCategories = cs.map(toHierarchicalCategory);
+        setCategories(mappedCategories);
         if (isEdit && id) {
           const p = await nest.getProduct(id);
           if (cancelled) return;
@@ -146,7 +150,13 @@ export default function ProductForm() {
           setStock(p.stock_quantity != null ? String(p.stock_quantity) : "");
           setImageUrl(p.image || null);
           setCustomizable(p.customizable === true);
-          setSelectedCats((p.categories || []).map((c) => c.slug));
+          setExistingCategoryIds((p.categories || []).map((category) => Number(category.id)).filter(Number.isFinite));
+          const categorySelection = selectionFromProductSlugs(
+            mappedCategories,
+            (p.categories || []).map((category) => category.slug),
+          );
+          setSelectedCategoryId(categorySelection.categoryId);
+          setSelectedSubcategoryId(categorySelection.subcategoryId);
           // v1.0.164 — remember draft state so we can label the primary CTA
           // "Publish" (for drafts) vs "Save changes" (for live listings).
           setExistingIsDraft(p.status === "draft" || p.status === "pending" || p.status === "private");
@@ -226,9 +236,6 @@ export default function ProductForm() {
     }
   };
 
-  const toggleCat = (slug: string) =>
-    setSelectedCats((s) => (s.includes(slug) ? s.filter((x) => x !== slug) : [...s, slug]));
-
   const uploadIfNeeded = async (): Promise<number | undefined> => {
     if (!localImage) return undefined;
     const uri = localImage.uri;
@@ -252,6 +259,13 @@ export default function ProductForm() {
     if (mode === "publish") {
       if (price === "" || Number(price) < 0 || Number.isNaN(Number(price))) {
         return toast.error("Enter a valid price.");
+      }
+      if (categories.length === 0) {
+        if (!isEdit || existingCategoryIds.length === 0) {
+          return toast.error("Could not load product categories. Please try again.");
+        }
+      } else if (!isCategorySelectionComplete(categories, selectedCategoryId, selectedSubcategoryId)) {
+        return toast.error("Choose a product category and sub-category before publishing.");
       }
       // v1.0.124 — Authoritative gate for new-and-publishing listings:
       // re-verify a bank account is on file. Drafts skip this (the plugin
@@ -286,7 +300,13 @@ export default function ProductForm() {
     if (mode === "draft") setSavingDraft(true); else setBusy(true);
     try {
       const image_id = await uploadIfNeeded();
-      const category_ids = selectedCats.map((slug) => catIdBySlug[slug]).filter((n) => Number.isFinite(n));
+      let category_ids = categoryIdsForSelection(categories, selectedCategoryId, selectedSubcategoryId);
+      // If an existing listing is edited while the taxonomy endpoint is
+      // temporarily unavailable, preserve its current category assignments
+      // instead of accidentally clearing them on save.
+      if (category_ids.length === 0 && isEdit && existingCategoryIds.length > 0) {
+        category_ids = existingCategoryIds;
+      }
 
       const payload: NestProductWritePayload & { customizable: boolean } = {
         name: title.trim(),
@@ -428,17 +448,19 @@ export default function ProductForm() {
             />
           </View>
 
-          <Text style={styles.label}>Categories</Text>
-          <View style={styles.chips}>
-            {categories.map((c) => {
-              const on = selectedCats.includes(c.slug);
-              return (
-                <TouchableOpacity key={c.id} onPress={() => { haptics.tap(); toggleCat(c.slug); }} style={[styles.chip, on && styles.chipOn]} testID={`pf-cat-${c.slug}`} accessibilityRole="button" accessibilityLabel={`${on ? "Remove" : "Add"} category ${c.name}`}>
-                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{c.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <Text style={styles.label}>Product category</Text>
+          <Text style={styles.categoryHint}>Choose the major category first, then choose the sub-category underneath it.</Text>
+          <CategorySubcategoryPicker
+            categories={categories}
+            categoryId={selectedCategoryId}
+            subcategoryId={selectedSubcategoryId}
+            onChange={(categoryId, subcategoryId) => {
+              haptics.tap();
+              setSelectedCategoryId(categoryId);
+              setSelectedSubcategoryId(subcategoryId);
+            }}
+            testIDPrefix="pf-category"
+          />
 
           {/* v1.0.156 — shipping fields now render on BOTH create and edit.
               Previously wrapped in {isEdit ? null : (...)} which meant a
@@ -579,11 +601,7 @@ const styles = StyleSheet.create({
   photoEmpty: { alignItems: "center", gap: spacing.sm },
   photoText: { color: colors.onSurfaceMuted, fontWeight: "700" },
   label: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.sm },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
-  chipOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { color: colors.onSurface, fontWeight: "700", fontSize: 13 },
-  chipTextOn: { color: colors.onBrand },
+  categoryHint: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.xs },
   sizeRow: { gap: spacing.sm, marginBottom: spacing.md },
   sizeOpt: { paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
   sizeOptOn: { backgroundColor: colors.brand, borderColor: colors.brand },

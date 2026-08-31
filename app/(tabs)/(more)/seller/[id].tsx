@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -14,6 +15,7 @@ import { PostCard } from "@/src/components/PostCard";
 import { SellerBadge } from "@/src/components/SellerBadge";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { EmptyState } from "@/src/components/EmptyState";
+import { CategorySubcategoryPicker } from "@/src/components/CategorySubcategoryPicker";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { useCart } from "@/src/context/CartContext";
@@ -26,6 +28,9 @@ import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { shareSeller } from "@/src/utils/share";
 import { parseServerDate } from "@/src/utils/datetime";
+import { subcategoriesFor, toHierarchicalCategory, type HierarchicalCategory } from "@/src/utils/categories";
+
+type ShopSort = "shop" | "price_asc" | "price_desc" | "name_asc";
 
 export default function SellerProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,6 +44,10 @@ export default function SellerProfile() {
   const [badge, setBadge] = useState<SellerBadgeType | null>(null);
   const [proSeller, setProSeller] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<HierarchicalCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<ShopSort>("shop");
   const [posts, setPosts] = useState<Post[]>([]);
   // v1.0.64 - reviews section (Build #4). Only first page is shown inline;
   // "See all reviews" navigates to a dedicated screen when the shop has more
@@ -55,18 +64,20 @@ export default function SellerProfile() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [sellerRes, badgeRes, proRes, prodRes, reviewsRes] = await Promise.all([
+    const [sellerRes, badgeRes, proRes, prodRes, reviewsRes, categoryRes] = await Promise.all([
       nest.getSeller(id!).catch(() => null),
       nest.trust.getSellerBadge(id!).catch(() => null),
       nest.trust.getProStatus(id!).catch(() => null),
       nest.getSellerProducts(id!, { per_page: 50 }).catch(() => ({ items: [], total: 0 })),
       nest.getSellerReviews(id!, { per_page: 3 }).catch(() => ({ items: [], total: 0, average: 0, page: 1, total_pages: 0 })),
+      nest.getCategories().catch(() => []),
     ]);
     setSeller(sellerRes);
     setIsFollowing(!!sellerRes?.is_following);
     setBadge(badgeRes as SellerBadgeType | null);
     setProSeller(!!proRes?.pro_seller);
     setProducts((prodRes.items || []).map(toProduct));
+    setCategories(categoryRes.map(toHierarchicalCategory));
     setPosts((sellerRes?.posts || []).map(toPost));
     setReviews(reviewsRes.items || []);
     setReviewTotal(reviewsRes.total || 0);
@@ -92,6 +103,42 @@ export default function SellerProfile() {
     if (!user) return router.push("/(auth)/login");
     toggle(p.id);
   };
+
+  const shopCategories = useMemo(() => {
+    const usedSlugs = new Set(products.flatMap((product) => product.categories));
+    const parentIdsWithUsedChildren = new Set(
+      categories
+        .filter((category) => !!category.parent && usedSlugs.has(category.slug))
+        .map((category) => category.parent as string),
+    );
+    return categories.filter((category) => usedSlugs.has(category.slug) || parentIdsWithUsedChildren.has(category.id));
+  }, [categories, products]);
+
+  const visibleProducts = useMemo(() => {
+    let next = [...products];
+
+    if (selectedSubcategoryId) {
+      const subcategory = categories.find((category) => category.id === selectedSubcategoryId);
+      if (subcategory) {
+        next = next.filter((product) => product.categories.includes(subcategory.slug));
+      }
+    } else if (selectedCategoryId) {
+      const category = categories.find((item) => item.id === selectedCategoryId);
+      if (category) {
+        const categorySlugs = new Set([
+          category.slug,
+          ...subcategoriesFor(categories, selectedCategoryId).map((child) => child.slug),
+        ]);
+        next = next.filter((product) => product.categories.some((slug) => categorySlugs.has(slug)));
+      }
+    }
+
+    if (sortMode === "price_asc") next.sort((a, b) => a.price - b.price);
+    if (sortMode === "price_desc") next.sort((a, b) => b.price - a.price);
+    if (sortMode === "name_asc") next.sort((a, b) => a.title.localeCompare(b.title));
+
+    return next;
+  }, [categories, products, selectedCategoryId, selectedSubcategoryId, sortMode]);
 
   const storeName = decodeEntities(seller?.store_name || "Seller");
 
@@ -122,7 +169,7 @@ export default function SellerProfile() {
         <ProductGridSkeleton count={4} />
       ) : (
         <FlatList
-          data={products}
+          data={visibleProducts}
           keyExtractor={(p) => p.id}
           numColumns={2}
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
@@ -222,10 +269,55 @@ export default function SellerProfile() {
               ) : null}
 
               <Text style={styles.sectionTitle}>Listings</Text>
+              {products.length > 0 ? (
+                <View style={styles.filterCard} testID="seller-listing-filters">
+                  <Text style={styles.filterTitle}>Browse this shop</Text>
+                  <CategorySubcategoryPicker
+                    categories={shopCategories}
+                    categoryId={selectedCategoryId}
+                    subcategoryId={selectedSubcategoryId}
+                    onChange={(categoryId, subcategoryId) => {
+                      haptics.tap();
+                      setSelectedCategoryId(categoryId);
+                      setSelectedSubcategoryId(subcategoryId);
+                    }}
+                    categoryPlaceholder="All categories"
+                    subcategoryPlaceholder="All sub-categories"
+                    allowAll
+                    testIDPrefix="seller-filter"
+                  />
+                  <Text style={styles.filterLabel}>Sort</Text>
+                  <View style={styles.sortPickerShell}>
+                    <Picker
+                      selectedValue={sortMode}
+                      onValueChange={(value) => {
+                        haptics.tap();
+                        setSortMode(value as ShopSort);
+                      }}
+                      dropdownIconColor={colors.onSurface}
+                      style={styles.sortPicker}
+                      testID="seller-sort"
+                    >
+                      <Picker.Item label="Shop order" value="shop" />
+                      <Picker.Item label="Price: Low to high" value="price_asc" />
+                      <Picker.Item label="Price: High to low" value="price_desc" />
+                      <Picker.Item label="Name: A to Z" value="name_asc" />
+                    </Picker>
+                  </View>
+                  <Text style={styles.resultCount}>{visibleProducts.length} {visibleProducts.length === 1 ? "listing" : "listings"}</Text>
+                </View>
+              ) : null}
             </View>
           }
           renderItem={({ item }) => <ProductCard product={item} layout="grid" onAddToCart={() => onAdd(item)} onToggleFavorite={() => onFav(item)} isFavorite={isFavorite(item.id)} />}
-          ListEmptyComponent={<EmptyState icon="cube-outline" title="No listings yet" message="This seller hasn't posted any items." testID="seller-empty" />}
+          ListEmptyComponent={
+            <EmptyState
+              icon="cube-outline"
+              title={products.length ? "No matching listings" : "No listings yet"}
+              message={products.length ? "Try another category or sub-category." : "This seller hasn't posted any items."}
+              testID="seller-empty"
+            />
+          }
         />
       )}
     </SafeAreaView>
@@ -259,6 +351,12 @@ const styles = StyleSheet.create({
   sectionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   seeAllReviews: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginTop: spacing.sm, paddingVertical: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary },
   seeAllReviewsText: { color: colors.brand, fontWeight: "700", fontSize: 14 },
+  filterCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: spacing.lg },
+  filterTitle: { color: colors.onSurface, fontSize: 15, fontWeight: "800", marginBottom: spacing.xs },
+  filterLabel: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.xs },
+  sortPickerShell: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface, overflow: "hidden" },
+  sortPicker: { color: colors.onSurface, minHeight: 50 },
+  resultCount: { color: colors.onSurfaceMuted, fontSize: 12, fontWeight: "700", marginTop: spacing.sm, textAlign: "right" },
 });
 
 // v1.0.64 - Build #4: single review row rendered in the seller profile

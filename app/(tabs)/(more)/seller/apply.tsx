@@ -5,11 +5,10 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
-import { toCategory } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
-import type { Category } from "@/src/types";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
+import { CategorySubcategoryPicker } from "@/src/components/CategorySubcategoryPicker";
 import { useAuth } from "@/src/context/AuthContext";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -17,19 +16,35 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
+import {
+  categoryPathLabel,
+  isCategorySelectionComplete,
+  toHierarchicalCategory,
+  type HierarchicalCategory,
+} from "@/src/utils/categories";
+
+type ApplicationCategorySelection = {
+  key: string;
+  categoryId: string | null;
+  subcategoryId: string | null;
+};
+
+function newSelection(key = "category-1"): ApplicationCategorySelection {
+  return { key, categoryId: null, subcategoryId: null };
+}
 
 export default function ApplySeller() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, refresh } = useAuth();
+  const { refresh } = useAuth();
   const [status, setStatus] = useState<"none" | "pending" | "approved" | "rejected" | "loading">("loading");
   const [rejectionReason, setRejectionReason] = useState("");
   const [canResubmit, setCanResubmit] = useState(true);
   const [shopName, setShopName] = useState("");
   const [description, setDescription] = useState("");
   const [shipping, setShipping] = useState("");
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+  const [categories, setCategories] = useState<HierarchicalCategory[]>([]);
+  const [categorySelections, setCategorySelections] = useState<ApplicationCategorySelection[]>([newSelection()]);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -44,7 +59,7 @@ export default function ApplySeller() {
         setStatus(s.status || "none");
         setRejectionReason(s.rejection_reason || "");
         setCanResubmit(s.can_resubmit !== false);
-        setCategories(cs.map(toCategory));
+        setCategories(cs.map(toHierarchicalCategory));
       } catch {
         if (cancelled) return;
         setStatus("none");
@@ -53,38 +68,59 @@ export default function ApplySeller() {
     return () => { cancelled = true; };
   }, []);
 
+  const updateCategorySelection = (key: string, categoryId: string | null, subcategoryId: string | null) => {
+    setCategorySelections((rows) => rows.map((row) => (
+      row.key === key ? { ...row, categoryId, subcategoryId } : row
+    )));
+  };
+
+  const addCategorySelection = () => {
+    haptics.tap();
+    setCategorySelections((rows) => [
+      ...rows,
+      newSelection(`category-${Date.now()}-${rows.length + 1}`),
+    ]);
+  };
+
+  const removeCategorySelection = (key: string) => {
+    haptics.tap();
+    setCategorySelections((rows) => rows.length <= 1 ? rows : rows.filter((row) => row.key !== key));
+  };
+
   const submit = async () => {
-    // v1.0.110 — client-side checks now match the exact server contract
-    // (store_name / about / products / accept_terms), and the toast
-    // names the specific field(s) missing so the seller doesn't have
-    // to guess after tapping submit on a long form.
+    const chosen = categorySelections.filter((selection) => !!selection.categoryId);
+    const incompleteCategory = chosen.some((selection) => !isCategorySelectionComplete(
+      categories,
+      selection.categoryId,
+      selection.subcategoryId,
+    ));
+
     const missing: string[] = [];
     if (!shopName.trim()) missing.push("Shop name");
     if (description.trim().length < 10) missing.push("Shop description (10+ characters)");
-    if (selectedCats.length === 0) missing.push("At least one product category");
+    if (chosen.length === 0) missing.push("At least one product category");
+    if (incompleteCategory) missing.push("A sub-category for each selected category");
     if (!agreed) missing.push("Agreement to seller terms");
     if (missing.length) {
       return toast.error("Please complete: " + missing.join(", "));
     }
 
-    // v1.0.110 — map the mobile form fields to the exact payload the
-    // plugin's /seller/application endpoint expects. The old payload
-    // used shop_name / shop_description / product_categories /
-    // shipping_info / agreed_to_terms, none of which matched, so the
-    // server always answered with the 422 "Store name, about,
-    // products, and acceptance of seller terms are required" banner
-    // even for a fully-filled form. Categories and shipping info are
-    // merged into `products` and `about` so the admin reviewing the
-    // application still sees everything the seller entered.
-    const catNames = selectedCats
-      .map((id) => categories.find((c) => c.id === id)?.name || "")
+    const uniqueSelections = chosen.filter((selection, index, all) => {
+      const key = `${selection.categoryId || ""}:${selection.subcategoryId || ""}`;
+      return all.findIndex((item) => `${item.categoryId || ""}:${item.subcategoryId || ""}` === key) === index;
+    });
+    const categoryPaths = uniqueSelections
+      .map((selection) => categoryPathLabel(categories, selection.categoryId, selection.subcategoryId))
       .filter(Boolean);
+
+    // The seller-application endpoint currently persists a human-readable
+    // `products` field. Store each taxonomy path on its own line so the admin
+    // review screen shows exactly what the applicant selected while the app
+    // continues using the canonical category IDs everywhere else.
     const aboutBody =
       description.trim() +
       (shipping.trim() ? "\n\nShipping: " + shipping.trim() : "");
-    const productsBody = catNames.length
-      ? "Categories: " + catNames.join(", ")
-      : "";
+    const productsBody = categoryPaths.join("\n");
 
     setBusy(true);
     try {
@@ -141,28 +177,47 @@ export default function ApplySeller() {
           <Input label="Shop name" value={shopName} onChangeText={setShopName} testID="apply-shop-name" />
           <Input label="Shop description" value={description} onChangeText={setDescription} multiline style={{ height: 120, textAlignVertical: "top" }} hint="What do you make? Tell buyers your story." testID="apply-description" />
 
-          <Text style={styles.label}>Product categories</Text>
-          <View style={styles.chips}>
-            {categories.map((c) => {
-              const on = selectedCats.includes(c.id);
-              return (
+          <Text style={styles.label}>What will you sell?</Text>
+          <Text style={styles.hint}>Choose a major category, then choose the sub-category underneath it. Add another selection if your shop sells more than one type of product.</Text>
+          {categorySelections.map((selection, index) => (
+            <View key={selection.key} style={styles.categoryCard} testID={`apply-category-row-${index}`}>
+              <CategorySubcategoryPicker
+                categories={categories}
+                categoryId={selection.categoryId}
+                subcategoryId={selection.subcategoryId}
+                onChange={(categoryId, subcategoryId) => updateCategorySelection(selection.key, categoryId, subcategoryId)}
+                testIDPrefix={`apply-category-${index}`}
+              />
+              {categorySelections.length > 1 ? (
                 <TouchableOpacity
-                  key={c.id}
-                  onPress={() => { haptics.tap(); setSelectedCats((s) => (s.includes(c.id) ? s.filter((x) => x !== c.id) : [...s, c.id])); }}
-                  style={[styles.chip, on && styles.chipOn]}
-                  testID={`apply-cat-${c.id}`}
+                  onPress={() => removeCategorySelection(selection.key)}
+                  style={styles.removeCategory}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove this category selection"
+                  testID={`apply-category-remove-${index}`}
                 >
-                  <Text style={[styles.chipText, on && styles.chipTextOn]}>{c.name}</Text>
+                  <Ionicons name="trash-outline" size={16} color={colors.error} />
+                  <Text style={styles.removeCategoryText}>Remove</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              ) : null}
+            </View>
+          ))}
+          <TouchableOpacity
+            onPress={addCategorySelection}
+            style={styles.addCategory}
+            accessibilityRole="button"
+            accessibilityLabel="Add another product category"
+            testID="apply-category-add"
+          >
+            <Ionicons name="add-circle-outline" size={18} color={colors.brand} />
+            <Text style={styles.addCategoryText}>Add another category</Text>
+          </TouchableOpacity>
 
           <Input label="Shipping information" value={shipping} onChangeText={setShipping} multiline style={{ height: 80, textAlignVertical: "top" }} hint="Where do you ship from, average lead time." testID="apply-shipping" />
 
           <TouchableOpacity onPress={() => { haptics.tap(); setAgreed((v) => !v); }} style={styles.terms} testID="apply-agree" accessibilityRole="checkbox" accessibilityLabel="Agree to seller terms">
             <Ionicons name={agreed ? "checkbox" : "square-outline"} size={22} color={agreed ? colors.brand : colors.onSurfaceMuted} />
-            <Text style={{ color: colors.onSurface, flex: 1 }}>I agree to the My Nest seller terms and marketplace fee policy.</Text>
+            <Text style={{ color: colors.onSurface, flex: 1 }}>I agree to The Nest seller terms and marketplace fee policy.</Text>
           </TouchableOpacity>
 
           <Button title={status === "rejected" ? "Resubmit application" : "Submit application"} onPress={() => { haptics.press(); submit(); }} loading={busy} disabled={status === "rejected" && !canResubmit} testID="apply-submit" />
@@ -194,11 +249,12 @@ const styles = StyleSheet.create({
   rejectedTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
   rejectedText: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: 2 },
   resubmitBlocked: { color: colors.error, fontSize: 12, lineHeight: 17, textAlign: "center", marginTop: spacing.sm },
-  label: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.sm },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
-  chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border },
-  chipOn: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { color: colors.onSurface, fontWeight: "700", fontSize: 13 },
-  chipTextOn: { color: colors.onBrand },
+  label: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.xs },
+  hint: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.sm },
+  categoryCard: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.sm },
+  removeCategory: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: spacing.xs, paddingTop: spacing.sm },
+  removeCategoryText: { color: colors.error, fontSize: 13, fontWeight: "700" },
+  addCategory: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingVertical: spacing.md, marginBottom: spacing.md },
+  addCategoryText: { color: colors.brand, fontSize: 14, fontWeight: "800" },
   terms: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
 });
