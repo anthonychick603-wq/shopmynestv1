@@ -122,7 +122,10 @@ export default function ApplySeller() {
     try {
       await nest.submitSellerApplication({
         store_name: shopName.trim(),
+        application_description: aboutBody,
+        // Backward compatibility with backend releases prior to v3.13.50.
         about: aboutBody,
+        handmade_acknowledged: handmadeOnlyAcknowledged,
         products: productsBody,
         accept_terms: agreed,
       });
