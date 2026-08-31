@@ -1,0 +1,62 @@
+name: Validate and package mobile r2
+
+on:
+  push:
+    branches:
+      - artifact/mobile-source-20260831-r2
+  workflow_dispatch:
+
+jobs:
+  validate-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint -- --max-warnings 100
+      - name: Expo Doctor
+        run: npx expo-doctor
+      - name: Operational audit
+        run: npm run audit:operations
+      - name: Android Expo export
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://shopmynest.com
+        run: npx expo export --platform android --output-dir dist
+      - name: Build validation report
+        run: |
+          cat > MOBILE_VALIDATION_REPORT.txt <<'EOF'
+          ShopMyNest Mobile validation report
+          Generated: 2026-08-31 UTC
+
+          RESULT: PASS when all workflow steps complete.
+
+          Included change:
+          - Raw WordPress.com/PHP fatal HTML, CSS, stack traces, WordPress paths, and oversized server dumps are sanitized at the toast boundary.
+          - User-facing server dump fallback: "The website is having trouble responding. Please try again."
+
+          Source baseline note:
+          - GitHub mobile source is still the older v1.0.173 baseline and is for testing until reconciled with the previously validated v1.0.185 source.
+          EOF
+      - name: Prepare clean source
+        run: |
+          mkdir -p package
+          rsync -a ./ package/ \
+            --exclude .git \
+            --exclude .github \
+            --exclude node_modules \
+            --exclude package \
+            --exclude dist \
+            --exclude backend \
+            --exclude '*.zip'
+          cp MOBILE_VALIDATION_REPORT.txt package/MOBILE_VALIDATION_REPORT.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShopMyNest-Mobile-v1.0.173-dev-20260831-r2
+          path: package/
+          retention-days: 7
