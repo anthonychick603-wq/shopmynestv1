@@ -1,0 +1,93 @@
+name: Validate and package mobile source
+
+on:
+  push:
+    branches:
+      - artifact/mobile-source-20260831-final
+  workflow_dispatch:
+
+jobs:
+  validate-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint -- --max-warnings 100
+
+      - name: Expo Doctor
+        run: npx expo-doctor
+
+      - name: Operational audit
+        run: npm run audit:operations
+
+      - name: Android Expo export
+        env:
+          EXPO_PUBLIC_API_BASE_URL: https://shopmynest.com
+        run: npx expo export --platform android --output-dir dist
+
+      - name: Dependency audit summary
+        run: |
+          npm audit --json > npm-audit.json || true
+          node - <<'NODE'
+          const fs = require('fs');
+          let report = {};
+          try { report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8')); } catch {}
+          const v = report.metadata?.vulnerabilities || {};
+          fs.writeFileSync('MOBILE_VALIDATION_REPORT.txt', [
+            'ShopMyNest Mobile GitHub testing-source validation',
+            'Generated: 2026-08-31 UTC',
+            '',
+            'RESULT: PASS for TypeScript, lint, Expo Doctor, operational audit, and Android Expo export.',
+            '',
+            'Source baseline note:',
+            '- GitHub app version remains 1.0.173 / versionCode 139.',
+            '- This branch includes the later category/sub-category, handmade seller application, backend-contract client changes, My Nest launcher label, Expo Go tunnel command, lint config update, and SDK 54 patch alignment.',
+            '- The separately validated v1.0.185 source is not present in GitHub and must be reconciled before this is treated as the next production release.',
+            '',
+            'Expo Go:',
+            '- Run: npm run start:go',
+            '- This forces Expo Go mode, tunnel transport, and a cleared Metro cache.',
+            '',
+            'npm audit counts for this older GitHub baseline:',
+            `- critical: ${v.critical || 0}`,
+            `- high: ${v.high || 0}`,
+            `- moderate: ${v.moderate || 0}`,
+            `- low: ${v.low || 0}`,
+            '',
+          ].join('\n'));
+          NODE
+
+      - name: Prepare clean mobile source
+        run: |
+          mkdir -p package
+          rsync -a ./ package/ \
+            --exclude .git \
+            --exclude .github \
+            --exclude node_modules \
+            --exclude package \
+            --exclude dist \
+            --exclude backend \
+            --exclude npm-audit.json \
+            --exclude '*.zip'
+          cp MOBILE_VALIDATION_REPORT.txt package/MOBILE_VALIDATION_REPORT.txt
+
+      - name: Upload mobile source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopMyNest-Mobile-v1.0.173-dev-20260831
+          path: package/
+          retention-days: 7
