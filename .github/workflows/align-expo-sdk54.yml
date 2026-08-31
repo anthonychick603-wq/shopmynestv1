@@ -1,0 +1,43 @@
+name: Align Expo SDK 54 patches
+
+on:
+  push:
+    branches:
+      - fix/expo-sdk54-patch-alignment
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: fix/expo-sdk54-patch-alignment
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Align Expo patch dependencies
+        run: npm install expo@~54.0.37 expo-constants@~18.0.14 expo-file-system@~19.0.24 --save
+
+      - name: Verify Expo dependency alignment
+        run: npx expo-doctor
+
+      - name: Commit regenerated lockfile
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "No dependency changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "Align Expo SDK 54 patch dependencies"
+          git push origin HEAD:fix/expo-sdk54-patch-alignment
