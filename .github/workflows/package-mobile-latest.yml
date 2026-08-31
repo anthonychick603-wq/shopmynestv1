@@ -1,0 +1,59 @@
+name: Package latest mobile source
+
+on:
+  push:
+    branches:
+      - artifact/mobile-source-latest
+  workflow_dispatch:
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint -- --max-warnings 100
+
+      - name: Expo Doctor
+        run: npx expo-doctor
+
+      - name: Operational audit
+        run: npm run audit:operations
+
+      - name: Prepare clean source
+        run: |
+          mkdir -p package
+          rsync -a ./ package/ \
+            --exclude .git \
+            --exclude .github \
+            --exclude node_modules \
+            --exclude package \
+            --exclude dist \
+            --exclude .expo
+          printf '%s\n' \
+            'The Nest / My Nest mobile source package' \
+            'Source: GitHub main after category/sub-category, handmade seller application, and Expo Go tunnel changes.' \
+            'Expo Go test command: npm run start:go' \
+            'IMPORTANT: repository release identifier is still v1.0.173; validated v1.0.185 source was not present in GitHub.' \
+            > package/MOBILE_PACKAGE_INFO.txt
+
+      - name: Upload source package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShopMyNest-Mobile-latest-main
+          path: package/
+          retention-days: 7
