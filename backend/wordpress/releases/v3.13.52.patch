@@ -1,0 +1,92 @@
+diff -ruN mnu351orig/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.52.md mnu351/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.52.md
+--- mnu351orig/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.52.md	1970-01-01 00:00:00.000000000 +0000
++++ mnu351/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.52.md	2026-08-31 19:30:56.479156384 +0000
+@@ -0,0 +1,8 @@
++# MyNest Unified Marketplace v3.13.52
++
++## Seller application fatal-response hardening
++
++- Prevents post-submit admin notification failures from turning a successfully saved seller application into a WordPress fatal response.
++- Wraps seller-application REST execution in a `Throwable` boundary and returns structured JSON instead of WordPress.com fatal HTML/CSS when a runtime exception occurs.
++- Logs the underlying server diagnostic for administrators while keeping PHP/CSS/stack traces out of the mobile experience.
++- Does not change checkout, payment creation, payouts, shipping fees, taxes, or order-state contracts.
+diff -ruN mnu351orig/mynest-unified-marketplace/includes/class-tnm-applications.php mnu351/mynest-unified-marketplace/includes/class-tnm-applications.php
+--- mnu351orig/mynest-unified-marketplace/includes/class-tnm-applications.php	2026-08-31 18:40:23.000000000 +0000
++++ mnu351/mynest-unified-marketplace/includes/class-tnm-applications.php	2026-08-31 19:30:56.476454025 +0000
+@@ -120,9 +120,29 @@
+         }
+         update_user_meta( $user_id, 'tnm_application_id', $application_id );
+ 
++        // v3.13.52 — the application is already safely persisted at this point.
++        // Admin notification fan-out must never turn a successful application into
++        // a WordPress fatal response. WordPress.com can render fatal pages as raw
++        // HTML/CSS, which mobile clients previously surfaced to the applicant.
++        // Treat notification/link generation as best-effort and log any runtime
++        // failure without rolling back or corrupting the submitted application.
+         $admins = get_users( array( 'role__in' => array( 'administrator', 'shop_manager' ), 'fields' => 'ID' ) );
+         foreach ( $admins as $admin_id ) {
+-            tnm_notify( (int) $admin_id, $user_id, 'seller_application', 'New seller application', $store_name, (int) $application_id, 'tnm_application', get_edit_post_link( $application_id, 'raw' ) ?: '' );
++            try {
++                $edit_link = get_edit_post_link( $application_id, 'raw' );
++                tnm_notify(
++                    (int) $admin_id,
++                    $user_id,
++                    'seller_application',
++                    'New seller application',
++                    $store_name,
++                    (int) $application_id,
++                    'tnm_application',
++                    is_string( $edit_link ) ? $edit_link : ''
++                );
++            } catch ( \Throwable $error ) {
++                error_log( sprintf( '[MyNest v3.13.52] Seller application #%d notification failed: %s', (int) $application_id, $error->getMessage() ) );
++            }
+         }
+ 
+         return (int) $application_id;
+diff -ruN mnu351orig/mynest-unified-marketplace/includes/class-tnm-rest.php mnu351/mynest-unified-marketplace/includes/class-tnm-rest.php
+--- mnu351orig/mynest-unified-marketplace/includes/class-tnm-rest.php	2026-08-26 11:53:41.000000000 +0000
++++ mnu351/mynest-unified-marketplace/includes/class-tnm-rest.php	2026-08-31 19:30:56.478945305 +0000
+@@ -1096,8 +1096,16 @@
+     }
+ 
+     public static function application( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $application_id = TNM_Applications::submit( get_current_user_id(), $request->get_json_params() ?: $request->get_params() );
+-        return is_wp_error( $application_id ) ? $application_id : rest_ensure_response( array( 'success' => true, 'application_id' => $application_id, 'status' => 'pending' ) );
++        // v3.13.52 — REST requests must never leak a host/PHP fatal template back
++        // to the mobile app. Catch runtime Errors/Exceptions inside the application
++        // transaction, log the diagnostic server-side, and return structured JSON.
++        try {
++            $application_id = TNM_Applications::submit( get_current_user_id(), $request->get_json_params() ?: $request->get_params() );
++            return is_wp_error( $application_id ) ? $application_id : rest_ensure_response( array( 'success' => true, 'application_id' => $application_id, 'status' => 'pending' ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.52] Seller application REST failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_application_server_error', 'The website is having trouble processing seller applications. Please try again.', 500 );
++        }
+     }
+ 
+     /**
+diff -ruN mnu351orig/mynest-unified-marketplace/mynest-unified-marketplace.php mnu351/mynest-unified-marketplace/mynest-unified-marketplace.php
+--- mnu351orig/mynest-unified-marketplace/mynest-unified-marketplace.php	2026-08-31 18:58:21.000000000 +0000
++++ mnu351/mynest-unified-marketplace/mynest-unified-marketplace.php	2026-08-31 19:30:56.476163632 +0000
+@@ -3,7 +3,7 @@
+  * Plugin Name: MyNest Unified Marketplace
+  * Plugin URI:  https://shopmynest.com/
+  * Description: One complete WooCommerce marketplace plugin for MyNest sellers, fees, payouts, orders, social features, mobile APIs, checkout, and shipping.
+- * Version:     3.13.51
++ * Version:     3.13.52
+@@
+-define( 'MNU_VERSION', '3.13.51' );
++define( 'MNU_VERSION', '3.13.52' );
+diff -ruN mnu351orig/mynest-unified-marketplace/readme.txt mnu351/mynest-unified-marketplace/readme.txt
+--- mnu351orig/mynest-unified-marketplace/readme.txt	2026-08-31 18:58:21.000000000 +0000
++++ mnu351/mynest-unified-marketplace/readme.txt	2026-08-31 19:30:56.479392821 +0000
+@@ -4,7 +4,7 @@
+-Stable tag: 3.13.51
++Stable tag: 3.13.52
+diff -ruN mnu351orig/mynest-unified-marketplace/scripts/contract-audit.php mnu351/mynest-unified-marketplace/scripts/contract-audit.php
+--- mnu351orig/mynest-unified-marketplace/scripts/contract-audit.php	2026-08-31 18:58:21.000000000 +0000
++++ mnu351/mynest-unified-marketplace/scripts/contract-audit.php	2026-08-31 19:30:56.479282182 +0000
+@@ -1,7 +1,7 @@
+-  'version' => ['mynest-unified-marketplace.php', "define( 'MNU_VERSION', '3.13.51' )"],
++  'version' => ['mynest-unified-marketplace.php', "define( 'MNU_VERSION', '3.13.52' )"],
