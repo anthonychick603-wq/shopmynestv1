@@ -8,9 +8,31 @@ type Toast = { id: string; message: string; type: "info" | "success" | "error" }
 let listeners: ((t: Toast) => void)[] = [];
 let counter = 0;
 
+function safeToastMessage(message: unknown, type: Toast["type"]): string {
+  const raw = String(message ?? "").trim();
+  const looksLikeServerDump =
+    /<\s*(?:!doctype|html|head|body|style|script|div)\b/i.test(raw) ||
+    /wpcomsh-fatal|php\s+(?:fatal\s+)?error|stack\s+trace:|\/wp-(?:includes|content)\/|\.wpcomsh-[\w-]+\s*\{|font-family\s*:/i.test(raw);
+
+  if (looksLikeServerDump) {
+    return type === "error"
+      ? "The website is having trouble responding. Please try again."
+      : "Something went wrong. Please try again.";
+  }
+
+  const compact = raw.replace(/\s+/g, " ").trim();
+  if (!compact) return type === "error" ? "Something went wrong. Please try again." : "Done.";
+  return compact.length > 320 ? `${compact.slice(0, 317)}…` : compact;
+}
+
 export const toast = {
   show(message: string, type: Toast["type"] = "info") {
-    const t: Toast = { id: `${++counter}`, message, type };
+    // v1.0.173-dev r2 — server/host failures can arrive as WordPress.com fatal
+    // HTML+CSS even when an endpoint was expected to return JSON. Sanitize at
+    // the final user-facing boundary so no screen can dump PHP, CSS, stack
+    // traces, paths, or oversized server responses into a toast.
+    const safeMessage = safeToastMessage(message, type);
+    const t: Toast = { id: `${++counter}`, message: safeMessage, type };
     // v1.0.69 — pair every toast with a matching haptic so state changes
     // register even when a user is looking away from the screen briefly.
     if (type === "success") haptics.success();
