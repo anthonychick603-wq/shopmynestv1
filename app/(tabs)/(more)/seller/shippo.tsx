@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -131,11 +132,8 @@ export default function SellerShipFromAddress() {
         <AlertsBellButton />
         <CartHeaderButton />
       </View>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView
-          contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + spacing.xl }]}
-          keyboardShouldPersistTaps="handled"
-        >
+      <KeyboardAwareScroll contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + spacing.xl }]}
+          keyboardShouldPersistTaps="handled">
           <View style={styles.hero}>
             <Ionicons name="location-outline" size={28} color={colors.brand} />
             <Text style={styles.heroTitle}>Where do your packages ship from?</Text>
@@ -273,8 +271,7 @@ export default function SellerShipFromAddress() {
               You can update this address any time. Existing shipments already labeled use the address they were bought with.
             </Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScroll>
     </SafeAreaView>
   );
 }

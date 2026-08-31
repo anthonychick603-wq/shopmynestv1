@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -174,8 +175,10 @@ export default function SellerBankAccount() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top onBack={goBack} />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
+      {/* v1.0.175 — KeyboardAwareScroll auto-scrolls the focused input above
+          the keyboard on both iOS and Android, replacing the old
+          KeyboardAvoidingView+ScrollView pair that only shrank the container. */}
+      <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
           <Text style={styles.introTitle}>
             {isEditing ? "Update your bank account" : "Add your bank account"}
           </Text>
@@ -240,8 +243,7 @@ export default function SellerBankAccount() {
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
           ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScroll>
     </SafeAreaView>
   );
 }

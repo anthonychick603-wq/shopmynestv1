@@ -1,0 +1,517 @@
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.54.md scratch/plugin-new/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.54.md
+--- scratch/plugin-v53/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.54.md	1970-01-01 00:00:00.000000000 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.54.md	2026-08-31 23:14:36.076924958 +0000
+@@ -0,0 +1,85 @@
++# v3.13.54 — Bank-account fatal root cause + REST hardening
++
++## Root cause of the wpcomsh HTML/CSS fatal on Payout → Bank account
++
++Every branch of the plugin that tried to send an operational alert to the
++admin — bank account change, Stripe dispute webhook, Shippo void error and
++polling timeout, seller debit posting — called
++`MNU_Ops::notify_admin( $subject, $body, $data )`.
++
++**That method was never defined on `MNU_Ops`.**
++
++The only guards were `class_exists( 'MNU_Ops' )`, which returns true (the
++class exists — it just doesn't have this particular method), so PHP proceeded
++to invoke a static method that had never been declared, producing:
++
++    Error: Call to undefined method MNU_Ops::notify_admin()
++
++On WordPress.com Atomic that fatal is rendered as the `wpcomsh-fatal` HTML/CSS
++template — the raw markup the mobile app was displaying inside the Bank
++account error card.
++
++### Fix (`includes/class-mnu-ops.php`)
++
++- Implemented `MNU_Ops::notify_admin( string $subject, string $body, array $data = [] ): void` with the shape all five callers assume.
++- Delivers via three independent channels, each wrapped in a Throwable
++  boundary so a delivery failure can never itself become a REST fatal:
++  1. `wp_mail` to `admin_email`.
++  2. Ring buffer of the last 100 alerts in the `mnu_admin_alerts` option
++     (auditable from admin UI).
++  3. Expo push to any user with `mnu_receive_admin_alerts = 1` in user meta
++     plus the admin user account itself.
++
++### Defence-in-depth at every caller
++
++Upgraded all `class_exists( 'MNU_Ops' )` guards that call `notify_admin` to
++additionally check `method_exists( 'MNU_Ops', 'notify_admin' )`:
++
++- `includes/class-mnu-bank-account.php`
++- `includes/class-mnu-native-checkout.php`
++- `includes/class-mnu-auto-label.php` (both branches — ERROR and timeout)
++- `includes/class-mnu-seller-debit.php` (previously unguarded — now wrapped)
++
++## Additional CRITICAL REST fatal surfaces closed
++
++The v3.13.53 audit surfaced eight seller-authenticated REST callbacks that
++had no Throwable boundary and would leak the wpcomsh HTML template on any
++downstream Woo, Jetpack Sync, or HPOS fatal. All eight are now wrapped:
++
++| Endpoint | File:line | Was |
++| :-- | :-- | :-- |
++| `seller_orders` | `class-tnm-rest.php:1655` | no boundary |
++| `seller_order_update` | `class-tnm-rest.php:1666` | no boundary + TypeError on `wc_get_order() === false` |
++| `seller_analytics` | `class-tnm-rest.php:1706` | no boundary; ~200-line body |
++| `seller_analytics_export` | `class-tnm-rest.php:1917` | no boundary |
++| `seller_product_create` | `class-tnm-rest.php:1344` | no boundary + `wc_get_product()` null-deref |
++| `seller_product_update` | `class-tnm-rest.php:1369` | no boundary + `wc_get_product()` null-deref |
++| `seller_product_delete` | `class-tnm-rest.php:1391` | no boundary |
++| `seller_product_duplicate` | `class-tnm-rest.php:1402` | no boundary |
++| `seller_product_variations_save` | `class-tnm-rest.php:2013` | no boundary + missing id sanity |
++
++Each wrapper follows the v3.13.53 pattern: try/catch `\Throwable`, log
++`[MyNest v3.13.54] <endpoint> failure for user %d: %s in %s:%d`, return
++`tnm_json_error( '<endpoint>_server_error', 'The website is having trouble responding. Please try again.', 500 )`.
++
++For the two long-bodied analytics methods (`seller_analytics`,
++`seller_analytics_export`) the original body was renamed to a private `*_impl`
++method and the public entry became a thin try/catch wrapper — same runtime
++behavior, contained blast radius.
++
++For `seller_order_update` an explicit `wc_get_order() instanceof WC_Order`
++null-guard was added before feeding the result to the strictly-typed
++`seller_order_to_array( WC_Order $order, int $seller_id )` — the previous
++implementation was a TypeError waiting for an invalid `id` parameter.
++
++For `seller_product_variations_save` an `absint( $request['id'] ) > 0` guard
++was added before delegating to `TNM_Marketplace::save_product_variations` —
++which downstream `wc_get_product( 0 )`s and then `->save()`s.
++
++## Expected result after deploying this plugin
++
++The Bank account save (POST `/wp-json/the-nest/v1/seller/bank-account`) will
++now either succeed cleanly or return a well-formed JSON 500 with a friendly
++message — never again the raw wpcomsh HTML that the mobile app was rendering
++verbatim. All admin alerts (bank change, disputes, void failures, debits)
++will be delivered by email + push + the audit ring.
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-auto-label.php scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-auto-label.php
+--- scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-auto-label.php	2026-08-31 23:15:22.760924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-auto-label.php	2026-08-31 23:11:59.628924958 +0000
+@@ -433,7 +433,7 @@
+             $order->update_meta_data( '_mnu_label_void_state' . $suffix, 'error' );
+             $order->save();
+             $order->add_order_note( sprintf( 'Shippo returned ERROR for refund %s on label %s. Ledger NOT reversed — manual review required.', $refund_obj, $tx_id ) );
+-            if ( class_exists( 'MNU_Ops' ) ) {
++            if ( class_exists( 'MNU_Ops' ) && method_exists( 'MNU_Ops', 'notify_admin' ) ) {
+                 MNU_Ops::notify_admin(
+                     'Shippo void failed on order #' . $order->get_order_number(),
+                     sprintf( 'Shippo refund %s (label %s, seller %d) returned ERROR. Platform postage ledger row was NOT reversed. Investigate manually.', $refund_obj, $tx_id, $seller_id ),
+@@ -479,7 +479,7 @@
+                 $order->save();
+                 $order->add_order_note( sprintf( 'Shippo void polling timed out after 48 attempts. Ledger NOT reversed — manual review required for seller %d.', $seller_id ) );
+             }
+-            if ( class_exists( 'MNU_Ops' ) ) {
++            if ( class_exists( 'MNU_Ops' ) && method_exists( 'MNU_Ops', 'notify_admin' ) ) {
+                 MNU_Ops::notify_admin(
+                     'Shippo void polling timed out',
+                     sprintf( 'Order #%d seller %d — Shippo never returned a terminal state. Postage ledger row was NOT reversed. Investigate manually.', $order_id, $seller_id ),
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-bank-account.php scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-bank-account.php
+--- scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-bank-account.php	2026-08-31 23:15:22.760924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-bank-account.php	2026-08-31 23:11:59.628924958 +0000
+@@ -262,7 +262,7 @@
+ 			);
+ 			update_user_meta( $seller_id, self::META_HISTORY, wp_json_encode( array_slice( $history, -25 ) ) );
+ 
+-			if ( class_exists( 'MNU_Ops' ) ) {
++			if ( class_exists( 'MNU_Ops' ) && method_exists( 'MNU_Ops', 'notify_admin' ) ) {
+ 				MNU_Ops::notify_admin(
+ 					sprintf( 'Seller %d changed bank details', $seller_id ),
+ 					sprintf(
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-native-checkout.php scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-native-checkout.php
+--- scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-native-checkout.php	2026-08-31 23:15:22.760924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-native-checkout.php	2026-08-31 23:11:59.628924958 +0000
+@@ -2146,7 +2146,7 @@
+     }
+ 
+     // Admin alert.
+-    if ( class_exists( 'MNU_Ops' ) ) {
++    if ( class_exists( 'MNU_Ops' ) && method_exists( 'MNU_Ops', 'notify_admin' ) ) {
+         MNU_Ops::notify_admin(
+             sprintf( 'Stripe dispute %s on order #%d ($%.2f)', $status, $order->get_id(), $amount_dol ),
+             implode( "\n", $note_lines ),
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-ops.php scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-ops.php
+--- scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-ops.php	2026-08-31 23:15:22.760924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-ops.php	2026-08-31 23:11:48.148924958 +0000
+@@ -1001,4 +1001,104 @@
+ 
+         return $sent;
+     }
++
++    /**
++     * v3.13.54 — RESTORED: emit an operational alert to the site admin.
++     *
++     * Historical background: five hot paths across the plugin have been calling
++     * `MNU_Ops::notify_admin( $subject, $body, $context )` for months — bank
++     * account change (class-mnu-bank-account.php), Stripe dispute webhook
++     * (class-mnu-native-checkout.php), Shippo void error / polling timeout
++     * (class-mnu-auto-label.php), and seller debit posting
++     * (class-mnu-seller-debit.php). The method itself was NEVER declared on
++     * the MNU_Ops class, so every one of those call sites fataled with
++     * "Error: Call to undefined method MNU_Ops::notify_admin()" the moment its
++     * branch triggered. `class_exists('MNU_Ops')` guards passed (class does
++     * exist) so the guard was useless. On WordPress.com Atomic this fatal was
++     * rendered as the raw wpcomsh error template and leaked through the mobile
++     * REST client into the app UI.
++     *
++     * This implementation sends the message via three cheap independent
++     * channels so a single delivery failure never masks the alert:
++     *   1) Email to the site admin_email (falls back to WP option).
++     *   2) An in-DB alert row appended to the `mnu_admin_alerts` option,
++     *      capped at 100 entries so a runaway alert loop cannot grow the row
++     *      unbounded.
++     *   3) A native push (via notify_user) to every user with
++     *      `mnu_receive_admin_alerts=1` in user meta, plus the admin_email's
++     *      matching WP user account if any.
++     *
++     * All three deliveries are wrapped in a Throwable boundary so this
++     * function can never itself become a source of REST fatals.
++     *
++     * @param string $subject Short subject line, plain text.
++     * @param string $body    Body — allowed newlines; sanitized for wp_mail.
++     * @param array  $data    Optional structured context — persisted with the
++     *                        alert and forwarded to notify_user.
++     */
++    public static function notify_admin( string $subject, string $body, array $data = array() ): void {
++        $subject = trim( $subject ) !== '' ? $subject : '[ShopMyNest] Operational alert';
++        $body    = (string) $body;
++        $data    = is_array( $data ) ? $data : array();
++
++        // 1) Email to admin_email. Wrapped — wp_mail can throw when SMTP
++        //    plugins are misconfigured.
++        try {
++            $admin_email = get_option( 'admin_email' );
++            if ( is_string( $admin_email ) && $admin_email !== '' ) {
++                $footer = $data ? "\n\nContext:\n" . wp_json_encode( $data ) : '';
++                wp_mail(
++                    $admin_email,
++                    sanitize_text_field( $subject ),
++                    $body . $footer
++                );
++            }
++        } catch ( \Throwable $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
++            // Swallow — email is best-effort.
++        }
++
++        // 2) Persist to the admin-alerts audit ring.
++        try {
++            $alerts = get_option( 'mnu_admin_alerts', array() );
++            if ( ! is_array( $alerts ) ) { $alerts = array(); }
++            $alerts[] = array(
++                't'       => gmdate( 'c' ),
++                'subject' => (string) $subject,
++                'body'    => (string) $body,
++                'data'    => $data,
++            );
++            update_option( 'mnu_admin_alerts', array_slice( $alerts, -100 ), false );
++        } catch ( \Throwable $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
++            // Swallow — audit ring is best-effort.
++        }
++
++        // 3) Native push to any user opted in to admin alerts, plus the WP
++        //    account matching admin_email if it exists.
++        try {
++            $recipient_ids = array();
++            $admin_email   = get_option( 'admin_email' );
++            if ( is_string( $admin_email ) && $admin_email !== '' ) {
++                $u = get_user_by( 'email', $admin_email );
++                if ( $u ) { $recipient_ids[] = (int) $u->ID; }
++            }
++            if ( function_exists( 'get_users' ) ) {
++                $opt_ins = get_users(
++                    array(
++                        'meta_key'   => 'mnu_receive_admin_alerts',
++                        'meta_value' => '1',
++                        'fields'     => 'ID',
++                        'number'     => 50,
++                    )
++                );
++                foreach ( (array) $opt_ins as $uid ) {
++                    $recipient_ids[] = (int) $uid;
++                }
++            }
++            foreach ( array_unique( array_filter( $recipient_ids ) ) as $uid ) {
++                self::notify_user( (int) $uid, $subject, $body, array_merge( array( 'source' => 'admin_alert' ), $data ) );
++            }
++        } catch ( \Throwable $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
++            // Swallow — push is best-effort.
++        }
++    }
+ }
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-seller-debit.php scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-seller-debit.php
+--- scratch/plugin-v53/mynest-unified-marketplace/includes/class-mnu-seller-debit.php	2026-08-31 23:15:22.760924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/includes/class-mnu-seller-debit.php	2026-08-31 23:12:31.672924958 +0000
+@@ -201,7 +201,9 @@
+ 
+ 		$ledger_row_id = (int) $wpdb->insert_id;
+ 
+-		if ( class_exists( 'MNU_Ops' ) ) {
++		// v3.13.54 — defence-in-depth: check method_exists in addition to
++		// class_exists so a partially-loaded MNU_Ops cannot fatal here.
++		if ( class_exists( 'MNU_Ops' ) && method_exists( 'MNU_Ops', 'notify_user' ) ) {
+ 			MNU_Ops::notify_user(
+ 				$seller_id,
+ 				__( 'Adjustment to your seller balance', 'mynest-unified-marketplace' ),
+@@ -217,6 +219,8 @@
+ 					'reason_code'   => $reason_code,
+ 				)
+ 			);
++		}
++		if ( class_exists( 'MNU_Ops' ) && method_exists( 'MNU_Ops', 'notify_admin' ) ) {
+ 			MNU_Ops::notify_admin(
+ 				sprintf( 'Debit posted \u2014 seller %d, -$%s', $seller_id, number_format( $amount_cents / 100, 2 ) ),
+ 				sprintf( "Ledger row #%d\nReason: %s\nCase: %s\nBy: %d(%s)\nEvidence: %s",
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/includes/class-tnm-rest.php scratch/plugin-new/mynest-unified-marketplace/includes/class-tnm-rest.php
+--- scratch/plugin-v53/mynest-unified-marketplace/includes/class-tnm-rest.php	2026-08-31 23:15:22.764924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/includes/class-tnm-rest.php	2026-08-31 23:13:53.372924958 +0000
+@@ -1342,44 +1342,79 @@
+     }
+ 
+     public static function seller_product_create( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $params = $request->get_json_params() ?: $request->get_params();
+-        $product_id = TNM_Marketplace::create_product( get_current_user_id(), $params );
+-        if ( is_wp_error( $product_id ) ) {
+-            return $product_id;
+-        }
+-        if ( array_key_exists( 'customizable', $params ) ) {
+-            update_post_meta( $product_id, '_mnu_customizable', filter_var( $params['customizable'], FILTER_VALIDATE_BOOLEAN ) ? 'yes' : 'no' );
++        // v3.13.54 — Throwable boundary added. Woo product-data-store calls
++        // downstream can fatal during Jetpack Sync / Woo upgrade windows on
++        // WordPress.com Atomic; without this boundary the mobile app received
++        // the raw wpcomsh HTML fatal template.
++        try {
++            $params = $request->get_json_params() ?: $request->get_params();
++            $product_id = TNM_Marketplace::create_product( get_current_user_id(), $params );
++            if ( is_wp_error( $product_id ) ) {
++                return $product_id;
++            }
++            if ( array_key_exists( 'customizable', $params ) ) {
++                update_post_meta( $product_id, '_mnu_customizable', filter_var( $params['customizable'], FILTER_VALIDATE_BOOLEAN ) ? 'yes' : 'no' );
++            }
++            $product = wc_get_product( $product_id );
++            if ( ! $product ) {
++                return tnm_json_error( 'product_missing', 'The created product could not be loaded.', 500 );
++            }
++            return rest_ensure_response( TNM_Marketplace::product_to_array( $product, true ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_product_create failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_product_server_error', 'The website is having trouble responding. Please try again.', 500 );
+         }
+-        return rest_ensure_response( TNM_Marketplace::product_to_array( wc_get_product( $product_id ), true ) );
+     }
+ 
+     public static function seller_product_update( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $params = $request->get_json_params() ?: $request->get_params();
+-        $product_id = TNM_Marketplace::update_product( get_current_user_id(), absint( $request['id'] ), $params );
+-        if ( is_wp_error( $product_id ) ) {
+-            return $product_id;
+-        }
+-        if ( array_key_exists( 'customizable', $params ) ) {
+-            update_post_meta( $product_id, '_mnu_customizable', filter_var( $params['customizable'], FILTER_VALIDATE_BOOLEAN ) ? 'yes' : 'no' );
++        // v3.13.54 — Throwable boundary.
++        try {
++            $params = $request->get_json_params() ?: $request->get_params();
++            $product_id = TNM_Marketplace::update_product( get_current_user_id(), absint( $request['id'] ), $params );
++            if ( is_wp_error( $product_id ) ) {
++                return $product_id;
++            }
++            if ( array_key_exists( 'customizable', $params ) ) {
++                update_post_meta( $product_id, '_mnu_customizable', filter_var( $params['customizable'], FILTER_VALIDATE_BOOLEAN ) ? 'yes' : 'no' );
++            }
++            $product = wc_get_product( $product_id );
++            if ( ! $product ) {
++                return tnm_json_error( 'product_missing', 'The updated product could not be loaded.', 500 );
++            }
++            return rest_ensure_response( TNM_Marketplace::product_to_array( $product, true ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_product_update failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_product_server_error', 'The website is having trouble responding. Please try again.', 500 );
+         }
+-        return rest_ensure_response( TNM_Marketplace::product_to_array( wc_get_product( $product_id ), true ) );
+     }
+ 
+     public static function seller_product_delete( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $result = TNM_Marketplace::delete_product( get_current_user_id(), absint( $request['id'] ) );
+-        return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'success' => (bool) $result ) );
++        // v3.13.54 — Throwable boundary.
++        try {
++            $result = TNM_Marketplace::delete_product( get_current_user_id(), absint( $request['id'] ) );
++            return is_wp_error( $result ) ? $result : rest_ensure_response( array( 'success' => (bool) $result ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_product_delete failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_product_server_error', 'The website is having trouble responding. Please try again.', 500 );
++        }
+     }
+ 
+     public static function seller_product_duplicate( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $new_id = TNM_Marketplace::duplicate_product( get_current_user_id(), absint( $request['id'] ) );
+-        if ( is_wp_error( $new_id ) ) {
+-            return $new_id;
+-        }
+-        $product = wc_get_product( $new_id );
+-        if ( ! $product ) {
+-            return tnm_json_error( 'duplicate_missing', 'The duplicated product could not be loaded.', 500 );
++        // v3.13.54 — Throwable boundary.
++        try {
++            $new_id = TNM_Marketplace::duplicate_product( get_current_user_id(), absint( $request['id'] ) );
++            if ( is_wp_error( $new_id ) ) {
++                return $new_id;
++            }
++            $product = wc_get_product( $new_id );
++            if ( ! $product ) {
++                return tnm_json_error( 'duplicate_missing', 'The duplicated product could not be loaded.', 500 );
++            }
++            return rest_ensure_response( TNM_Marketplace::product_to_array( $product, true ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_product_duplicate failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_product_server_error', 'The website is having trouble responding. Please try again.', 500 );
+         }
+-        return rest_ensure_response( TNM_Marketplace::product_to_array( $product, true ) );
+     }
+ 
+     private static function buyer_order_authorized( WC_Order $order, int $user_id ): bool {
+@@ -1617,16 +1652,37 @@
+         return rest_ensure_response( self::buyer_order_to_array( $order ) );
+     }
+ 
+-    public static function seller_orders( WP_REST_Request $request ): WP_REST_Response {
+-        return rest_ensure_response( TNM_Marketplace::seller_orders( get_current_user_id(), max( 1, (int) $request->get_param( 'page' ) ), max( 1, (int) ( $request->get_param( 'per_page' ) ?: 20 ) ) ) );
++    public static function seller_orders( WP_REST_Request $request ): WP_REST_Response|WP_Error {
++        // v3.13.54 — Throwable boundary. Woo order queries can fatal during
++        // HPOS/CPT drift on Atomic.
++        try {
++            return rest_ensure_response( TNM_Marketplace::seller_orders( get_current_user_id(), max( 1, (int) $request->get_param( 'page' ) ), max( 1, (int) ( $request->get_param( 'per_page' ) ?: 20 ) ) ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_orders failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_orders_server_error', 'The website is having trouble responding. Please try again.', 500 );
++        }
+     }
+ 
+     public static function seller_order_update( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $result = TNM_Marketplace::update_seller_order_status( get_current_user_id(), absint( $request['id'] ), sanitize_key( (string) $request->get_param( 'status' ) ), sanitize_text_field( (string) $request->get_param( 'tracking_number' ) ) );
+-        if ( is_wp_error( $result ) ) {
+-            return $result;
++        // v3.13.54 — Throwable boundary + explicit wc_get_order() null-guard.
++        // Previously if wc_get_order() returned false (invalid/deleted id),
++        // the strictly-typed WC_Order parameter on seller_order_to_array()
++        // raised TypeError → wpcomsh HTML fatal.
++        try {
++            $order_id = absint( $request['id'] );
++            $result   = TNM_Marketplace::update_seller_order_status( get_current_user_id(), $order_id, sanitize_key( (string) $request->get_param( 'status' ) ), sanitize_text_field( (string) $request->get_param( 'tracking_number' ) ) );
++            if ( is_wp_error( $result ) ) {
++                return $result;
++            }
++            $order = wc_get_order( $order_id );
++            if ( ! $order instanceof WC_Order ) {
++                return tnm_json_error( 'order_not_found', 'That order could not be reloaded after the status change.', 404 );
++            }
++            return rest_ensure_response( TNM_Marketplace::seller_order_to_array( $order, get_current_user_id() ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_order_update failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_order_update_server_error', 'The website is having trouble responding. Please try again.', 500 );
+         }
+-        return rest_ensure_response( TNM_Marketplace::seller_order_to_array( wc_get_order( absint( $request['id'] ) ), get_current_user_id() ) );
+     }
+ 
+     public static function seller_earnings( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+@@ -1650,7 +1706,19 @@
+      *   - `top_products`: 5 highest-gross products in the window
+      *   - `pending_payout`: seller ledger available balance
+      */
+-    public static function seller_analytics( WP_REST_Request $request ): WP_REST_Response {
++    public static function seller_analytics( WP_REST_Request $request ): WP_REST_Response|WP_Error {
++        // v3.13.54 — Throwable boundary. Downstream calls wc_get_price_decimals(),
++        // wc_get_orders(), get_billing_email() etc. can fatal during Woo / Jetpack
++        // Sync upgrade windows on WordPress.com Atomic.
++        try {
++            return self::seller_analytics_impl( $request );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_analytics failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_analytics_server_error', 'The website is having trouble responding. Please try again.', 500 );
++        }
++    }
++
++    private static function seller_analytics_impl( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+         $seller_id = get_current_user_id();
+         $range     = (int) ( $request->get_param( 'range' ) ?: 30 );
+         if ( ! in_array( $range, array( 7, 30, 90 ), true ) ) { $range = 30; }
+@@ -1864,7 +1932,17 @@
+      * response over the REST client would need a separate download
+      * pathway) and avoids leaking the CSV to any device browser.
+      */
+-    public static function seller_analytics_export( WP_REST_Request $request ): WP_REST_Response {
++    public static function seller_analytics_export( WP_REST_Request $request ): WP_REST_Response|WP_Error {
++        // v3.13.54 — Throwable boundary.
++        try {
++            return self::seller_analytics_export_impl( $request );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_analytics_export failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_analytics_export_server_error', 'The website is having trouble responding. Please try again.', 500 );
++        }
++    }
++
++    private static function seller_analytics_export_impl( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+         $seller_id = get_current_user_id();
+         $range     = (int) ( $request->get_param( 'range' ) ?: 30 );
+         if ( ! in_array( $range, array( 7, 30, 90 ), true ) ) { $range = 30; }
+@@ -1955,11 +2033,21 @@
+     // =========================================================================
+ 
+     public static function seller_product_variations_save( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $result = TNM_Marketplace::save_product_variations( get_current_user_id(), absint( $request['id'] ), $request->get_json_params() ?: $request->get_params() );
+-        if ( is_wp_error( $result ) ) {
+-            return $result;
++        // v3.13.54 — Throwable boundary + id sanity check.
++        try {
++            $product_id = absint( $request['id'] );
++            if ( $product_id <= 0 ) {
++                return tnm_json_error( 'invalid_product', 'A valid product id is required.', 422 );
++            }
++            $result = TNM_Marketplace::save_product_variations( get_current_user_id(), $product_id, $request->get_json_params() ?: $request->get_params() );
++            if ( is_wp_error( $result ) ) {
++                return $result;
++            }
++            return rest_ensure_response( $result );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.54] seller_product_variations_save failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_variations_server_error', 'The website is having trouble responding. Please try again.', 500 );
+         }
+-        return rest_ensure_response( $result );
+     }
+ 
+     // ---- Coupons -----------------------------------------------------------
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/mynest-unified-marketplace.php scratch/plugin-new/mynest-unified-marketplace/mynest-unified-marketplace.php
+--- scratch/plugin-v53/mynest-unified-marketplace/mynest-unified-marketplace.php	2026-08-31 23:15:22.764924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/mynest-unified-marketplace.php	2026-08-31 23:14:36.076924958 +0000
+@@ -3,7 +3,7 @@
+  * Plugin Name: MyNest Unified Marketplace
+  * Plugin URI:  https://shopmynest.com/
+  * Description: One complete WooCommerce marketplace plugin for MyNest sellers, fees, payouts, orders, social features, mobile APIs, checkout, and shipping.
+- * Version:     3.13.53
++ * Version:     3.13.54
+  * Author:      MyNest
+  * Text Domain: mynest-unified-marketplace
+  * Requires at least: 6.5
+@@ -16,7 +16,7 @@
+ 
+ defined( 'ABSPATH' ) || exit;
+ 
+-define( 'MNU_VERSION', '3.13.53' );
++define( 'MNU_VERSION', '3.13.54' );
+ 
+ // v3.13.5 — seller listings always auto-publish. If a legacy install still
+ // has `seller_can_publish=no` saved from the pre-v3.7.109 moderation queue,
+diff -urN scratch/plugin-v53/mynest-unified-marketplace/readme.txt scratch/plugin-new/mynest-unified-marketplace/readme.txt
+--- scratch/plugin-v53/mynest-unified-marketplace/readme.txt	2026-08-31 23:15:22.764924958 +0000
++++ scratch/plugin-new/mynest-unified-marketplace/readme.txt	2026-08-31 23:14:04.796924958 +0000
+@@ -4,7 +4,7 @@
+ Requires at least: 6.5
+ Requires PHP: 8.0
+ Requires Plugins: woocommerce
+-Stable tag: 3.13.53
++Stable tag: 3.13.54
+ License: GPLv2 or later
+ 
+ One complete custom marketplace plugin for the MyNest website and The Nest mobile app.

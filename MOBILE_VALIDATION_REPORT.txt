@@ -1,5 +1,17 @@
 ShopMyNest Mobile validation report
-Generated: 2026-08-31 UTC (v1.0.174, versionCode 140)
+Generated: 2026-08-31 UTC (v1.0.175, versionCode 141)
+
+v1.0.175 changes:
+  - KeyboardAwareScroll: new drop-in wrapper (src/components/KeyboardAwareScroll.tsx)
+    replacing the old KeyboardAvoidingView + ScrollView pair on every form screen.
+    Auto-scrolls the currently-focused input above the keyboard on both
+    iOS (behavior="padding") and Android (Keyboard events + scrollTo).
+  - Migrated 15 screens to the new wrapper: bank, apply, shop-settings, shippo,
+    product-form, blog compose, custom-request new, disputes new, post compose,
+    and all 6 auth screens (login, register, verify, forgot-password,
+    forgot-password-verify, forgot-password-reset).
+  - app.json: added android.softwareKeyboardLayoutMode: resize so Android's
+    window adjusts to keyboard height under edge-to-edge mode.
 
 RESULT: PASS when all workflow steps complete.
 

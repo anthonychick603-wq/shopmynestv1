@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -77,8 +78,7 @@ export default function PostComposer() {
           testID="compose-not-seller"
         />
       ) : (
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
             <Input label="Title" value={title} onChangeText={setTitle} testID="compose-title" />
             <Input
               label="What's on your mind?"
@@ -101,8 +101,7 @@ export default function PostComposer() {
             </TouchableOpacity>
 
             <Button title="Post" onPress={() => { haptics.press(); submit(); }} loading={busy} testID="compose-submit" style={{ marginTop: spacing.md }} />
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScroll>
       )}
     </SafeAreaView>
   );

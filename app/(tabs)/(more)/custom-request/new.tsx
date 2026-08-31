@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -114,8 +115,7 @@ export default function NewCustomRequest() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top onBack={() => safeBack(router, `/product/${productId}`)} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScroll style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {product ? <ProductSummary product={product} /> : null}
           {error ? <View style={styles.errorBanner}><Ionicons name="alert-circle-outline" size={18} color={colors.error} /><Text style={styles.errorText}>{error}</Text></View> : null}
 
@@ -139,8 +139,7 @@ export default function NewCustomRequest() {
           <Text style={styles.help}>Add up to three photos to help the seller understand your idea.</Text>
 
           <Button title="Send request" onPress={() => { haptics.tap(); void submit(); }} disabled={!title.trim() || !description.trim() || !productId || uploading} loading={submitting} style={styles.submit} testID="custom-request-submit" />
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScroll>
     </SafeAreaView>
   );
 }

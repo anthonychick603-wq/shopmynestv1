@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -417,8 +418,7 @@ export default function ProductForm() {
         onDuplicate={isEdit ? onDuplicate : undefined}
         duplicating={duplicating}
       />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.photo} onPress={() => { haptics.tap(); pickImage(); }} testID="pf-photo" accessibilityRole="button" accessibilityLabel="Pick product photo">
             {imageUrl ? (
               <AppImage source={{ uri: imageUrl }} style={styles.photoImg} fallbackIcon="image-outline" />
@@ -550,8 +550,7 @@ export default function ProductForm() {
               <Text style={styles.duplicateBtnText}>Duplicate this listing</Text>
             </TouchableOpacity>
           ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScroll>
     </SafeAreaView>
   );
 }
