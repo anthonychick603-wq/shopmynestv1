@@ -1,0 +1,37 @@
+ShopMyNest Mobile validation report
+Generated: 2026-08-31 UTC (v1.0.174, versionCode 140)
+
+RESULT: PASS when all workflow steps complete.
+
+Included changes for v1.0.174:
+- Belt-and-braces server-dump sanitizer moved to the ApiError construction layer,
+  so every screen that renders `err.friendly` inline (Payout bank account,
+  Earnings & payouts, Seller dashboard, etc.) is now safe — not just the toast
+  host.
+- Detector expanded to recognize the WordPress.com `.wpcomsh-fatal` CSS ruleset,
+  PHP warnings/notices, `Call to undefined`, `-apple-system`/BlinkMacSystemFont/
+  text-wrap-style style fingerprints, and any error string longer than 600
+  characters (no legit REST error message reaches that length).
+- `request()` also scrubs `data.message` on non-2xx responses before it ever
+  reaches an ApiError, in case the WordPress.com atomic layer wraps a fatal
+  HTML/CSS blob inside a JSON envelope.
+- User-facing server dump fallback: "The website is having trouble responding.
+  Please try again."
+
+Repro fixed:
+- Screenshot 1 (2026-08-31): Payout bank account screen rendered the raw
+  `.wpcomsh-fatal` CSS ruleset. Root cause: `bank.tsx` renders `err.friendly`
+  inside an inline <Text style={styles.errorText}> block, which bypassed the
+  toast-only sanitizer. Fix: sanitize at ApiError.friendly construction so every
+  inline surface benefits.
+
+Paired plugin change (v3.13.53):
+- Wrap `MNU_Bank_Account::rest_get` and `::rest_save` in a `\Throwable`
+  boundary so an admin-notify or crypto failure returns a structured JSON
+  error instead of a WordPress.com fatal template.
+- Same boundary added to the seller payout REST surface and the seller
+  readiness endpoint.
+
+Source baseline:
+- GitHub `shopmynestv1` mobile source is now the v1.0.174 baseline
+  (Expo SDK 54, RN 0.81.5, expo-router 6.0.24).

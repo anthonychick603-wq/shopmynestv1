@@ -39,7 +39,30 @@ export class ApiError extends Error {
   }
 }
 
+// v1.0.174 — Belt-and-braces sanitization. Some screens (e.g. Payout bank
+// account, Earnings, Seller dashboard) render `err.friendly` inline in an
+// error card, not just through the toast host. The toast layer already
+// scrubs server dumps, but any inline surface would happily paint raw
+// WordPress.com `.wpcomsh-fatal` CSS blocks or PHP stack traces onto the
+// screen (see 2026-08-31 report: full CSS ruleset rendered on the Payout
+// bank account screen). Scrubbing here means every screen — current and
+// future — gets a safe message no matter how it displays it.
+function looksLikeServerDump(raw: string): boolean {
+  if (!raw) return false;
+  if (raw.length > 600) return true; // no legit REST error message is 600+ chars
+  return (
+    /<\s*(?:!doctype|html|head|body|style|script|div|meta|link)\b/i.test(raw) ||
+    /wpcomsh-fatal|wpcomsh-[\w-]+\s*\{|php\s+(?:fatal\s+)?(?:error|warning|notice)|stack\s+trace:|call\s+to\s+undefined|\/wp-(?:includes|content|admin)\/|font-family\s*:\s*-apple-system|BlinkMacSystemFont|text-wrap-style/i.test(raw)
+  );
+}
+
 function friendlyFor(status: number, code: string, message: string): string {
+  // v1.0.174 — hard bail: if the "message" from the server is actually a
+  // fatal-page dump (HTML/CSS/PHP trace), never surface any of it. This runs
+  // before all other branches so no downstream fallthrough can leak it.
+  if (looksLikeServerDump(message)) {
+    return "The website is having trouble responding. Please try again.";
+  }
   // A 401 from /auth/login means the credentials were wrong, not that a session
   // lapsed — pass the server's wording through instead of telling a signed-out
   // user to sign in again.
@@ -83,6 +106,9 @@ function friendlyFor(status: number, code: string, message: string): string {
   }
   return message || "Something went wrong. Please try again.";
 }
+
+// v1.0.174 — exported for unit-testing the sanitizer in isolation.
+export const __test_looksLikeServerDump = looksLikeServerDump;
 
 type Namespace = keyof typeof NS;
 type ReqOpts = {
@@ -170,7 +196,13 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
       throw new ApiError(message, res.status, "invalid_json");
     }
     if (!res.ok) {
-      throw new ApiError(data?.message || data?.error || `HTTP ${res.status}`, res.status, data?.code || "request_failed", data);
+      // v1.0.174 — some hosts (WordPress.com atomic) return a JSON envelope
+      // whose `message` field contains raw HTML/CSS from a fatal page. Prefer
+      // the machine-readable `code` for detection and let friendlyFor scrub
+      // the message.
+      const rawMsg = data?.message || data?.error || `HTTP ${res.status}`;
+      const safeMsg = looksLikeServerDump(String(rawMsg)) ? `HTTP ${res.status}` : rawMsg;
+      throw new ApiError(safeMsg, res.status, data?.code || "request_failed", data);
     }
     return data as T;
   } catch (e) {

@@ -1,0 +1,288 @@
+diff -ruN mnu351orig/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.53.md mnu351/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.53.md
+--- mnu351orig/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.53.md	1970-01-01 00:00:00.000000000 +0000
++++ mnu351/mynest-unified-marketplace/docs/RELEASE_FIXES_v3.13.53.md	2026-08-31 22:35:22.899495483 +0000
+@@ -0,0 +1,46 @@
++# MyNest Unified Marketplace v3.13.53
++
++## Seller-authenticated REST hardening (mobile "wpcomsh-fatal" repro)
++
++Mobile screenshot from 2026-08-31 showed the raw WordPress.com `.wpcomsh-fatal`
++CSS ruleset rendered inside the Payout bank account screen. On WordPress.com /
++Pressable / Atomic hosts, an unhandled PHP fatal returns the wpcomsh
++"Something went wrong" HTML/CSS template — which the mobile app then displayed
++verbatim in an inline error card (not a toast, so the toast-boundary sanitizer
++did not catch it).
++
++This release wraps every seller-authenticated REST callback most likely to
++fatal with a `\Throwable` boundary. On failure, the callback:
++
++- Logs the underlying diagnostic to `error_log` for admins
++- Returns a structured JSON `WP_Error` with HTTP 500 and a plain-English message
++- Never returns HTML/CSS to the client
++
++### Hardened endpoints
++
++| Endpoint | File | Function |
++| --- | --- | --- |
++| `GET /the-nest/v1/seller/bank-account` | `class-mnu-bank-account.php` | `rest_get` |
++| `POST /the-nest/v1/seller/bank-account` | `class-mnu-bank-account.php` | `rest_save` (delegates to `rest_save_impl`) |
++| `GET /the-nest/v1/seller/readiness` | `class-mnu-seller-readiness.php` | `rest_readiness` |
++| `GET /the-nest/v1/seller/earnings` | `class-tnm-rest.php` | `seller_earnings` |
++| `GET /the-nest/v1/seller/payouts` | `class-tnm-rest.php` | `seller_payouts` |
++| `POST /the-nest/v1/seller/payouts` | `class-tnm-rest.php` | `seller_payout_request` |
++
++### Return-type additions
++
++`seller_earnings` and `seller_payouts` now declare `WP_REST_Response|WP_Error`
++so the JSON error path is valid without loosening the return signature.
++
++### What it does NOT change
++
++- Payment creation, checkout finalization, tax calculation, refunds, or
++  seller-payout batching contracts.
++- The v3.13.52 seller-application boundary (that fix is still in place).
++- Any client-visible response schema when the endpoint succeeds.
++
++### Paired mobile change (v1.0.174)
++
++Mobile client now sanitizes server dumps at the `ApiError.friendly`
++construction site so every screen — not just the toast host — is safe from
++raw HTML/CSS output.
+diff -ruN mnu351orig/mynest-unified-marketplace/includes/class-mnu-bank-account.php mnu351/mynest-unified-marketplace/includes/class-mnu-bank-account.php
+--- mnu351orig/mynest-unified-marketplace/includes/class-mnu-bank-account.php	2026-08-31 22:33:39.423495483 +0000
++++ mnu351/mynest-unified-marketplace/includes/class-mnu-bank-account.php	2026-08-31 22:34:01.159495483 +0000
+@@ -86,25 +86,69 @@
+ 	 * account number. Safe to log.
+ 	 */
+ 	public static function rest_get( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-		$seller_id = self::resolve_seller_id( $request );
+-		if ( is_wp_error( $seller_id ) ) {
+-			return $seller_id;
++		// v3.13.53 — REST requests must never leak a host/PHP fatal template back
++		// to the mobile app. WordPress.com atomic renders unhandled fatals as raw
++		// HTML/CSS (`.wpcomsh-fatal`) which mobile clients previously surfaced
++		// verbatim on the Payout bank account screen. Catch runtime Errors and
++		// Exceptions here so the client always receives structured JSON.
++		try {
++			$seller_id = self::resolve_seller_id( $request );
++			if ( is_wp_error( $seller_id ) ) {
++				return $seller_id;
++			}
++			$last4      = (string) get_user_meta( $seller_id, self::META_LAST4, true );
++			$holder     = (string) get_user_meta( $seller_id, self::META_HOLDER, true );
++			$updated_at = (string) get_user_meta( $seller_id, self::META_UPDATED, true );
++			$has_bank   = '' !== $last4;
++			return rest_ensure_response(
++				array(
++					'has_bank'    => $has_bank,
++					'last4'       => $has_bank ? $last4 : '',
++					'holder_name' => $has_bank ? $holder : '',
++					'updated_at'  => $has_bank ? $updated_at : '',
++				)
++			);
++		} catch ( \Throwable $error ) {
++			error_log( sprintf(
++				'[MyNest v3.13.53] bank-account GET failure for user %d: %s in %s:%d',
++				get_current_user_id(),
++				$error->getMessage(),
++				$error->getFile(),
++				$error->getLine()
++			) );
++			return tnm_json_error(
++				'bank_account_server_error',
++				'The website is having trouble responding. Please try again.',
++				500
++			);
+ 		}
+-		$last4      = (string) get_user_meta( $seller_id, self::META_LAST4, true );
+-		$holder     = (string) get_user_meta( $seller_id, self::META_HOLDER, true );
+-		$updated_at = (string) get_user_meta( $seller_id, self::META_UPDATED, true );
+-		$has_bank   = '' !== $last4;
+-		return rest_ensure_response(
+-			array(
+-				'has_bank'    => $has_bank,
+-				'last4'       => $has_bank ? $last4 : '',
+-				'holder_name' => $has_bank ? $holder : '',
+-				'updated_at'  => $has_bank ? $updated_at : '',
+-			)
+-		);
+ 	}
+ 
+ 	public static function rest_save( WP_REST_Request $request ): WP_REST_Response|WP_Error {
++		// v3.13.53 — Same Throwable boundary as rest_get. The save path exercises
++		// libsodium, encrypted-meta writes, an admin notification fan-out, and an
++		// audit-history append — any one of which can raise on a misconfigured
++		// host or during a Woo upgrade. Wrap the whole body so the mobile client
++		// receives JSON on failure instead of the wpcomsh fatal template.
++		try {
++			return self::rest_save_impl( $request );
++		} catch ( \Throwable $error ) {
++			error_log( sprintf(
++				'[MyNest v3.13.53] bank-account POST failure for user %d: %s in %s:%d',
++				get_current_user_id(),
++				$error->getMessage(),
++				$error->getFile(),
++				$error->getLine()
++			) );
++			return tnm_json_error(
++				'bank_account_server_error',
++				'Could not save your bank account right now. Please try again.',
++				500
++			);
++		}
++	}
++
++	private static function rest_save_impl( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+ 		$seller_id = self::resolve_seller_id( $request );
+ 		if ( is_wp_error( $seller_id ) ) {
+ 			return $seller_id;
+diff -ruN mnu351orig/mynest-unified-marketplace/includes/class-mnu-seller-readiness.php mnu351/mynest-unified-marketplace/includes/class-mnu-seller-readiness.php
+--- mnu351orig/mynest-unified-marketplace/includes/class-mnu-seller-readiness.php	2026-08-31 22:33:39.423495483 +0000
++++ mnu351/mynest-unified-marketplace/includes/class-mnu-seller-readiness.php	2026-08-31 22:34:30.971495483 +0000
+@@ -46,24 +46,44 @@
+ 	}
+ 
+ 	public static function rest_readiness( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-		$user_id = get_current_user_id();
+-		if ( ! $user_id ) {
+-			return new WP_Error( 'not_logged_in', 'You must be signed in.', array( 'status' => 401 ) );
+-		}
+-		// Allow admins to inspect any seller via ?seller_id=.
+-		$target = $user_id;
+-		$asked  = (int) $request->get_param( 'seller_id' );
+-		if ( $asked > 0 && current_user_can( 'manage_woocommerce' ) ) {
+-			$target = $asked;
+-		}
+-		if ( ! self::is_seller_user( $target ) ) {
+-			return new WP_Error(
+-				'not_a_seller',
+-				'The user is not a marketplace seller.',
+-				array( 'status' => 422, 'user_id' => $target )
++		// v3.13.53 — Throwable boundary. build() reaches into a large fan-out of
++		// helpers (display name, bank, ship-from, tax, listings, contact) any of
++		// which can raise on a misconfigured helper or an in-flight upgrade.
++		// Returning a WordPress.com fatal template here previously surfaced raw
++		// CSS on the mobile Seller dashboard readiness card.
++		try {
++			$user_id = get_current_user_id();
++			if ( ! $user_id ) {
++				return new WP_Error( 'not_logged_in', 'You must be signed in.', array( 'status' => 401 ) );
++			}
++			// Allow admins to inspect any seller via ?seller_id=.
++			$target = $user_id;
++			$asked  = (int) $request->get_param( 'seller_id' );
++			if ( $asked > 0 && current_user_can( 'manage_woocommerce' ) ) {
++				$target = $asked;
++			}
++			if ( ! self::is_seller_user( $target ) ) {
++				return new WP_Error(
++					'not_a_seller',
++					'The user is not a marketplace seller.',
++					array( 'status' => 422, 'user_id' => $target )
++				);
++			}
++			return rest_ensure_response( self::build( $target ) );
++		} catch ( \Throwable $error ) {
++			error_log( sprintf(
++				'[MyNest v3.13.53] seller-readiness failure for user %d: %s in %s:%d',
++				get_current_user_id(),
++				$error->getMessage(),
++				$error->getFile(),
++				$error->getLine()
++			) );
++			return tnm_json_error(
++				'seller_readiness_server_error',
++				'The website is having trouble responding. Please try again.',
++				500
+ 			);
+ 		}
+-		return rest_ensure_response( self::build( $target ) );
+ 	}
+ 
+ 	/**
+diff -ruN mnu351orig/mynest-unified-marketplace/includes/class-tnm-rest.php mnu351/mynest-unified-marketplace/includes/class-tnm-rest.php
+--- mnu351orig/mynest-unified-marketplace/includes/class-tnm-rest.php	2026-08-31 22:33:39.423495483 +0000
++++ mnu351/mynest-unified-marketplace/includes/class-tnm-rest.php	2026-08-31 22:35:00.955495483 +0000
+@@ -1629,8 +1629,16 @@
+         return rest_ensure_response( TNM_Marketplace::seller_order_to_array( wc_get_order( absint( $request['id'] ) ), get_current_user_id() ) );
+     }
+ 
+-    public static function seller_earnings( WP_REST_Request $request ): WP_REST_Response {
+-        return rest_ensure_response( array( 'balances' => TNM_Ledger::balances( get_current_user_id() ), 'ledger' => TNM_Ledger::entries( get_current_user_id(), max( 1, (int) $request->get_param( 'page' ) ), max( 1, (int) ( $request->get_param( 'per_page' ) ?: 30 ) ) ) ) );
++    public static function seller_earnings( WP_REST_Request $request ): WP_REST_Response|WP_Error {
++        // v3.13.53 — Throwable boundary so a ledger/query fatal returns JSON
++        // instead of the wpcomsh HTML/CSS fatal template that mobile clients
++        // previously rendered verbatim inside the Earnings screen error card.
++        try {
++            return rest_ensure_response( array( 'balances' => TNM_Ledger::balances( get_current_user_id() ), 'ledger' => TNM_Ledger::entries( get_current_user_id(), max( 1, (int) $request->get_param( 'page' ) ), max( 1, (int) ( $request->get_param( 'per_page' ) ?: 30 ) ) ) ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.53] seller_earnings failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_earnings_server_error', 'The website is having trouble responding. Please try again.', 500 );
++        }
+     }
+ 
+     /**
+@@ -1918,13 +1926,26 @@
+         ) );
+     }
+ 
+-    public static function seller_payouts(): WP_REST_Response {
+-        return rest_ensure_response( array( 'balances' => TNM_Ledger::balances( get_current_user_id() ), 'payouts' => TNM_Payouts::list_for_seller( get_current_user_id() ), 'minimum' => (float) tnm_get_option( 'minimum_payout', 25 ) ) );
++    public static function seller_payouts(): WP_REST_Response|WP_Error {
++        // v3.13.53 — Throwable boundary.
++        try {
++            return rest_ensure_response( array( 'balances' => TNM_Ledger::balances( get_current_user_id() ), 'payouts' => TNM_Payouts::list_for_seller( get_current_user_id() ), 'minimum' => (float) tnm_get_option( 'minimum_payout', 25 ) ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.53] seller_payouts failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_payouts_server_error', 'The website is having trouble responding. Please try again.', 500 );
++        }
+     }
+ 
+     public static function seller_payout_request( WP_REST_Request $request ): WP_REST_Response|WP_Error {
+-        $payout_id = TNM_Payouts::request( get_current_user_id(), (float) $request->get_param( 'amount' ), sanitize_key( (string) $request->get_param( 'method' ) ), sanitize_text_field( (string) $request->get_param( 'destination' ) ) );
+-        return is_wp_error( $payout_id ) ? $payout_id : rest_ensure_response( array( 'success' => true, 'payout' => TNM_Payouts::get( $payout_id ) ) );
++        // v3.13.53 — Throwable boundary. Payout request touches ledger, holds,
++        // and admin notifications; any failure previously surfaced as raw HTML.
++        try {
++            $payout_id = TNM_Payouts::request( get_current_user_id(), (float) $request->get_param( 'amount' ), sanitize_key( (string) $request->get_param( 'method' ) ), sanitize_text_field( (string) $request->get_param( 'destination' ) ) );
++            return is_wp_error( $payout_id ) ? $payout_id : rest_ensure_response( array( 'success' => true, 'payout' => TNM_Payouts::get( $payout_id ) ) );
++        } catch ( \Throwable $error ) {
++            error_log( sprintf( '[MyNest v3.13.53] seller_payout_request failure for user %d: %s in %s:%d', get_current_user_id(), $error->getMessage(), $error->getFile(), $error->getLine() ) );
++            return tnm_json_error( 'seller_payout_request_server_error', 'Could not submit your payout request. Please try again.', 500 );
++        }
+     }
+ 
+     // =========================================================================
+diff -ruN mnu351orig/mynest-unified-marketplace/mynest-unified-marketplace.php mnu351/mynest-unified-marketplace/mynest-unified-marketplace.php
+--- mnu351orig/mynest-unified-marketplace/mynest-unified-marketplace.php	2026-08-31 22:33:39.423495483 +0000
++++ mnu351/mynest-unified-marketplace/mynest-unified-marketplace.php	2026-08-31 22:35:06.823495483 +0000
+@@ -3,7 +3,7 @@
+  * Plugin Name: MyNest Unified Marketplace
+  * Plugin URI:  https://shopmynest.com/
+  * Description: One complete WooCommerce marketplace plugin for MyNest sellers, fees, payouts, orders, social features, mobile APIs, checkout, and shipping.
+- * Version:     3.13.52
++ * Version:     3.13.53
+  * Author:      MyNest
+  * Text Domain: mynest-unified-marketplace
+  * Requires at least: 6.5
+@@ -16,7 +16,7 @@
+ 
+ defined( 'ABSPATH' ) || exit;
+ 
+-define( 'MNU_VERSION', '3.13.52' );
++define( 'MNU_VERSION', '3.13.53' );
+ 
+ // v3.13.5 — seller listings always auto-publish. If a legacy install still
+ // has `seller_can_publish=no` saved from the pre-v3.7.109 moderation queue,
+diff -ruN mnu351orig/mynest-unified-marketplace/readme.txt mnu351/mynest-unified-marketplace/readme.txt
+--- mnu351orig/mynest-unified-marketplace/readme.txt	2026-08-31 22:33:39.423495483 +0000
++++ mnu351/mynest-unified-marketplace/readme.txt	2026-08-31 22:35:22.899495483 +0000
+@@ -4,7 +4,7 @@
+ Requires at least: 6.5
+ Requires PHP: 8.0
+ Requires Plugins: woocommerce
+-Stable tag: 3.13.52
++Stable tag: 3.13.53
+ License: GPLv2 or later
+ 
+ One complete custom marketplace plugin for the MyNest website and The Nest mobile app.
