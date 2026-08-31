@@ -45,11 +45,10 @@ export default function ApplySeller() {
   const [shipping, setShipping] = useState("");
   const [categories, setCategories] = useState<HierarchicalCategory[]>([]);
   const [categorySelections, setCategorySelections] = useState<ApplicationCategorySelection[]>([newSelection()]);
+  const [handmadeOnlyAcknowledged, setHandmadeOnlyAcknowledged] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // v1.0.95 — cancel guard so quickly backing out of the apply screen
-  // doesn't setState on an unmounted tree.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -96,8 +95,9 @@ export default function ApplySeller() {
     ));
 
     const missing: string[] = [];
+    if (!handmadeOnlyAcknowledged) missing.push("Handmade-only seller acknowledgement");
     if (!shopName.trim()) missing.push("Shop name");
-    if (description.trim().length < 10) missing.push("Shop description (10+ characters)");
+    if (description.trim().length < 10) missing.push("A brief description of what you will sell (10+ characters)");
     if (chosen.length === 0) missing.push("At least one product category");
     if (incompleteCategory) missing.push("A sub-category for each selected category");
     if (!agreed) missing.push("Agreement to seller terms");
@@ -113,10 +113,6 @@ export default function ApplySeller() {
       .map((selection) => categoryPathLabel(categories, selection.categoryId, selection.subcategoryId))
       .filter(Boolean);
 
-    // The seller-application endpoint currently persists a human-readable
-    // `products` field. Store each taxonomy path on its own line so the admin
-    // review screen shows exactly what the applicant selected while the app
-    // continues using the canonical category IDs everywhere else.
     const aboutBody =
       description.trim() +
       (shipping.trim() ? "\n\nShipping: " + shipping.trim() : "");
@@ -169,13 +165,48 @@ export default function ApplySeller() {
               <Ionicons name="alert-circle-outline" size={20} color={colors.error} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.rejectedTitle}>Your last application needs changes</Text>
-                <Text style={styles.rejectedText}>{rejectionReason || "Review your shop details and submit an updated application. If you need clarification, contact marketplace support before resubmitting."}</Text>
+                <Text style={styles.rejectedText}>{rejectionReason || "Review your application details and submit an updated application. If you need clarification, contact marketplace support before resubmitting."}</Text>
               </View>
             </View>
           ) : null}
-          <Text style={styles.intro}>{status === "rejected" ? "Update the information below and resubmit." : "Tell us about your shop. Approval usually takes 1–3 days."}</Text>
+
+          <View style={styles.handmadeNotice} testID="apply-handmade-policy">
+            <View style={styles.handmadeHeader}>
+              <Ionicons name="hand-left-outline" size={22} color={colors.brand} />
+              <Text style={styles.handmadeTitle}>My Nest is for handmade items only</Text>
+            </View>
+            <Text style={styles.handmadeBody}>
+              My Nest is a marketplace for handmade goods. Sellers offering mass-produced, wholesale, dropshipped, or other non-handmade products will not be approved.
+            </Text>
+            <TouchableOpacity
+              onPress={() => { haptics.tap(); setHandmadeOnlyAcknowledged((value) => !value); }}
+              style={styles.handmadeCheckRow}
+              testID="apply-handmade-acknowledgement"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: handmadeOnlyAcknowledged }}
+              accessibilityLabel="I understand My Nest is for handmade items only"
+            >
+              <Ionicons name={handmadeOnlyAcknowledged ? "checkbox" : "square-outline"} size={23} color={handmadeOnlyAcknowledged ? colors.brand : colors.onSurfaceMuted} />
+              <Text style={styles.handmadeCheckText}>I understand that the items I sell on My Nest must be handmade.</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.intro}>
+            {status === "rejected"
+              ? "Update the information below and resubmit."
+              : "Complete this short application first. If approved, you can set up your public shop description, tagline, and other shop details afterward."}
+          </Text>
+
           <Input label="Shop name" value={shopName} onChangeText={setShopName} testID="apply-shop-name" />
-          <Input label="Shop description" value={description} onChangeText={setDescription} multiline style={{ height: 120, textAlignVertical: "top" }} hint="What do you make? Tell buyers your story." testID="apply-description" />
+          <Input
+            label="What will you be selling?"
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            style={{ height: 120, textAlignVertical: "top" }}
+            hint="Tell us a brief description of what you will be selling. This is for application purposes only and will not show up on your shop page."
+            testID="apply-description"
+          />
 
           <Text style={styles.label}>What will you sell?</Text>
           <Text style={styles.hint}>Choose a major category, then choose the sub-category underneath it. Add another selection if your shop sells more than one type of product.</Text>
@@ -215,7 +246,7 @@ export default function ApplySeller() {
 
           <Input label="Shipping information" value={shipping} onChangeText={setShipping} multiline style={{ height: 80, textAlignVertical: "top" }} hint="Where do you ship from, average lead time." testID="apply-shipping" />
 
-          <TouchableOpacity onPress={() => { haptics.tap(); setAgreed((v) => !v); }} style={styles.terms} testID="apply-agree" accessibilityRole="checkbox" accessibilityLabel="Agree to seller terms">
+          <TouchableOpacity onPress={() => { haptics.tap(); setAgreed((v) => !v); }} style={styles.terms} testID="apply-agree" accessibilityRole="checkbox" accessibilityState={{ checked: agreed }} accessibilityLabel="Agree to seller terms">
             <Ionicons name={agreed ? "checkbox" : "square-outline"} size={22} color={agreed ? colors.brand : colors.onSurfaceMuted} />
             <Text style={{ color: colors.onSurface, flex: 1 }}>I agree to The Nest seller terms and marketplace fee policy.</Text>
           </TouchableOpacity>
@@ -244,11 +275,17 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
   topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  intro: { color: colors.onSurfaceMuted, marginBottom: spacing.md },
+  intro: { color: colors.onSurfaceMuted, marginBottom: spacing.md, lineHeight: 20 },
   rejectedBox: { flexDirection: "row", gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.error, backgroundColor: colors.surfaceTertiary, marginBottom: spacing.md },
   rejectedTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
   rejectedText: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: 2 },
   resubmitBlocked: { color: colors.error, fontSize: 12, lineHeight: 17, textAlign: "center", marginTop: spacing.sm },
+  handmadeNotice: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.lg },
+  handmadeHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
+  handmadeTitle: { color: colors.onSurface, fontSize: 16, fontWeight: "800", flex: 1 },
+  handmadeBody: { color: colors.onSurface, fontSize: 13, lineHeight: 19 },
+  handmadeCheckRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  handmadeCheckText: { color: colors.onSurface, flex: 1, fontSize: 13, lineHeight: 19, fontWeight: "700" },
   label: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.xs },
   hint: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.sm },
   categoryCard: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.sm },
