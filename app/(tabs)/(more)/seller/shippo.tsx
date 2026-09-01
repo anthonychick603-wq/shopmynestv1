@@ -197,7 +197,7 @@ export default function SellerShipFromAddress() {
                 onChangeText={(v) => update({ ship_from_street2: v })}
                 autoCapitalize="words"
                 autoCorrect={false}
-                placeholder="Apt 4B"
+                placeholder="Suite 200"
                 testID="ship-from-street2"
               />
               <Input
@@ -206,7 +206,7 @@ export default function SellerShipFromAddress() {
                 onChangeText={(v) => update({ ship_from_city: v })}
                 autoCapitalize="words"
                 autoCorrect={false}
-                placeholder="Rochester"
+                placeholder="Portland"
                 testID="ship-from-city"
               />
               <View style={styles.row}>
@@ -218,7 +218,7 @@ export default function SellerShipFromAddress() {
                     autoCapitalize="characters"
                     autoCorrect={false}
                     maxLength={2}
-                    placeholder="NH"
+                    placeholder="OR"
                     testID="ship-from-state"
                   />
                 </View>
@@ -229,7 +229,7 @@ export default function SellerShipFromAddress() {
                     onChangeText={(v) => update({ ship_from_zip: v.replace(/[^0-9-]/g, "").slice(0, 10) })}
                     keyboardType="numeric"
                     autoCorrect={false}
-                    placeholder="03867"
+                    placeholder="97201"
                     testID="ship-from-zip"
                   />
                 </View>
@@ -251,7 +251,7 @@ export default function SellerShipFromAddress() {
                 onChangeText={(v) => update({ ship_from_phone: v })}
                 keyboardType="phone-pad"
                 autoCorrect={false}
-                placeholder="(603) 555-0123"
+                placeholder="(555) 555-0123"
                 testID="ship-from-phone"
               />
 

@@ -105,7 +105,7 @@ export default function ShopSettings() {
             label="Shop name"
             value={storeName}
             onChangeText={setStoreName}
-            placeholder="e.g. That Jo Chick"
+            placeholder="e.g. Willow & Pine Studio"
             testID="shop-settings-name"
           />
         </View>
@@ -117,7 +117,7 @@ export default function ShopSettings() {
             label="Tagline"
             value={tagline}
             onChangeText={setTagline}
-            placeholder="Handmade with love in Vermont"
+            placeholder="Handmade with care, one piece at a time"
             maxLength={140}
             testID="shop-settings-tagline"
           />
