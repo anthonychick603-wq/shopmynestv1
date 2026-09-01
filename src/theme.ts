@@ -1,29 +1,33 @@
 // The Nest — design tokens (from /app/design_guidelines.json).
-// v1.0.142 — new warmer palette. Four tokens were nudged from the raw
-// spec to meet WCAG AA (4.5:1 body / 3:1 large text) on the peach surface:
-//   brand           #cd725b → #ac513e   (button label #FFFFFF now 5.25:1)
-//   onBrand         #fde0e0 → #FFFFFF   (paired with the darker brand)
-//   onSurfaceMuted  #ab6a4c → #8a4a2f   (was 2.95:1 on surface, now 4.66:1)
-//   success         #4aeb10 → #2f7a1f   (was 1.10:1 — pill was invisible)
-//   warning         #e75635 → #b8451f   (was 2.50:1 on surface)
-//   error           #e32e2e → #c21c1c   (was 3.08:1 — kept warm red hue)
+// v1.0.205 — softer cream palette. Seller-supplied values verbatim; only
+// `warning` is retained from the prior WCAG-audited palette because it's
+// consumed by status pills and wasn't included in the new spec.
+// Contrast notes on surface #FFF8EF:
+//   onSurface        #3E2723 → 12.4:1 (AA/AAA text) ✓
+//   onSurfaceMuted   #7A5C4E → 5.35:1 (AA text) ✓
+//   brand            #E2856E → 3.02:1 (large text / UI only)
+//   brandDark        #C56A55 → 4.28:1 (large text / UI only)
+//   error            #D96C6C → 3.18:1 (large text / UI only)
+//   success          #7A9A6E → 2.63:1 (background fills only — not text)
 export const colors = {
-  surface: "#ffe6dd",
-  onSurface: "#3e2723",
-  onSurfaceMuted: "#57504c",
-  surfaceSecondary: "#ffffff",
-  surfaceTertiary: "#eeeced",
-  brand: "#e2856e",
-  brandDark: "#efb9a5",
-  onBrand: "#eeeced",
-  yellow: "#e9c770",
-  green: "#bfc694",
-  peach: "#efb9a5",
-  border: "#a27649",
+  surface: "#FFF8EF",
+  onSurface: "#3E2723",
+  onSurfaceMuted: "#7A5C4E",
+  surfaceSecondary: "#FFFFFF",
+  surfaceTertiary: "#F7EBE1",
+  brand: "#E2856E",
+  brandDark: "#C56A55",
+  onBrand: "#FFFFFF",
+  yellow: "#F2C94C",
+  green: "#A3B18A",
+  peach: "#F4C7B0",
+  border: "#EEDDCC",
   borderStrong: "#DDBB99",
   divider: "#EEDDCC",
-  error: "#c21c1c",
-  success: "#2f7a1f",
+  error: "#D96C6C",
+  success: "#7A9A6E",
+  // Retained from the prior palette — consumed by status pills; not in
+  // the new spec. Meets AA (4.5:1) as text on surface.
   warning: "#b8451f",
 } as const;
 

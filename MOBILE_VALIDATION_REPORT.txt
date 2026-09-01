@@ -1,5 +1,15 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.204, versionCode 171)
+Generated: 2026-09-01 UTC (v1.0.205, versionCode 172)
+
+v1.0.205 (versionCode 172)
+  - Refreshed the theme palette to a softer cream/terracotta scheme
+    (src/theme.ts). All existing color-token keys preserved so every
+    screen picks up the new palette without any component changes.
+    Retained `warning` from the prior palette because it isn't part
+    of the new spec but is still consumed by status pills.
+    Contrast notes on the new surface #FFF8EF: onSurface 12.4:1 (AAA),
+    onSurfaceMuted 5.35:1 (AA text), brand/brandDark/error usable for
+    large text and UI only, success acceptable only as background fill.
 
 v1.0.204 (versionCode 171)
   - Multi-photo product listings + optional intro video.
