@@ -1,5 +1,35 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.178, versionCode 144)
+Generated: 2026-09-01 UTC (v1.0.179, versionCode 145)
+
+v1.0.179 changes (chip-grid category picker):
+  - src/components/CategorySubcategoryPicker.tsx: rewritten from a
+    native <Picker> dropdown to a tap-to-select chip grid. Same
+    public props API — every call site (seller/apply.tsx,
+    seller/product-form.tsx, seller/[id].tsx) picks it up as a
+    drop-in swap with no changes.
+  - Chip behavior:
+      * Unselected chip = surface bg + border, brown text.
+      * Selected chip = brand-filled, on-brand text, small ×
+        icon on the right to make the "tap again to remove" affordance
+        visible.
+      * Tapping a selected chip clears that field. Tapping a
+        selected category chip also clears the sub-category (they
+        are dependent).
+      * A "Clear" text link appears in the section header when the
+        section has a selection, so users have both a chip-level and
+        a section-level way to reset.
+  - Sub-category chips only render once a top-level category is
+    selected, matching the old dropdown's progressive disclosure.
+  - allowAll mode: helper copy switches from "Select a category" to
+    "All categories — tap one to filter." so the browse-shop screen
+    reads naturally.
+  - Accessibility: each chip announces both its label and its
+    selected state via accessibilityState + accessibilityLabel
+    ("<Label>, selected. Tap to deselect." vs "<Label>. Tap to select.").
+  - Haptics: chip tap and Clear tap both fire haptics.tap() for
+    parity with the rest of the app.
+
+Version: 1.0.178 → 1.0.179 (versionCode 144 → 145)
 
 v1.0.178 changes (alerts routing hardening — no behavior change on other paths):
   - src/hooks/use-notification-routing.ts: seller-application-approval
