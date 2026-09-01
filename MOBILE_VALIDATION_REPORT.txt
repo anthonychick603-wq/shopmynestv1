@@ -1,5 +1,13 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.194, versionCode 161)
+Generated: 2026-09-01 UTC (v1.0.195, versionCode 162)
+
+v1.0.195 (versionCode 162)
+  - New /admin/analytics REST surface (plugin v3.13.59): daily revenue timeseries, daily orders timeseries, top-5 sellers by revenue, top-5 products by units, refund rate, new-buyer share, AOV, tax/shipping totals. Works over 1-180 day window.
+  - New MiniBarChart component (zero-dep bar chart in pure View elements, avoids pulling in a chart lib).
+  - New mobile admin/analytics.tsx: window picker (7/30/90d), 4 KPI tiles, revenue chart, orders chart with rate chips, top sellers, top products with deep link to product detail.
+  - Admin dashboard: Analytics row added.
+  - Typecheck: PASS. PHP -l: PASS.
+
 
 v1.0.194 (versionCode 161)
   - New /admin/products REST surface (plugin v3.13.58): paginated list of every product across sellers, status filter (any/publish/draft/private/pending), featured filter, search, per-row actions (feature/unfeature/hide/publish/unlist/trash), atomic bulk endpoint.

@@ -156,6 +156,13 @@ export default function AdminDashboard() {
                 onPress={() => pushFromTab(router, "/admin/products")}
                 testID="admin-nav-products"
               />
+              <Row
+                icon="bar-chart-outline"
+                label="Analytics"
+                sub="Revenue, orders, top sellers, and refund rate"
+                onPress={() => pushFromTab(router, "/admin/analytics")}
+                testID="admin-nav-analytics"
+              />
             </View>
 
             <Text style={styles.sectionTitle}>Operations</Text>

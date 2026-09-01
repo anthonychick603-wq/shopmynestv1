@@ -451,6 +451,10 @@ export const nest = {
       { method: "POST", body: { action, ids: ids.map(Number) } }
     ),
 
+  // v1.0.195 — admin analytics. Server route from plugin v3.13.59.
+  adminAnalytics: (days: number = 30) =>
+    request<AdminAnalytics>("marketplace", "/admin/analytics", { query: { days } }),
+
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
     request<{ comments: NestBlogCommentRaw[]; total: number; pages: number }>(
@@ -1432,6 +1436,33 @@ export type AdminPayout = {
   processed_at: string;
 };
 export type AdminPayoutList = { items: AdminPayout[]; page: number; total: number; total_pages: number; status: string };
+
+// v1.0.195 — admin analytics.
+export type AdminAnalyticsPoint = { date: string; value: number };
+export type AdminAnalytics = {
+  window_days: number;
+  currency: string;
+  refreshed_at: string;
+  totals: {
+    gross_revenue: number;
+    tax_total: number;
+    shipping_total: number;
+    paid_orders: number;
+    refunded: number;
+    avg_order_value: number;
+    unique_buyers: number;
+    new_buyers: number;
+  };
+  rates: {
+    refund_rate: number;
+    new_buyer_share: number;
+  };
+  revenue_series: AdminAnalyticsPoint[];
+  order_series: AdminAnalyticsPoint[];
+  top_sellers: Array<{ seller_id: number; name: string; revenue: number }>;
+  top_products: Array<{ product_id: number; title: string; units: number }>;
+  woo_active?: boolean;
+};
 
 // v1.0.194 — admin product management.
 export type AdminProductStatus = "any" | "publish" | "draft" | "pending" | "private" | "trash";
