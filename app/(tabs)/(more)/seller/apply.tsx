@@ -179,7 +179,7 @@ export default function ApplySeller() {
               <Text style={styles.handmadeTitle}>My Nest is for handmade items only</Text>
             </View>
             <Text style={styles.handmadeBody}>
-              My Nest is a marketplace for handmade goods. Sellers offering mass-produced, wholesale, dropshipped, or other non-handmade products will not be approved.
+              My Nest is for handmade items only. Sellers offering mass-produced, wholesale, dropshipped, or otherwise non-handmade products will not be approved.
             </Text>
             <TouchableOpacity
               onPress={() => { haptics.tap(); setHandmadeOnlyAcknowledged((value) => !value); }}
@@ -190,28 +190,37 @@ export default function ApplySeller() {
               accessibilityLabel="I understand My Nest is for handmade items only"
             >
               <Ionicons name={handmadeOnlyAcknowledged ? "checkbox" : "square-outline"} size={23} color={handmadeOnlyAcknowledged ? colors.brand : colors.onSurfaceMuted} />
-              <Text style={styles.handmadeCheckText}>I understand that the items I sell on My Nest must be handmade.</Text>
+              <Text style={styles.handmadeCheckText}>I understand that every item I sell on My Nest must be handmade by me.</Text>
             </TouchableOpacity>
           </View>
 
           <Text style={styles.intro}>
             {status === "rejected"
               ? "Update the information below and resubmit."
-              : "Complete this short application first. If approved, you can set up your public shop description, tagline, and other shop details afterward."}
+              : "Fill out this short application to be considered. Once approved, you can set up your shop description, tagline, banner, and everything else that appears on your public shop page."}
           </Text>
 
-          <Input label="Shop name" value={shopName} onChangeText={setShopName} testID="apply-shop-name" />
           <Input
-            label="What will you be selling?"
+            label="Shop name"
+            value={shopName}
+            onChangeText={setShopName}
+            placeholder="What would you like your shop to be called?"
+            autoCapitalize="words"
+            autoCorrect={false}
+            testID="apply-shop-name"
+          />
+          <Input
+            label="Brief description of what you will be selling"
             value={description}
             onChangeText={setDescription}
             multiline
             style={{ height: 120, textAlignVertical: "top" }}
-            hint="Tell us a brief description of what you will be selling. This is for application purposes only and will not show up on your shop page."
+            hint="For application purposes only — this will not appear on your public shop page. You can write your shop description, tagline, and story after you're approved."
+            placeholder="e.g. Hand-thrown stoneware mugs and small serving bowls, each glazed in-studio in small batches."
             testID="apply-description"
           />
 
-          <Text style={styles.label}>What will you sell?</Text>
+          <Text style={styles.label}>Which categories will your shop sell in?</Text>
           <Text style={styles.hint}>Choose a major category, then choose the sub-category underneath it. Add another selection if your shop sells more than one type of product.</Text>
           {categorySelections.map((selection, index) => (
             <View key={selection.key} style={styles.categoryCard} testID={`apply-category-row-${index}`}>

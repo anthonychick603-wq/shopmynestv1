@@ -1,5 +1,48 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.188, versionCode 155)
+Generated: 2026-09-01 UTC (v1.0.189, versionCode 156)
+
+=== v1.0.189 — Seller-application copy pass ===
+
+Refined the seller-apply screen's copy per the founder's exact voice.
+The screen already had the handmade-only notice, the acknowledgement
+checkbox, and the "for application purposes only" description hint
+(all landed in earlier versions) — this release tightens the wording
+so it matches the requested phrasing exactly and repositions the
+description field label so the intent is unmistakable at a glance.
+
+Copy changes in app/(tabs)/(more)/seller/apply.tsx:
+
+  1. Handmade-only body copy now leads with the exact phrasing from
+     the founder: "My Nest is for handmade items only. Sellers
+     offering mass-produced, wholesale, dropshipped, or otherwise
+     non-handmade products will not be approved."
+
+  2. Acknowledgement checkbox copy: "I understand that every item I
+     sell on My Nest must be handmade by me." (tighter than the
+     previous version and personal to the seller).
+
+  3. Intro paragraph clarifies that the shop description, tagline,
+     and banner are set up AFTER approval, not on the application.
+
+  4. Shop-name field now has a friendly placeholder ("What would you
+     like your shop to be called?") and word-cased auto-capitalize.
+
+  5. Description field label renamed to "Brief description of what
+     you will be selling" (was: "What will you be selling?") — matches
+     the founder's dictation. Hint expanded to explicitly promise the
+     text will NOT appear on the seller's public shop page and that
+     shop-page copy comes later. Added a placeholder that shows the
+     expected shape of a good answer.
+
+  6. Category prompt reworded to "Which categories will your shop
+     sell in?" (was: "What will you sell?") so it doesn't feel
+     redundant with the description field right above it.
+
+No behavior/API changes. Server payload unchanged; server-side
+validation of the handmade acknowledgement, categories, terms, etc.
+all still applies exactly as before.
+
+Typecheck: tsc --noEmit -p tsconfig.json passes clean (0 errors).
 
 === v1.0.188 — Ship-from address inputs above the keyboard ===
 
