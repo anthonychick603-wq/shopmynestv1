@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors, radius, spacing, statusPalette } from "@/src/theme";
+import { colors, radius, spacing } from "@/src/theme";
 
 // v1.0.71 — extracted from the seller dashboard (v1.0.70). Any list that
 // shows an order/dispute/status label should use this component instead of

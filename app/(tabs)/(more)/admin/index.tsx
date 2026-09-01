@@ -6,7 +6,7 @@ import React, { useCallback, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 
 import { nest, ApiError, type AdminStats } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
                 value={stats?.products_total ?? 0}
                 icon="cube-outline"
                 tint={colors.brand}
-                onPress={() => router.replace("/(tabs)/browse" as any)}
+                onPress={() => router.replace("/(tabs)/browse" as Href)}
                 testID="admin-tile-products"
               />
             </View>

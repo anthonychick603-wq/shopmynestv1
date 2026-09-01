@@ -58,25 +58,13 @@ export function safeBack(router: Router, fallback = "/(tabs)") {
 }
 
 // -----------------------------------------------------------------------
-// Legacy no-op / thin-wrapper exports so call sites elsewhere in the
-// tree keep compiling. New code should just call router.push directly.
-
-export function getReferringTab(): string | null {
-  return null;
-}
-export function clearReferringTab(): void {}
-export function setReferringTab(_path: string | null): void {}
-
-type MoreEntry = { originTab: string; inFlow: boolean };
-export function pushMoreEntry(_originTab: string, _inFlow: boolean): void {}
-export function consumeMoreEntry(): MoreEntry | null {
-  return null;
-}
-export function peekMoreEntry(): MoreEntry | null {
-  return null;
-}
-export function clearMoreStack(): void {}
-export function dismissMoreStackIfAny(): void {}
+// v1.0.176 — legacy no-op exports (getReferringTab, clearReferringTab,
+// setReferringTab, pushMoreEntry, consumeMoreEntry, peekMoreEntry,
+// clearMoreStack, dismissMoreStackIfAny) plus their sibling stub hooks
+// were removed. Every call site had already migrated off them; a grep
+// across app/ and src/ found zero external references, so keeping the
+// exports as stubs was pure dead weight. If a downstream fork still
+// depends on them, restore from git history — they never did anything.
 
 // The three push wrappers all reduce to router.push. Kept as separate
 // exports so existing call sites (ProductCard, PostCard, category

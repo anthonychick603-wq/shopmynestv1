@@ -133,17 +133,31 @@ export function toUser(u: NestUserRaw): NestUser {
 }
 
 export function toOrder(o: NestOrderRaw): Order {
-  const asAddr = (a: any = {}) => ({
+  // Address bags come from WooCommerce's REST payload and are optional;
+  // any field can be missing. Everything is coerced to string with a
+  // fallback so downstream consumers can rely on the shape.
+  type RawAddress = {
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    address_1?: string;
+    address_2?: string;
+    city?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+  };
+  const asAddr = (a: RawAddress | null | undefined = {}) => ({
     id: `wp-${o.id}`,
-    first_name: a.first_name || "",
-    last_name: a.last_name || "",
-    phone: a.phone || "",
-    line1: a.address_1 || "",
-    line2: a.address_2 || "",
-    city: a.city || "",
-    state: a.state || "",
-    postal_code: a.postcode || "",
-    country: a.country || "US",
+    first_name: a?.first_name || "",
+    last_name: a?.last_name || "",
+    phone: a?.phone || "",
+    line1: a?.address_1 || "",
+    line2: a?.address_2 || "",
+    city: a?.city || "",
+    state: a?.state || "",
+    postal_code: a?.postcode || "",
+    country: a?.country || "US",
   });
   return {
     id: String(o.id),

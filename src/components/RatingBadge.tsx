@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, spacing } from "@/src/theme";
+import { colors } from "@/src/theme";
 
 // v1.0.64 - compact star + rating + review count badge. Used on seller cards,
 // product cards (seller row), and the seller profile header. Renders nothing

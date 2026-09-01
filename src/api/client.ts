@@ -89,7 +89,3 @@ export async function setAuthToken(token: string | null) {
   if (token) await storage.secureSet(AUTH_TOKEN_KEY, token);
   else await storage.secureRemove(AUTH_TOKEN_KEY);
 }
-
-export function isSignedInSync(token: string | null | undefined): boolean {
-  return !!token;
-}

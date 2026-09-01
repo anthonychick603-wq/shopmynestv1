@@ -1,4 +1,37 @@
 ShopMyNest Mobile validation report
+Generated: 2026-08-31 UTC (v1.0.176, versionCode 142)
+
+v1.0.176 changes (cleanup pass — no behavior change):
+  - Deleted 5 dead files (325 lines): OrderReviewCTA.tsx, use-nav-history.ts,
+    use-track-referring-tab.ts, use-unsaved-guard.ts, nav-history.ts.
+    Verified zero external references before deletion.
+  - Removed 8 unused legacy no-op exports from src/utils/nav.ts (getReferringTab,
+    clearReferringTab, setReferringTab, pushMoreEntry, consumeMoreEntry,
+    peekMoreEntry, clearMoreStack, dismissMoreStackIfAny). All had 0 external
+    call sites after the v1.0.168 navigation rewrite.
+  - Removed isSignedInSync helper from src/api/client.ts (0 external refs).
+  - Removed 16 unused imports across 15 screens (Image dead in files that
+    switched to AppImage, ActivityIndicator dead in files that switched to
+    skeleton components, unused Button/FlatList/spacing/statusPalette).
+  - Type safety: removed 7 of 20 `any` uses. Replaced `data?: any`, `body?: any`,
+    and `data?: any` constructor param on ApiError with `unknown`. Added
+    `friendlyMessage(err: unknown): string | undefined` helper in nest.ts so
+    catch blocks no longer need `any` to reach `.friendly`. Migrated 5 catch
+    blocks in messages screens from `catch (e: any)` to `catch (e: unknown)`
+    + `friendlyMessage(e)`. Fixed ImagePicker/ImageManipulator dynamic imports
+    to use `typeof import("...")`. Fixed KeyboardAwareScroll internals to use
+    narrow TextInputState / ScrollView-with-cache types instead of `any`.
+    Migrated router.push/replace paths from `as any` to `as Href` (7 sites)
+    now that typedRoutes is enabled. Fixed `pushFromTab(router, actionUrl as any)`
+    — the cast was never needed. Fixed adapters.ts `asAddr` param to use a
+    real RawAddress type.
+  - Result: 26,288 total lines still, but 325 lines of dead code removed,
+    26 imports/exports cleaned, and 7 fewer `any`s. Type-check passes on
+    all changed files (only pre-existing latent errors remain in files I
+    did not touch: CartContext.tsx generic-inference quirks, and two
+    key-prop typing gaps in order/[id].tsx / ProductDetailSkeleton.tsx).
+
+ShopMyNest Mobile validation report
 Generated: 2026-08-31 UTC (v1.0.175, versionCode 141)
 
 v1.0.175 changes:

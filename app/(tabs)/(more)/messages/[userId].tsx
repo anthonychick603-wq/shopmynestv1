@@ -20,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 
-import { nest, type NestMessagePhoto, type NestMessageRaw } from "@/src/api/nest";
+import { nest, friendlyMessage, type NestMessagePhoto, type NestMessageRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
@@ -219,9 +219,9 @@ export default function MessageThread() {
       const rows = await nest.getConversation(otherId, 200);
       if (cancelRef.current.cancelled) return;
       setMessages(Array.isArray(rows) ? rows : []);
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (cancelRef.current.cancelled) return;
-      toast.error(e?.friendly || "Could not load conversation.");
+      toast.error(friendlyMessage(e) || "Could not load conversation.");
     } finally {
       if (!cancelRef.current.cancelled) setLoading(false);
     }
@@ -246,8 +246,8 @@ export default function MessageThread() {
       toast.info("You can attach up to 5 photos per message.");
       return;
     }
-    let ImagePicker: any;
-    let ImageManipulator: any;
+    let ImagePicker: typeof import("expo-image-picker");
+    let ImageManipulator: typeof import("expo-image-manipulator");
     try {
       ImagePicker = await import("expo-image-picker");
       ImageManipulator = await import("expo-image-manipulator");
@@ -269,7 +269,7 @@ export default function MessageThread() {
     if (res.canceled || !res.assets?.length) return;
 
     const picks = res.assets.slice(0, remaining);
-    const newDrafts: DraftPhoto[] = picks.map((a: any) => ({
+    const newDrafts: DraftPhoto[] = picks.map((a) => ({
       key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       uri: a.uri,
       uploading: true,
@@ -295,9 +295,9 @@ export default function MessageThread() {
         } as any);
         const resp = await nest.uploadMessagePhoto(fd);
         setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, attachmentId: resp.attachment_id } : p)));
-      } catch (e: any) {
-        setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, error: e?.friendly || "Upload failed" } : p)));
-        toast.error(e?.friendly || "One photo could not be uploaded.");
+      } catch (e: unknown) {
+        setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, error: friendlyMessage(e) || "Upload failed" } : p)));
+        toast.error(friendlyMessage(e) || "One photo could not be uploaded.");
       }
     }));
   }, [drafts.length, otherId, sending]);
@@ -341,10 +341,10 @@ export default function MessageThread() {
       // Reload to get server-authoritative rows (fresh signed URLs, etc.).
       await load();
       haptics.success();
-    } catch (e: any) {
+    } catch (e: unknown) {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       haptics.error();
-      toast.error(e?.friendly || "Message could not be sent.");
+      toast.error(friendlyMessage(e) || "Message could not be sent.");
       setDraft(body);
       // Keep drafts in the composer so the user can retry send without re-picking.
       setDrafts(optimistic.photos!.map((p) => ({
@@ -380,8 +380,8 @@ export default function MessageThread() {
               await nest.reportMessagePhoto(messageId, photo.id, "user reported from chat");
               toast.success("Photo reported and hidden.");
               await load();
-            } catch (e: any) {
-              toast.error(e?.friendly || "Could not report photo.");
+            } catch (e: unknown) {
+              toast.error(friendlyMessage(e) || "Could not report photo.");
             }
           },
         },

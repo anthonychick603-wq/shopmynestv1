@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { format } from "date-fns";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -272,7 +272,7 @@ export default function OrderDetail() {
           />
         ) : null}
         {order.status === "delivered" ? (
-          <TouchableOpacity style={styles.leaveReviewBtn} onPress={() => router.push(`/orders/${order.id}/review` as any)} testID="order-leave-review">
+          <TouchableOpacity style={styles.leaveReviewBtn} onPress={() => router.push(`/orders/${order.id}/review` as Href)} testID="order-leave-review">
             <Ionicons name="star-outline" size={18} color={colors.onBrand} />
             <Text style={styles.leaveReviewText}>Leave a review</Text>
           </TouchableOpacity>

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
-import { nest, type NestConversationRaw } from "@/src/api/nest";
+import { nest, friendlyMessage, type NestConversationRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
@@ -49,8 +49,8 @@ export default function MessagesInbox() {
     try {
       const rows = await nest.getConversations();
       setItems(Array.isArray(rows) ? rows : []);
-    } catch (e: any) {
-      setError(e?.friendly || "Could not load messages.");
+    } catch (e: unknown) {
+      setError(friendlyMessage(e) || "Could not load messages.");
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -472,9 +472,10 @@ export default function Cart() {
       // 422 response carries missing_fields[] plus an action_url. Route the
       // buyer straight to the fix instead of surfacing a raw error.
       if (e instanceof ApiError && e.code === "buyer_contact_incomplete") {
-        const missing = Array.isArray(e.data?.missing_fields) ? (e.data.missing_fields as string[]) : [];
-        const actionUrl = typeof e.data?.action_url === "string" && e.data.action_url.length > 0
-          ? e.data.action_url
+        const bag = (e.data && typeof e.data === "object" ? e.data : {}) as { missing_fields?: unknown; action_url?: unknown };
+        const missing = Array.isArray(bag.missing_fields) ? (bag.missing_fields as string[]) : [];
+        const actionUrl = typeof bag.action_url === "string" && bag.action_url.length > 0
+          ? bag.action_url
           : "/(tabs)/(more)/me/address-edit";
         const needsAccountEmail = missing.includes("account_email");
         const needsAccountPhone = missing.includes("account_phone");
@@ -488,7 +489,7 @@ export default function Cart() {
           `Add ${summary} before checking out. Opening your address settings…`,
           "info",
         );
-        pushFromTab(router, actionUrl as any);
+        pushFromTab(router, actionUrl);
         return;
       }
       // v1.0.158 — Server rejects with `quote_changed` (409) when the item

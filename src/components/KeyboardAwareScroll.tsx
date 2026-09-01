@@ -27,6 +27,8 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   KeyboardEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   ScrollView,
   ScrollViewProps,
@@ -110,9 +112,18 @@ export const KeyboardAwareScroll = forwardRef<ScrollView, Props>(function Keyboa
       if (!scroll) return;
       // `currentlyFocusedInput` returns the native ref of the focused input,
       // if any. It's an internal-ish API but has been stable since RN 0.63.
-      const focused: any =
-        (TextInput as any).State?.currentlyFocusedInput?.() ??
-        (TextInput as any).State?.currentlyFocusedField?.();
+      // The `State` sub-object is not part of the public typings, so we cast
+      // through a narrow shape rather than reaching for `any`.
+      type FocusedNode = { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void };
+      type TextInputState = {
+        State?: {
+          currentlyFocusedInput?: () => FocusedNode | null;
+          currentlyFocusedField?: () => FocusedNode | null;
+        };
+      };
+      const State = (TextInput as unknown as TextInputState).State;
+      const focused: FocusedNode | null =
+        State?.currentlyFocusedInput?.() ?? State?.currentlyFocusedField?.() ?? null;
       if (!focused) return;
 
       // Ask the input where it is on the screen.
@@ -128,10 +139,12 @@ export const KeyboardAwareScroll = forwardRef<ScrollView, Props>(function Keyboa
         if (kbTopScreenY == null) return;
         const overlap = inputBottomScreenY + scrollMargin - kbTopScreenY;
         if (overlap > 0) {
-          // Nudge the scroll offset down by the overlap.
+          // Nudge the scroll offset down by the overlap. `_lastContentOffsetY`
+          // is a private field we stash on the ScrollView in onScroll below.
+          const scrollWithCache = scroll as ScrollView & { _lastContentOffsetY?: number };
           scroll.scrollTo({
-            y: (scroll as any)._lastContentOffsetY
-              ? (scroll as any)._lastContentOffsetY + overlap
+            y: scrollWithCache._lastContentOffsetY
+              ? scrollWithCache._lastContentOffsetY + overlap
               : overlap,
             animated: true,
           });
@@ -144,8 +157,9 @@ export const KeyboardAwareScroll = forwardRef<ScrollView, Props>(function Keyboa
   // Keep a running cache of the last content offset so we can add `overlap`
   // to it above without a second measure round-trip.
   const onScroll = useCallback(
-    (e: any) => {
-      (localRef.current as any)._lastContentOffsetY = e.nativeEvent.contentOffset.y;
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const node = localRef.current as (ScrollView & { _lastContentOffsetY?: number }) | null;
+      if (node) node._lastContentOffsetY = e.nativeEvent.contentOffset.y;
       scrollProps.onScroll?.(e);
     },
     [scrollProps],

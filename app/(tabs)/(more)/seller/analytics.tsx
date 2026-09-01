@@ -16,10 +16,10 @@
 // Kept intentionally compact so the analytics page stays a summary and
 // the payouts screen remains the source of truth.
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { format, parseISO } from "date-fns";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -234,7 +234,7 @@ export default function SellerAnalytics() {
               <View style={styles.sectionRow}>
                 <Text style={styles.sectionLabel}>Recent payouts</Text>
                 <TouchableOpacity
-                  onPress={() => { haptics.tap(); router.push("/seller/payouts" as any); }}
+                  onPress={() => { haptics.tap(); router.push("/seller/payouts" as Href); }}
                   style={styles.seeAllBtn}
                   accessibilityRole="button"
                   accessibilityLabel="See all payouts"
@@ -249,7 +249,7 @@ export default function SellerAnalytics() {
                   key={p.id}
                   style={styles.payoutRow}
                   activeOpacity={0.7}
-                  onPress={() => { haptics.tap(); router.push("/seller/payouts" as any); }}
+                  onPress={() => { haptics.tap(); router.push("/seller/payouts" as Href); }}
                   testID={`analytics-payout-${p.id}`}
                   accessibilityRole="button"
                   accessibilityLabel={`Payout of $${p.amount.toFixed(2)}, ${payoutStatusLabel(p.status)}`}
@@ -280,7 +280,7 @@ export default function SellerAnalytics() {
                 key={p.id}
                 style={styles.productRow}
                 activeOpacity={0.7}
-                onPress={() => { haptics.tap(); router.push(`/product/${p.id}` as any); }}
+                onPress={() => { haptics.tap(); router.push(`/product/${p.id}` as Href); }}
                 testID={`analytics-top-${p.id}`}
               >
                 <Text style={styles.rank}>#{i + 1}</Text>

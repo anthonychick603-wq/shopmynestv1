@@ -6,7 +6,6 @@ import { Redirect, useRouter } from "expo-router";
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
-import { Button } from "@/src/components/Button";
 import { NestLogo } from "@/src/components/NestLogo";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";

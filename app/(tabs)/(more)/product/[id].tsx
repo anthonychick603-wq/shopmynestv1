@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
@@ -202,7 +202,7 @@ export default function ProductDetail() {
           {product.product_rating?.review_count ? (
             <TouchableOpacity
               style={styles.ratingRow}
-              onPress={() => { haptics.tap(); router.push(`/product/${product.id}/reviews` as any); }}
+              onPress={() => { haptics.tap(); router.push(`/product/${product.id}/reviews` as Href); }}
               testID="product-reviews-link"
               accessibilityLabel={`Read ${product.product_rating.review_count} product reviews`}
             >

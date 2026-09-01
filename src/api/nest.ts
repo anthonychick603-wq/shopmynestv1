@@ -22,14 +22,14 @@ export class ApiError extends Error {
   status: number;
   code: string;
   friendly: string;
-  data?: any;
+  data?: unknown;
   // v1.0.133 — verify.tsx reads err.body for the server's structured
   // payload on signup verify failures. Kept optional so existing call
   // sites that only look at .data / .friendly are unaffected. The
   // request() layer sets `body` to the raw JSON body when a non-2xx
   // response includes one.
-  body?: any;
-  constructor(message: string, status = 0, code = "request_failed", data?: any) {
+  body?: unknown;
+  constructor(message: string, status = 0, code = "request_failed", data?: unknown) {
     super(message);
     this.status = status;
     this.code = code;
@@ -37,6 +37,21 @@ export class ApiError extends Error {
     this.body = data;
     this.friendly = friendlyFor(status, code, message);
   }
+}
+
+// v1.0.176 — Small helper for the caller-side pattern that used to be
+// written as `catch (e: any) { toast.error(e?.friendly || "...") }`.
+// Accepts anything the runtime might throw (ApiError, Error, string,
+// non-Error rejection) and returns the human-readable `friendly` string
+// when present. Screens still pass their own fallback copy.
+export function friendlyMessage(err: unknown): string | undefined {
+  if (err && typeof err === "object") {
+    const anyErr = err as { friendly?: unknown; message?: unknown };
+    if (typeof anyErr.friendly === "string" && anyErr.friendly) return anyErr.friendly;
+    if (typeof anyErr.message === "string" && anyErr.message) return anyErr.message;
+  }
+  if (typeof err === "string" && err) return err;
+  return undefined;
 }
 
 // v1.0.174 — Belt-and-braces sanitization. Some screens (e.g. Payout bank
@@ -179,7 +194,7 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
     } as RequestInit);
     clearTimeout(timer);
     const text = await res.text();
-    let data: any = null;
+    let data: unknown = null;
     try {
       data = text ? JSON.parse(text) : null;
     } catch {
@@ -200,15 +215,17 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
       // whose `message` field contains raw HTML/CSS from a fatal page. Prefer
       // the machine-readable `code` for detection and let friendlyFor scrub
       // the message.
-      const rawMsg = data?.message || data?.error || `HTTP ${res.status}`;
+      const bag = (data && typeof data === "object" ? data : {}) as { message?: unknown; error?: unknown; code?: unknown };
+      const rawMsg = (typeof bag.message === "string" && bag.message) || (typeof bag.error === "string" && bag.error) || `HTTP ${res.status}`;
       const safeMsg = looksLikeServerDump(String(rawMsg)) ? `HTTP ${res.status}` : rawMsg;
-      throw new ApiError(safeMsg, res.status, data?.code || "request_failed", data);
+      const errCode = typeof bag.code === "string" ? bag.code : "request_failed";
+      throw new ApiError(safeMsg, res.status, errCode, data);
     }
     return data as T;
   } catch (e) {
     clearTimeout(timer);
     if (e instanceof ApiError) throw e;
-    if ((e as any)?.name === "AbortError") {
+    if (e instanceof Error && e.name === "AbortError") {
       const err = new ApiError("The website took too long to respond.", 0, "request_timeout");
       networkErrorListeners.forEach((fn) => fn(err));
       throw err;
@@ -687,7 +704,11 @@ export const nest = {
       // The backend returns 409 with the existing label nested under the
       // WP_Error data (body.data.label) rather than an error the user must act on.
       if (e instanceof ApiError && e.status === 409) {
-        const label = e.data?.data?.label as NestShippingLabel | undefined;
+        // Backend returns 409 with the existing label nested inside
+        // WP_Error data: { data: { label } }. Walk the object safely.
+        const outer = e.data && typeof e.data === "object" ? (e.data as { data?: unknown }) : null;
+        const inner = outer && outer.data && typeof outer.data === "object" ? (outer.data as { label?: NestShippingLabel }) : null;
+        const label = inner?.label;
         if (label) return { kind: "existing", label };
       }
       throw e;

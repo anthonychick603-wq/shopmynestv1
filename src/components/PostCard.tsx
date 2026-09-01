@@ -1,5 +1,5 @@
 import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { AppImage } from "@/src/components/AppImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
