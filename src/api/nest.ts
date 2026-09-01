@@ -455,6 +455,20 @@ export const nest = {
   adminAnalytics: (days: number = 30) =>
     request<AdminAnalytics>("marketplace", "/admin/analytics", { query: { days } }),
 
+  // v1.0.200 — admin category manager. Server routes from plugin v3.13.61.
+  adminCategoriesList: () =>
+    request<AdminCategoryList>("marketplace", "/admin/categories"),
+  adminCategoryCreate: (input: { name: string; slug?: string; parent?: number }) =>
+    request<AdminCategory>("marketplace", "/admin/categories", { method: "POST", body: input }),
+  adminCategoryUpdate: (id: number | string, patch: { name?: string; slug?: string; parent?: number }) =>
+    request<AdminCategory>("marketplace", `/admin/categories/${id}`, { method: "PATCH", body: patch }),
+  adminCategoryDelete: (id: number | string, reassignTo?: number) =>
+    request<{ id: number; deleted: boolean; moved: number }>(
+      "marketplace",
+      `/admin/categories/${id}`,
+      { method: "DELETE", query: reassignTo ? { reassign_to: reassignTo } : undefined }
+    ),
+
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
     request<{ comments: NestBlogCommentRaw[]; total: number; pages: number }>(
@@ -1436,6 +1450,17 @@ export type AdminPayout = {
   processed_at: string;
 };
 export type AdminPayoutList = { items: AdminPayout[]; page: number; total: number; total_pages: number; status: string };
+
+// v1.0.200 — admin category manager.
+export type AdminCategory = {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number;
+  count: number;
+  has_children: boolean;
+};
+export type AdminCategoryList = { total: number; items: AdminCategory[] };
 
 // v1.0.195 — admin analytics.
 export type AdminAnalyticsPoint = { date: string; value: number };

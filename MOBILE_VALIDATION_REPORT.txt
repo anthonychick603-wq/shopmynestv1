@@ -1,5 +1,22 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.199, versionCode 166)
+Generated: 2026-09-01 UTC (v1.0.200, versionCode 167)
+
+v1.0.200 / plugin v3.13.61 (versionCode 167)
+  - Added admin category manager to the Admin console.
+  - Server: MNU_Admin_Categories with 4 REST routes under
+    the-nest/v1/admin/categories:
+      GET    /admin/categories         (flat list + counts)
+      POST   /admin/categories         (create; optional parent)
+      PATCH  /admin/categories/{id}    (rename / re-slug / reparent
+                                        with cycle guard)
+      DELETE /admin/categories/{id}?reassign_to=N
+  - Mobile: /admin/categories screen. Expandable tree, search across
+    every level, add root or subcategory, rename, reparent, and
+    delete with a "move products to..." picker when the category has
+    products attached.
+  - Admin overview: new Catalog section with Categories tile.
+  - Typecheck: PASS. PHP -l: PASS.
+
 
 v1.0.199 / plugin v3.13.60 (versionCode 166)
   - Expanded product taxonomy from 17 handmade/craft roots (~120 subs)

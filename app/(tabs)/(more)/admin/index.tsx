@@ -213,6 +213,18 @@ export default function AdminDashboard() {
               />
             </View>
 
+            {/* v1.0.200 — Catalog section: taxonomy management. */}
+            <Text style={styles.sectionTitle}>Catalog</Text>
+            <View style={styles.card}>
+              <Row
+                icon="pricetags-outline"
+                label="Categories"
+                sub="Browse, add, rename, and reorganize product categories"
+                onPress={() => pushFromTab(router, "/admin/categories")}
+                testID="admin-nav-categories"
+              />
+            </View>
+
             <Text style={styles.sectionTitle}>Operations</Text>
             <View style={styles.card}>
               <Row
