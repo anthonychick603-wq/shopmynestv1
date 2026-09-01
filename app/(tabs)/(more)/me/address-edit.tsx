@@ -16,8 +16,9 @@ import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
 import { toUser } from "@/src/api/adapters";
 
-// v1.0.92 (Build #11) — address book add/edit. Country defaults to US, state
-// defaults to NH per project preference. Server enforces one-default-only.
+// v1.0.92 (Build #11) — address book add/edit. Country defaults to US; state
+// is left blank so buyers outside a single default region don't have to
+// correct it. Server enforces one-default-only.
 
 export default function AddressEditScreen() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function AddressEditScreen() {
     address_1: "",
     address_2: "",
     city: "",
-    state: "NH",
+    state: "",
     postcode: "",
     country: "US",
     phone: "",

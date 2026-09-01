@@ -1,5 +1,16 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.197, versionCode 164)
+Generated: 2026-09-01 UTC (v1.0.198, versionCode 165)
+
+v1.0.198 (versionCode 165)
+  - Removed remaining owner-specific defaults and comments:
+      seller/shippo.tsx: dropped hardcoded STATE_DEFAULT="NH"; brand-new
+        sellers now see the State field empty (country still defaults to US).
+      me/address-edit.tsx: form default state="NH" -> state=""; buyers now
+        pick their state instead of overwriting a wrong-region default.
+      order/[id].tsx: replaced "Anthony" and "he/his" pronouns in the
+        buyer-order-guard comment with generic wording.
+  - Typecheck: PASS.
+
 
 v1.0.197 (versionCode 164)
   - Genericized placeholders across seller onboarding forms so no example values leak the owner's real name or address:

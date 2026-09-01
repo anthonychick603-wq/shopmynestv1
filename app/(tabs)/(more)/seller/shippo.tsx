@@ -46,9 +46,10 @@ const REQUIRED_FIELDS: Array<keyof NestSellerShippingProfile> = [
   "ship_from_zip",
 ];
 
-// Rule from the project: default country is USA, default state is NH.
+// v1.0.198 — default country is USA; state is intentionally left blank so
+// sellers outside a single default region don't have to correct it every
+// time. The <Input> still shows a two-letter placeholder as a hint.
 const COUNTRY_DEFAULT = "US";
-const STATE_DEFAULT = "NH";
 
 export default function SellerShipFromAddress() {
   const insets = useSafeAreaInsets();
@@ -63,12 +64,12 @@ export default function SellerShipFromAddress() {
     setError(null);
     try {
       const res = await nest.getSellerShippingProfile();
-      // Backfill the two defaults the platform requires so a brand-new seller
-      // sees the form pre-filled to USA / NH instead of blank pickers.
+      // Backfill only the country default. Leaving state blank means the
+      // seller enters their own two-letter code instead of overwriting a
+      // wrong-region default.
       const merged = {
         ...res.profile,
         ship_from_country: res.profile.ship_from_country || COUNTRY_DEFAULT,
-        ship_from_state: res.profile.ship_from_state || STATE_DEFAULT,
       };
       setProfile(merged);
     } catch (e) {
