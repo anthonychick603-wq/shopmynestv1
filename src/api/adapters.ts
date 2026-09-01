@@ -59,6 +59,10 @@ export function toProduct(p: NestProductRaw): Product {
     categories: (p.categories || []).map((c) => c.slug),
     images,
     featured_image_index: 0,
+    // v1.0.204 — surface per-product video URL when the seller uploaded one.
+    // The buyer product screen renders a play badge overlay; the seller edit
+    // form uses it to preserve the video across saves.
+    video_url: typeof p.video_url === "string" && p.video_url !== "" ? p.video_url : undefined,
     stock: Number(p.stock_quantity ?? 0),
     sku: "",
     in_stock: p.stock_status !== "outofstock",

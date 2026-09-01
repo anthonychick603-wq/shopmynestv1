@@ -186,7 +186,19 @@ export default function ProductDetail() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
        keyboardShouldPersistTaps="handled">
-        <AppImage source={{ uri: product.images[imageIdx] }} style={styles.hero} resizeMode="cover" fallbackIcon="pricetag-outline" />
+        {/* v1.0.204 — hero image + optional video badge. When the seller
+            uploaded an intro video (video_url present) we surface a play
+            badge in the corner so buyers know there's a clip. Inline
+            playback lands in a follow-up (needs expo-video). */}
+        <View style={styles.heroWrap}>
+          <AppImage source={{ uri: product.images[imageIdx] }} style={styles.hero} resizeMode="cover" fallbackIcon="pricetag-outline" />
+          {product.video_url ? (
+            <View style={styles.heroVideoBadge} accessibilityLabel="Product has a video">
+              <Ionicons name="play-circle" size={22} color={colors.onBrand} />
+              <Text style={styles.heroVideoBadgeText}>Video</Text>
+            </View>
+          ) : null}
+        </View>
         {product.images.length > 1 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow} keyboardShouldPersistTaps="handled">
             {product.images.map((img, i) => (
@@ -370,6 +382,10 @@ const styles = StyleSheet.create({
   topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, flexDirection: "row", justifyContent: "space-between", padding: spacing.md, paddingTop: spacing.lg },
   topBtn: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center", ...shadows.card },
   hero: { width: "100%", aspectRatio: 1, backgroundColor: colors.surfaceTertiary },
+  // v1.0.204 — hero wrapper for the optional video badge.
+  heroWrap: { position: "relative" },
+  heroVideoBadge: { position: "absolute", right: spacing.md, bottom: spacing.md, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.md, backgroundColor: "rgba(0,0,0,0.55)" },
+  heroVideoBadgeText: { color: colors.onBrand, fontSize: 12, fontWeight: "700", letterSpacing: 0.2 },
   thumbRow: { padding: spacing.md, gap: spacing.sm },
   thumb: { width: 64, height: 64, borderRadius: radius.md, overflow: "hidden", borderWidth: 2, borderColor: "transparent" },
   thumbActive: { borderColor: colors.brand },

@@ -64,6 +64,9 @@ export type Product = {
   categories: string[];
   images: string[];
   featured_image_index?: number;
+  // v1.0.204 — optional per-product intro video URL uploaded by the seller.
+  // Undefined or empty string when no video is attached.
+  video_url?: string;
   stock: number;
   sku?: string;
   in_stock: boolean;

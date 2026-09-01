@@ -121,9 +121,30 @@ export default function ProductForm() {
   const [sku, setSku] = useState("");
   const [customizable, setCustomizable] = useState(false);
 
-  // Photo: existing remote URL (edit) and/or a freshly picked local asset to upload.
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [localImage, setLocalImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  // v1.0.204 — multi-photo gallery + optional single video.
+  //
+  // A "slot" is either an existing remote asset (edit) or a freshly picked
+  // local asset queued for upload. The FIRST photo slot is the primary
+  // product photo (WooCommerce `image_id`); slots 2..N become the gallery
+  // (`gallery_image_ids`). Photos are capped at MAX_PHOTOS to match the
+  // server's cap of 1 primary + 7 gallery = 8 total.
+  //
+  // Videos are a separate single slot. On the wire we send `video_id` and
+  // the server stores it as post meta; sending video_id=0 or null clears
+  // the previously saved video.
+  const MAX_PHOTOS = 8;
+  type PhotoSlot =
+    | { kind: "remote"; id?: number; url: string }
+    | { kind: "local"; asset: ImagePicker.ImagePickerAsset };
+  type VideoSlot =
+    | { kind: "remote"; url: string }
+    | { kind: "local"; asset: ImagePicker.ImagePickerAsset };
+  const [photos, setPhotos] = useState<PhotoSlot[]>([]);
+  const [video, setVideo] = useState<VideoSlot | null>(null);
+  // Tracks whether the seller has explicitly removed the pre-existing video
+  // (or gallery) on this edit so submit() sends the right clear signal.
+  const [videoCleared, setVideoCleared] = useState(false);
+  const [galleryDirty, setGalleryDirty] = useState(false);
 
   // Shipping (persisted on both create and edit; the size preset sets real WC dims).
   const [packageSize, setPackageSize] = useState<PackageSize>("custom");
@@ -150,7 +171,36 @@ export default function ProductForm() {
           setDescription(p.description || p.short_description || "");
           setPrice(p.price != null ? String(p.price) : "");
           setStock(p.stock_quantity != null ? String(p.stock_quantity) : "");
-          setImageUrl(p.image || null);
+          // v1.0.204 — hydrate the multi-photo grid from primary + gallery.
+          // Plugin v3.13.63+ also returns numeric attachment ids so the
+          // edit form can preserve a seller's existing photos across saves
+          // without re-uploading anything.
+          const initialPhotos: PhotoSlot[] = [];
+          if (p.image) {
+            initialPhotos.push({
+              kind: "remote",
+              url: p.image,
+              id: typeof p.image_id === "number" && p.image_id > 0 ? p.image_id : undefined,
+            });
+          }
+          const galleryUrls = p.gallery ?? [];
+          const galleryIds = p.gallery_image_ids ?? [];
+          for (let i = 0; i < galleryUrls.length; i += 1) {
+            const url = galleryUrls[i];
+            if (!url) continue;
+            const rid = galleryIds[i];
+            initialPhotos.push({
+              kind: "remote",
+              url,
+              id: typeof rid === "number" && rid > 0 ? rid : undefined,
+            });
+          }
+          setPhotos(initialPhotos.slice(0, MAX_PHOTOS));
+          if (typeof p.video_url === "string" && p.video_url !== "") {
+            setVideo({ kind: "remote", url: p.video_url });
+          } else {
+            setVideo(null);
+          }
           setCustomizable(p.customizable === true);
           setExistingCategoryIds((p.categories || []).map((category) => Number(category.id)).filter(Number.isFinite));
           const categorySelection = selectionFromProductSlugs(
@@ -218,36 +268,127 @@ export default function ProductForm() {
     return () => { cancelled = true; };
   }, [isEdit]);
 
-  const pickImage = async () => {
+  // v1.0.204 — multi-photo picker. Enforces MAX_PHOTOS by picking up to the
+  // remaining slot count; the OS picker on iOS/Android surfaces multi-select
+  // when `allowsMultipleSelection` is on.
+  const pickPhotos = async () => {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         return toast.error("Photo permission is needed to add product images.");
       }
+      const remaining = MAX_PHOTOS - photos.length;
+      if (remaining <= 0) {
+        return toast.error(`You can attach up to ${MAX_PHOTOS} photos per listing.`);
+      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         quality: 0.8,
-        allowsEditing: true,
+        allowsMultipleSelection: remaining > 1,
+        selectionLimit: remaining,
       });
-      if (!result.canceled && result.assets?.[0]) {
-        setLocalImage(result.assets[0]);
-        setImageUrl(result.assets[0].uri);
-      }
+      if (result.canceled || !result.assets?.length) return;
+      const additions: PhotoSlot[] = result.assets
+        .slice(0, remaining)
+        .map((asset) => ({ kind: "local" as const, asset }));
+      setPhotos((prev) => [...prev, ...additions].slice(0, MAX_PHOTOS));
+      setGalleryDirty(true);
     } catch {
       toast.error("Could not open your photo library. Please try again.");
     }
   };
 
-  const uploadIfNeeded = async (): Promise<number | undefined> => {
-    if (!localImage) return undefined;
-    const uri = localImage.uri;
-    const name = localImage.fileName || uri.split("/").pop() || `photo-${Date.now()}.jpg`;
-    const type = localImage.mimeType || "image/jpeg";
-    const form = new FormData();
-    // React Native FormData file part.
-    appendFilePart(form, "file", { uri, name, type });
-    const media = await nest.uploadMedia(form);
-    return media.id;
+  const removePhotoAt = (index: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setGalleryDirty(true);
+  };
+
+  const makePrimaryPhoto = (index: number) => {
+    if (index === 0) return;
+    setPhotos((prev) => {
+      if (index < 0 || index >= prev.length) return prev;
+      const next = [...prev];
+      const [pick] = next.splice(index, 1);
+      next.unshift(pick);
+      return next;
+    });
+    setGalleryDirty(true);
+  };
+
+  const pickVideo = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        return toast.error("Photo permission is needed to add a product video.");
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["videos"],
+        quality: 0.8,
+        videoMaxDuration: 60,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      // Guard: mimeType may be missing on some Android picks; accept if the
+      // asset says it's a video OR the filename looks like one.
+      const mime = (asset.mimeType || "").toLowerCase();
+      const looksVideo =
+        mime.startsWith("video/") ||
+        /\.(mp4|mov|m4v|webm|3gp)$/i.test(asset.fileName || asset.uri || "");
+      if (!looksVideo) {
+        return toast.error("Choose a video file (MP4, MOV, or WEBM).");
+      }
+      setVideo({ kind: "local", asset });
+      setVideoCleared(false);
+    } catch {
+      toast.error("Could not open your photo library. Please try again.");
+    }
+  };
+
+  const removeVideo = () => {
+    setVideo(null);
+    setVideoCleared(true);
+  };
+
+  // v1.0.204 — upload every locally picked photo + the video (if any),
+  // then return the resolved attachment ids in slot order. Remote slots
+  // that carry an id from the server are preserved in place so a seller
+  // who only reorders their photos never re-uploads anything.
+  type UploadResult = {
+    photoIds: (number | null)[]; // null = remote slot with no known id (skipped in payload)
+    videoId: number | null | undefined; // undefined = no change; null = clear
+  };
+  const uploadAssets = async (): Promise<UploadResult> => {
+    const photoIds = await Promise.all(
+      photos.map(async (slot) => {
+        if (slot.kind === "remote") {
+          return typeof slot.id === "number" && slot.id > 0 ? slot.id : null;
+        }
+        const asset = slot.asset;
+        const uri = asset.uri;
+        const name = asset.fileName || uri.split("/").pop() || `photo-${Date.now()}.jpg`;
+        const type = asset.mimeType || "image/jpeg";
+        const form = new FormData();
+        appendFilePart(form, "file", { uri, name, type });
+        const media = await nest.uploadMedia(form);
+        return media.id;
+      })
+    );
+
+    let videoId: number | null | undefined = undefined;
+    if (video && video.kind === "local") {
+      const asset = video.asset;
+      const uri = asset.uri;
+      const name = asset.fileName || uri.split("/").pop() || `video-${Date.now()}.mp4`;
+      const type = asset.mimeType || "video/mp4";
+      const form = new FormData();
+      appendFilePart(form, "file", { uri, name, type });
+      const media = await nest.uploadMedia(form);
+      videoId = media.id;
+    } else if (videoCleared && !video) {
+      videoId = null;
+    }
+
+    return { photoIds, videoId };
   };
 
   // v1.0.164 — One submit function, two modes. `mode='publish'` behaves
@@ -301,7 +442,14 @@ export default function ProductForm() {
     }
     if (mode === "draft") setSavingDraft(true); else setBusy(true);
     try {
-      const image_id = await uploadIfNeeded();
+      // v1.0.204 — upload every locally picked photo + video, then map the
+      // resulting attachment ids into image_id (first slot) + gallery_image_ids
+      // (rest) + video_id.
+      const { photoIds, videoId } = await uploadAssets();
+      const resolvedPhotoIds = photoIds.filter((n): n is number => typeof n === "number" && n > 0);
+      const primaryPhotoId = resolvedPhotoIds[0];
+      const galleryPhotoIds = resolvedPhotoIds.slice(1);
+
       let category_ids = categoryIdsForSelection(categories, selectedCategoryId, selectedSubcategoryId);
       // If an existing listing is edited while the taxonomy endpoint is
       // temporarily unavailable, preserve its current category assignments
@@ -321,7 +469,17 @@ export default function ProductForm() {
         customizable,
       };
       if (sku.trim()) payload.sku = sku.trim();
-      if (image_id) payload.image_id = image_id;
+      if (primaryPhotoId) payload.image_id = primaryPhotoId;
+      // Send gallery_image_ids whenever the gallery changed OR we uploaded
+      // any new photo. Sending an empty array clears the gallery on the
+      // server, which is what a seller expects after removing every extra.
+      if (galleryDirty || galleryPhotoIds.length > 0) {
+        payload.gallery_image_ids = galleryPhotoIds;
+      }
+      // Video: `undefined` means no change; `null` clears; a number sets it.
+      if (videoId !== undefined) {
+        payload.video_id = videoId;
+      }
 
       // Shipping persists on both create and edit. A preset (small/medium/large)
       // sets the real WC dimensions server-side; only "custom" sends L/W/H.
@@ -420,16 +578,95 @@ export default function ProductForm() {
         duplicating={duplicating}
       />
       <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.photo} onPress={() => { haptics.tap(); pickImage(); }} testID="pf-photo" accessibilityRole="button" accessibilityLabel="Pick product photo">
-            {imageUrl ? (
-              <AppImage source={{ uri: imageUrl }} style={styles.photoImg} fallbackIcon="image-outline" />
-            ) : (
-              <View style={styles.photoEmpty}>
-                <Ionicons name="camera-outline" size={28} color={colors.onSurfaceMuted} />
-                <Text style={styles.photoText}>Add a product photo</Text>
+          {/* v1.0.204 — multi-photo grid + optional single video. Tap the
+              [+] tile to add photos (multi-select on iOS/Android). Tap a
+              non-primary photo to promote it to primary; tap the trash
+              icon to remove. Video is a separate tile below with its own
+              picker + preview + remove control. */}
+          <Text style={styles.label}>Photos</Text>
+          <Text style={styles.photoHint}>The first photo is the cover. Tap any other photo to make it the cover. You can add up to {MAX_PHOTOS} photos.</Text>
+          <View style={styles.photoGrid}>
+            {photos.map((slot, i) => {
+              const uri = slot.kind === "remote" ? slot.url : slot.asset.uri;
+              const isPrimary = i === 0;
+              return (
+                <View key={`${uri}-${i}`} style={styles.photoTile}>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => { haptics.tap(); makePrimaryPhoto(i); }}
+                    disabled={isPrimary}
+                    style={styles.photoTileTouch}
+                    testID={`pf-photo-tile-${i}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={isPrimary ? "Cover photo" : "Make this the cover photo"}
+                  >
+                    <AppImage source={{ uri }} style={styles.photoTileImg} fallbackIcon="image-outline" />
+                    {isPrimary ? (
+                      <View style={styles.photoPrimaryBadge}>
+                        <Text style={styles.photoPrimaryBadgeText}>Cover</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => { haptics.tap(); removePhotoAt(i); }}
+                    style={styles.photoRemoveBtn}
+                    testID={`pf-photo-remove-${i}`}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove photo"
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  >
+                    <Ionicons name="close" size={14} color={colors.onBrand} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+            {photos.length < MAX_PHOTOS ? (
+              <TouchableOpacity
+                onPress={() => { haptics.tap(); pickPhotos(); }}
+                style={[styles.photoTile, styles.photoAddTile]}
+                testID="pf-photo-add"
+                accessibilityRole="button"
+                accessibilityLabel="Add product photos"
+              >
+                <Ionicons name="add" size={28} color={colors.brand} />
+                <Text style={styles.photoAddText}>Add photos</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <Text style={styles.label}>Video (optional)</Text>
+          <Text style={styles.photoHint}>One short clip up to 60 seconds. MP4, MOV, or WEBM. Buyers see it on the listing.</Text>
+          {video ? (
+            <View style={styles.videoTile}>
+              <View style={styles.videoThumbWrap}>
+                <Ionicons name="play-circle" size={40} color={colors.onBrand} />
+                <Text style={styles.videoThumbText} numberOfLines={1}>
+                  {video.kind === "local" ? (video.asset.fileName || "New video") : "Uploaded video"}
+                </Text>
               </View>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { haptics.tap(); removeVideo(); }}
+                style={styles.videoRemoveBtn}
+                testID="pf-video-remove"
+                accessibilityRole="button"
+                accessibilityLabel="Remove video"
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.error} />
+                <Text style={styles.videoRemoveText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => { haptics.tap(); pickVideo(); }}
+              style={styles.videoAddTile}
+              testID="pf-video-add"
+              accessibilityRole="button"
+              accessibilityLabel="Add a product video"
+            >
+              <Ionicons name="videocam-outline" size={22} color={colors.brand} />
+              <Text style={styles.videoAddText}>Add a product video</Text>
+            </TouchableOpacity>
+          )}
 
           <Input label="Product name" value={title} onChangeText={setTitle} testID="pf-name" />
           <Input label="Description" value={description} onChangeText={setDescription} multiline style={{ height: 110, textAlignVertical: "top" }} testID="pf-desc" />
@@ -600,6 +837,24 @@ const styles = StyleSheet.create({
   photoImg: { width: "100%", height: "100%" },
   photoEmpty: { alignItems: "center", gap: spacing.sm },
   photoText: { color: colors.onSurfaceMuted, fontWeight: "700" },
+  // v1.0.204 — multi-photo grid + video tiles.
+  photoHint: { color: colors.onSurfaceMuted, fontSize: 12, marginBottom: spacing.sm },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.lg },
+  photoTile: { width: 92, height: 92, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, overflow: "hidden", position: "relative" },
+  photoTileTouch: { width: "100%", height: "100%" },
+  photoTileImg: { width: "100%", height: "100%" },
+  photoAddTile: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderStyle: "dashed", borderColor: colors.border, backgroundColor: colors.surfaceSecondary, gap: 2 },
+  photoAddText: { color: colors.brand, fontSize: 11, fontWeight: "700" },
+  photoRemoveBtn: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" },
+  photoPrimaryBadge: { position: "absolute", left: 4, bottom: 4, backgroundColor: colors.brand, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  photoPrimaryBadgeText: { color: colors.onBrand, fontSize: 10, fontWeight: "800", letterSpacing: 0.3 },
+  videoAddTile: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, height: 60, borderRadius: radius.md, borderWidth: 1, borderStyle: "dashed", borderColor: colors.border, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.lg },
+  videoAddText: { color: colors.brand, fontWeight: "700" },
+  videoTile: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, marginBottom: spacing.lg },
+  videoThumbWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  videoThumbText: { flex: 1, color: colors.onSurface, fontWeight: "600" },
+  videoRemoveBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.sm, backgroundColor: colors.surface },
+  videoRemoveText: { color: colors.error, fontWeight: "700", fontSize: 12 },
   label: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.sm },
   categoryHint: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.xs },
   sizeRow: { gap: spacing.sm, marginBottom: spacing.md },

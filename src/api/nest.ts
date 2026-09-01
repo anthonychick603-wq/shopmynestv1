@@ -1258,6 +1258,13 @@ export type NestProductRaw = {
   stock_quantity?: number | null;
   image?: string;
   gallery?: string[];
+  // v1.0.204 — numeric attachment ids for primary + gallery photos and the
+  // optional video. Server-provided since plugin v3.13.63. Older responses
+  // omit these fields; the edit form falls back to URL-only display.
+  image_id?: number;
+  gallery_image_ids?: number[];
+  video_url?: string;
+  video_id?: number;
   permalink?: string;
   seller?: NestSellerRaw;
   product_rating?: { rating: number; review_count: number };
@@ -1920,6 +1927,11 @@ export type NestProductWritePayload = {
   status?: "publish" | "draft" | "pending";
   category_ids?: number[];
   image_id?: number;
+  // v1.0.204 — extra gallery photo attachment ids (up to 7), and an optional
+  // video attachment id. Sending an empty gallery_image_ids array clears the
+  // gallery on edit; sending video_id=0 (or null) clears the video.
+  gallery_image_ids?: number[];
+  video_id?: number | null;
   weight_oz?: number | string;
   length_in?: number | string;
   width_in?: number | string;

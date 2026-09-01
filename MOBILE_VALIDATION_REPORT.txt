@@ -1,5 +1,44 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.203, versionCode 170)
+Generated: 2026-09-01 UTC (v1.0.204, versionCode 171)
+
+v1.0.204 (versionCode 171)
+  - Multi-photo product listings + optional intro video.
+    Sellers can now attach up to 8 photos (1 cover + 7 gallery) and
+    one optional short video (≤60s, MP4/MOV/WEBM) to each product.
+
+    Product form (app/(tabs)/(more)/seller/product-form.tsx):
+      * Replaced the single "photo" tile with a wrap grid of photo
+        tiles + an "Add photos" tile. Multi-select is enabled when
+        more than one slot remains. Tap any non-cover photo to
+        promote it to cover; tap the × to remove.
+      * New "Video (optional)" tile below the photo grid, backed by
+        ImagePicker.launchImageLibraryAsync with mediaTypes:["videos"]
+        and videoMaxDuration:60. MIME/extension guard prevents
+        non-video picks on Android where mimeType is sometimes
+        missing.
+      * On edit, photos + video hydrate from the raw NestProductRaw
+        response (image + image_id, gallery + gallery_image_ids,
+        video_url). Existing remote photos keep their numeric ids so
+        reordering never re-uploads.
+      * On save, uploadAssets() uploads every locally picked photo
+        in parallel and the optional video, then submits image_id
+        (first slot), gallery_image_ids (rest), and video_id (or
+        null to clear).
+
+    Product detail (app/(tabs)/(more)/product/[id].tsx):
+      * When product.video_url is set, a small play badge overlays
+        the hero image so buyers know a clip exists. Inline playback
+        is a follow-up (needs expo-video, currently not installed).
+
+    Server (plugin v3.13.63):
+      * class-tnm-marketplace.php: mnu_apply_gallery_and_video()
+        applies gallery_image_ids (validated as images, capped at 7,
+        deduped, primary excluded) and video_id (validated video
+        MIME, saved as _mynest_product_video_id + _url meta).
+        Called from both create_product() and update_product().
+      * product_to_array() now also emits image_id,
+        gallery_image_ids, and video_id, so the mobile edit form
+        can preserve a seller's existing media across saves.
 
 v1.0.203 (versionCode 170)
   - Fixed profile-photo upload for all users (sellers hit this most).
