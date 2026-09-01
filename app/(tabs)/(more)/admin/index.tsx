@@ -157,6 +157,49 @@ export default function AdminDashboard() {
               />
             </View>
 
+            {/* v1.0.192 — Money section pulls the previously-buried
+                payouts / refunds / coupons / reconciliation surfaces up
+                to first-class rows so admins don't have to drill through
+                the Operations screen to reach them. */}
+            <Text style={styles.sectionTitle}>Money</Text>
+            <View style={styles.card}>
+              <Row
+                icon="cash-outline"
+                label="Payouts"
+                sub="Process, retry, or cancel seller payouts"
+                onPress={() => pushFromTab(router, "/admin/payouts")}
+                testID="admin-nav-payouts"
+              />
+              <Row
+                icon="return-down-back-outline"
+                label="Refund review"
+                sub="Approve or deny buyer refund requests"
+                onPress={() => pushFromTab(router, "/admin/refunds")}
+                testID="admin-nav-refunds"
+              />
+              <Row
+                icon="pricetags-outline"
+                label="Site-wide coupons"
+                sub="Marketplace-wide promo codes that stack over seller coupons"
+                onPress={() => pushFromTab(router, "/admin/coupons")}
+                testID="admin-nav-coupons"
+              />
+              <Row
+                icon="shield-checkmark-outline"
+                label="Reconciliation"
+                sub="Ledger, transfer, and refund state mismatches"
+                onPress={() => pushFromTab(router, "/admin/reconciliation")}
+                testID="admin-nav-reconciliation"
+              />
+              <Row
+                icon="person-add-outline"
+                label="Seller applications"
+                sub="Approve or reject handmade shop applications"
+                onPress={() => pushFromTab(router, "/admin/seller-applications")}
+                testID="admin-nav-seller-applications"
+              />
+            </View>
+
             <Text style={styles.sectionTitle}>Moderation</Text>
             <View style={styles.card}>
               <Row

@@ -1,31 +1,311 @@
-import React, { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+// v1.0.192 — Full rewrite. Previously this file was a single-line minified
+// blob that worked but was unreadable and inconsistent with the rest of
+// the app. Now it uses the shared admin UI kit (AdminHeader, AdminCard,
+// FilterBar, AdminStatusPill, InfiniteList) so the payouts queue feels
+// like a first-class admin surface, not a debugging screen.
+//
+// Feature list:
+//   - Status chip filter (all / requested / processing / paid / failed /
+//     returned / cancelled) that pages server-side
+//   - Manual ACH payouts get an inline reference-number input; PayPal
+//     payouts skip that field
+//   - Confirmed cancel with destructive Alert; optimistic list removal
+//   - Retry action for failed / returned payouts
+//   - Empty state uses the shared component so it matches every other
+//     admin queue
+import React, { useCallback, useMemo, useState } from "react";
+import { Alert, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
-import { nest, ApiError, type AdminPayout } from "@/src/api/nest";
+import { nest, ApiError, type AdminPayout, type AdminPayoutList } from "@/src/api/nest";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
+import { AdminHeader } from "@/src/components/admin/AdminHeader";
+import { AdminCard } from "@/src/components/admin/AdminCard";
+import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
+import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
+import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, radius, shadows, spacing } from "@/src/theme";
-import { haptics } from "@/src/utils/haptics";
-import { safeBack } from "@/src/utils/nav";
+import { colors, radius, spacing } from "@/src/theme";
+import { parseServerDate } from "@/src/utils/datetime";
 
-const money=(n:number,c:string)=>`${c||"USD"} ${Number(n||0).toFixed(2)}`;
-export default function PayoutAdmin(){
-  const router=useRouter();const insets=useSafeAreaInsets();const{user}=useAuth();
-  const[items,setItems]=useState<AdminPayout[]>([]);const[refs,setRefs]=useState<Record<number,string>>({});const[working,setWorking]=useState<number|null>(null);const[loading,setLoading]=useState(true);const[refreshing,setRefreshing]=useState(false);
-  const load=useCallback(async()=>{if(user?.role!=="admin")return;try{const r=await nest.adminListPayouts({status:"all",per_page:50});setItems((r.items||[]).filter(p=>!["paid","cancelled"].includes(p.status)));}catch(e){toast.error(e instanceof ApiError?e.friendly:"Could not load payouts");}finally{setLoading(false);setRefreshing(false);}},[user?.role]);React.useEffect(()=>{void load();},[load]);
-  const process=async(p:AdminPayout)=>{if(p.method==="manual"&&!String(refs[p.id]||p.external_id||"").trim())return toast.error("Enter the ACH / bank confirmation reference first");setWorking(p.id);try{await nest.adminProcessPayout(p.id,{external_id:String(refs[p.id]||p.external_id||"").trim(),notes:"Processed from MyNest mobile operations."});toast.success(p.method==="manual"?"Payout marked paid":"Payout submitted");await load();}catch(e){toast.error(e instanceof ApiError?e.friendly:"Could not process payout");}finally{setWorking(null);}};
-  const retry=async(p:AdminPayout)=>{setWorking(p.id);try{await nest.adminRetryPayout(p.id);toast.success("Payout returned to processing queue");await load();}catch(e){toast.error(e instanceof ApiError?e.friendly:"Could not retry payout");}finally{setWorking(null);}};
-  const cancel=(p:AdminPayout)=>Alert.alert("Cancel payout?","The reserved balance will be returned to the seller's available balance.",[{text:"Keep",style:"cancel"},{text:"Cancel payout",style:"destructive",onPress:async()=>{setWorking(p.id);try{await nest.adminCancelPayout(p.id,"Cancelled from MyNest mobile operations.");setItems(x=>x.filter(i=>i.id!==p.id));toast.success("Payout cancelled");}catch(e){toast.error(e instanceof ApiError?e.friendly:"Could not cancel payout");}finally{setWorking(null);}}}]);
-  if(user?.role!=="admin")return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={()=>safeBack(router, "/admin/operations")}/><EmptyState icon="lock-closed-outline" title="Not available" message="Admin access is required."/></SafeAreaView>;
-  if(loading)return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={()=>safeBack(router, "/admin/operations")}/><View style={styles.center}><ActivityIndicator color={colors.brand}/></View></SafeAreaView>;
-  return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={()=>safeBack(router, "/admin/operations")}/><ScrollView contentContainerStyle={{padding:spacing.lg,paddingBottom:insets.bottom+40}} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>{setRefreshing(true);void load();}} tintColor={colors.brand}/>} keyboardShouldPersistTaps="handled">
-    {!items.length?<EmptyState icon="checkmark-circle-outline" title="Queue clear" message="No payouts require action."/>:items.map(p=><View key={p.id} style={styles.card}><View style={styles.row}><View style={{flex:1}}><Text style={styles.title}>{p.seller_name||`Seller #${p.seller_id}`}</Text><Text style={[styles.status,["failed","returned"].includes(p.status)&&{color:colors.error}]}>{p.status.replace(/_/g," ")} · {p.method}</Text></View><Text style={styles.amount}>{money(p.amount,p.currency)}</Text></View><Text style={styles.meta}>{p.destination||p.seller_email}</Text>{p.method==="manual"&&["requested","processing"].includes(p.status)?<TextInput value={refs[p.id]??p.external_id??""} onChangeText={v=>setRefs(r=>({...r,[p.id]:v}))} autoCapitalize="characters" placeholder="ACH / bank confirmation reference" placeholderTextColor={colors.onSurfaceMuted} style={styles.input}/>:null}{p.method==="paypal"&&p.status==="processing"&&p.external_id?<View style={styles.providerWait}><Ionicons name="time-outline" size={16} color={colors.brand}/><Text style={styles.providerWaitText}>Submitted to PayPal · awaiting provider confirmation</Text></View>:["requested","processing"].includes(p.status)?<Button title={p.method==="manual"?"Mark paid":"Process payout"} size="sm" onPress={()=>void process(p)} loading={working===p.id} style={{marginTop:spacing.md}}/>:<Button title="Retry payout" size="sm" onPress={()=>void retry(p)} loading={working===p.id} style={{marginTop:spacing.md}}/>}{!(p.method==="paypal"&&p.status==="processing"&&p.external_id)?<Button title="Cancel payout" size="sm" variant="ghost" onPress={()=>cancel(p)} disabled={working===p.id} style={{marginTop:spacing.xs}}/>:null}</View>)}
-  </ScrollView></SafeAreaView>;
+type PayoutStatus = "all" | AdminPayout["status"];
+
+const CHIPS: readonly FilterChip<PayoutStatus>[] = [
+  { value: "all", label: "All" },
+  { value: "requested", label: "Requested" },
+  { value: "processing", label: "Processing" },
+  { value: "failed", label: "Failed" },
+  { value: "returned", label: "Returned" },
+  { value: "paid", label: "Paid" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const money = (n: number, c: string) => `${c || "USD"} ${Number(n || 0).toFixed(2)}`;
+
+export default function AdminPayoutsScreen() {
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+
+  const [status, setStatus] = useState<PayoutStatus>("requested");
+  const [query, setQuery] = useState("");
+  const [refs, setRefs] = useState<Record<number, string>>({});
+  const [working, setWorking] = useState<number | null>(null);
+  // v1.0.192 — bump on every mutating action so the InfiniteList refetches
+  // from page 1. Cheap way to keep the list in sync without an imperative
+  // ref API on InfiniteList.
+  const [reloadToken, setReloadToken] = useState(0);
+  const reload = useCallback(() => setReloadToken((t) => t + 1), []);
+
+  // Fetcher captures the current filter state; changing status/query
+  // triggers a reload via reloadToken so the fetcher itself doesn't need
+  // to live inside useCallback with a stale-closure concern.
+  const fetcher: InfiniteFetcher<AdminPayout> = useCallback(
+    async (page) => {
+      const res: AdminPayoutList = await nest.adminListPayouts({ status, page, per_page: 25 });
+      // Client-side query filter — the server doesn't accept a `q` param
+      // here, but the list is bounded (paginated) so filtering the current
+      // page is fine and lets the search bar work like elsewhere.
+      const q = query.trim().toLowerCase();
+      const items = q
+        ? (res.items || []).filter(
+            (p) =>
+              p.seller_name?.toLowerCase().includes(q) ||
+              p.seller_email?.toLowerCase().includes(q) ||
+              String(p.id).includes(q) ||
+              p.destination?.toLowerCase().includes(q),
+          )
+        : res.items || [];
+      return { items, total_pages: res.total_pages, total: res.total };
+    },
+    [status, query],
+  );
+
+  const processPayout = useCallback(async (p: AdminPayout) => {
+    if (p.method === "manual" && !String(refs[p.id] || p.external_id || "").trim()) {
+      toast.error("Enter the ACH / bank confirmation reference first");
+      return;
+    }
+    setWorking(p.id);
+    try {
+      await nest.adminProcessPayout(p.id, {
+        external_id: String(refs[p.id] || p.external_id || "").trim(),
+        notes: "Processed from MyNest mobile operations.",
+      });
+      toast.success(p.method === "manual" ? "Payout marked paid" : "Payout submitted");
+      reload();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.friendly : "Could not process payout");
+    } finally {
+      setWorking(null);
+    }
+  }, [refs, reload]);
+
+  const retryPayout = useCallback(async (p: AdminPayout) => {
+    setWorking(p.id);
+    try {
+      await nest.adminRetryPayout(p.id);
+      toast.success("Payout returned to processing queue");
+      reload();
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.friendly : "Could not retry payout");
+    } finally {
+      setWorking(null);
+    }
+  }, [reload]);
+
+  const cancelPayout = useCallback((p: AdminPayout) => {
+    Alert.alert(
+      "Cancel payout?",
+      "The reserved balance will be returned to the seller's available balance.",
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Cancel payout",
+          style: "destructive",
+          onPress: async () => {
+            setWorking(p.id);
+            try {
+              await nest.adminCancelPayout(p.id, "Cancelled from MyNest mobile operations.");
+              toast.success("Payout cancelled");
+              reload();
+            } catch (e) {
+              toast.error(e instanceof ApiError ? e.friendly : "Could not cancel payout");
+            } finally {
+              setWorking(null);
+            }
+          },
+        },
+      ],
+    );
+  }, [reload]);
+
+  if (user?.role !== "admin") {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <AdminHeader title="Payouts" backTo="/admin/operations" />
+        <EmptyState icon="lock-closed-outline" title="Not available" message="Admin access is required." testID="admin-forbidden" />
+      </SafeAreaView>
+    );
+  }
+
+  const header = (
+    <FilterBar<PayoutStatus>
+      query={query}
+      onQueryChange={setQuery}
+      placeholder="Search by seller, email, or destination"
+      chips={CHIPS}
+      activeChip={status}
+      onChipChange={(v) => { setStatus(v); reload(); }}
+    />
+  );
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <AdminHeader title="Payouts" backTo="/admin/operations" />
+      <InfiniteList<AdminPayout>
+        fetcher={fetcher}
+        keyExtractor={(p) => String(p.id)}
+        headerComponent={header}
+        reloadToken={`${status}|${query}|${reloadToken}`}
+        emptyIcon="cash-outline"
+        emptyTitle="Queue clear"
+        emptyMessage="No payouts match this filter."
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 40 }}
+        renderItem={({ item: p }) => (
+          <PayoutRow
+            payout={p}
+            reference={refs[p.id] ?? p.external_id ?? ""}
+            onReferenceChange={(v) => setRefs((r) => ({ ...r, [p.id]: v }))}
+            working={working === p.id}
+            onProcess={() => processPayout(p)}
+            onRetry={() => retryPayout(p)}
+            onCancel={() => cancelPayout(p)}
+          />
+        )}
+      />
+    </SafeAreaView>
+  );
 }
-function Top({onBack}:{onBack:()=>void}){return <View style={styles.top}><TouchableOpacity onPress={()=>{haptics.tap();onBack();}} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface}/></TouchableOpacity><Text style={styles.topTitle}>Payouts</Text><View style={{width:40}}/></View>}
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:colors.surface},center:{flex:1,alignItems:"center",justifyContent:"center"},top:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:spacing.md},topBtn:{width:40,height:40,alignItems:"center",justifyContent:"center",borderRadius:radius.pill,backgroundColor:colors.surfaceSecondary,...shadows.card},topTitle:{fontSize:17,fontWeight:"800",color:colors.onSurface},card:{backgroundColor:colors.surfaceSecondary,borderRadius:radius.lg,padding:spacing.lg,marginBottom:spacing.md,...shadows.card},row:{flexDirection:"row",alignItems:"center",gap:spacing.md},title:{fontSize:16,fontWeight:"800",color:colors.onSurface},status:{fontSize:12,color:colors.onSurfaceMuted,marginTop:2,textTransform:"capitalize"},amount:{fontSize:18,fontWeight:"800",color:colors.onSurface},meta:{fontSize:12,color:colors.onSurfaceMuted,marginTop:spacing.sm},input:{backgroundColor:colors.surfaceTertiary,borderRadius:radius.md,paddingHorizontal:spacing.md,minHeight:46,color:colors.onSurface,marginTop:spacing.md},providerWait:{flexDirection:"row",alignItems:"center",gap:spacing.sm,marginTop:spacing.md,padding:spacing.md,backgroundColor:colors.surfaceTertiary,borderRadius:radius.md},providerWaitText:{flex:1,fontSize:12,color:colors.onSurfaceMuted,lineHeight:17}});
+
+// Extracted so the fetch loop stays readable. Row owns its own layout,
+// action wiring, and inline reference input.
+function PayoutRow({
+  payout: p,
+  reference,
+  onReferenceChange,
+  working,
+  onProcess,
+  onRetry,
+  onCancel,
+}: {
+  payout: AdminPayout;
+  reference: string;
+  onReferenceChange: (v: string) => void;
+  working: boolean;
+  onProcess: () => void;
+  onRetry: () => void;
+  onCancel: () => void;
+}) {
+  const requestedAt = useMemo(() => {
+    const d = parseServerDate(p.requested_at);
+    return d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+  }, [p.requested_at]);
+
+  const showManualInput = p.method === "manual" && (p.status === "requested" || p.status === "processing");
+  const paypalPending = p.method === "paypal" && p.status === "processing" && !!p.external_id;
+  const canProcess = (p.status === "requested" || p.status === "processing") && !paypalPending;
+  const canRetry = p.status === "failed" || p.status === "returned";
+  const canCancel = p.status !== "paid" && p.status !== "cancelled" && !paypalPending;
+
+  return (
+    <AdminCard>
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.title} numberOfLines={1}>
+            {p.seller_name || `Seller #${p.seller_id}`}
+          </Text>
+          <View style={styles.metaRow}>
+            <AdminStatusPill status={p.status} />
+            <Text style={styles.metaText}>· {p.method}</Text>
+            {requestedAt ? <Text style={styles.metaText}>· requested {requestedAt}</Text> : null}
+          </View>
+        </View>
+        <Text style={styles.amount}>{money(p.amount, p.currency)}</Text>
+      </View>
+
+      <Text style={styles.destination} numberOfLines={2}>
+        {p.destination || p.seller_email}
+      </Text>
+
+      {showManualInput ? (
+        <TextInput
+          value={reference}
+          onChangeText={onReferenceChange}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          placeholder="ACH / bank confirmation reference"
+          placeholderTextColor={colors.onSurfaceMuted}
+          style={styles.input}
+          returnKeyType="done"
+        />
+      ) : null}
+
+      {paypalPending ? (
+        <View style={styles.providerWait}>
+          <Ionicons name="time-outline" size={16} color={colors.brand} />
+          <Text style={styles.providerWaitText}>Submitted to PayPal · awaiting provider confirmation</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.actions}>
+        {canProcess ? (
+          <Button
+            title={p.method === "manual" ? "Mark paid" : "Process payout"}
+            size="sm"
+            onPress={onProcess}
+            loading={working}
+            style={{ flex: 1 }}
+          />
+        ) : canRetry ? (
+          <Button title="Retry payout" size="sm" onPress={onRetry} loading={working} style={{ flex: 1 }} />
+        ) : null}
+        {canCancel ? (
+          <Button title="Cancel" size="sm" variant="ghost" onPress={onCancel} disabled={working} style={{ flex: canProcess || canRetry ? 0 : 1 }} />
+        ) : null}
+      </View>
+    </AdminCard>
+  );
+}
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.surface },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
+  title: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: 4, flexWrap: "wrap" },
+  metaText: { fontSize: 12, color: colors.onSurfaceMuted },
+  amount: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
+  destination: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: spacing.sm },
+  input: {
+    backgroundColor: colors.surfaceTertiary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    minHeight: 44,
+    color: colors.onSurface,
+    marginTop: spacing.md,
+    fontSize: 14,
+  },
+  providerWait: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceTertiary,
+    borderRadius: radius.md,
+  },
+  providerWaitText: { flex: 1, fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 17 },
+  actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+});

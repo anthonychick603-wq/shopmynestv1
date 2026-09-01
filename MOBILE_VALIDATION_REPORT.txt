@@ -1,5 +1,14 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.191, versionCode 158)
+Generated: 2026-09-01 UTC (v1.0.192, versionCode 159)
+
+v1.0.192 (versionCode 159)
+  - New shared admin UI kit: AdminHeader, AdminCard, FilterBar, InfiniteList, AdminStatusPill, AdminSkeleton (src/components/admin/).
+  - Rewrote admin/payouts.tsx and admin/refunds.tsx from minified one-liners into properly formatted screens using the kit; added status chip filters, search, per-row inline inputs, and paginated infinite scroll.
+  - New Reconciliation screen (admin/reconciliation.tsx): window picker (7/30/90d), category tile grid, discrepancy row list linking to underlying orders.
+  - Admin dashboard: new "Money" section elevates Payouts, Refunds, Coupons, Reconciliation, and Seller Applications to first-class rows.
+  - Server: plugin v3.13.56 extends /admin/reconciliation payload with keyed `categories` list and first 50 discrepancy `rows` (bounded to keep payload small; CSV export remains source of truth for full audits).
+  - Typecheck: PASS. PHP -l: PASS.
+
 
 v1.0.191 (versionCode 158)
   - Dismissable alerts: per-row × button on every alert; optimistic remove + server DELETE via new dismissNotifications([id]).

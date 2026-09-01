@@ -418,6 +418,13 @@ export const nest = {
   adminCancelPayout: (id: number | string, notes?: string) =>
     request<AdminPayout>("marketplace", `/admin/payouts/${id}/cancel`, { method: "POST", body: { notes: notes || "" } }),
 
+  // v1.0.192 — reconciliation. Server route was already registered by
+  // MNU_Reconciliation; plugin v3.13.55 extends the payload with the
+  // first 50 discrepancy rows plus a keyed category list so the mobile
+  // console can render actionable content instead of just counts.
+  adminReconciliation: (days: number = 30) =>
+    request<AdminReconciliationReport>("marketplace", "/admin/reconciliation", { query: { days } }),
+
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
     request<{ comments: NestBlogCommentRaw[]; total: number; pages: number }>(
@@ -1399,6 +1406,31 @@ export type AdminPayout = {
   processed_at: string;
 };
 export type AdminPayoutList = { items: AdminPayout[]; page: number; total: number; total_pages: number; status: string };
+
+// v1.0.192 — reconciliation shape. Each row corresponds to one Woo order
+// whose ledger, transfer, or refund state does not fully balance.
+export type AdminReconciliationRow = {
+  order_id: number;
+  order_number: string;
+  order_status: string;
+  total: number;
+  intent_id: string;
+  seller_ids: number[];
+  categories: string[];
+  issues: string[];
+  date_created: string;
+};
+
+export type AdminReconciliationCategory = { key: string; label: string; count: number };
+
+export type AdminReconciliationReport = {
+  window_days: number;
+  summary: Record<string, number>;
+  categories: AdminReconciliationCategory[];
+  total: number;
+  rows: AdminReconciliationRow[];
+  truncated: boolean;
+};
 
 export type AdminReport = {
   id: number;
