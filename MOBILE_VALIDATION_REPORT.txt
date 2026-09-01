@@ -1,5 +1,11 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.195, versionCode 162)
+Generated: 2026-09-01 UTC (v1.0.196, versionCode 163)
+
+v1.0.196 (versionCode 163)
+  - Redesigned admin overview: adds a 7-day mini revenue chart card at the top of the console with headline revenue, order count, and AOV; taps through to the full Analytics screen.
+  - Overview now loads adminStats() and adminAnalytics(7) in parallel with Promise.allSettled — analytics failure is non-fatal.
+  - Typecheck: PASS.
+
 
 v1.0.195 (versionCode 162)
   - New /admin/analytics REST surface (plugin v3.13.59): daily revenue timeseries, daily orders timeseries, top-5 sellers by revenue, top-5 products by units, refund rate, new-buyer share, AOV, tax/shipping totals. Works over 1-180 day window.

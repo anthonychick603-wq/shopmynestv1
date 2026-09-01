@@ -8,7 +8,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, type Href } from "expo-router";
 
-import { nest, ApiError, type AdminStats } from "@/src/api/nest";
+import { nest, ApiError, type AdminStats, type AdminAnalytics } from "@/src/api/nest";
+import { MiniBarChart } from "@/src/components/admin/MiniBarChart";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
@@ -24,15 +25,26 @@ export default function AdminDashboard() {
   const { user } = useAuth();
 
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // v1.0.196 — hydrate both the stat counts and the 7-day analytics
+  // snapshot in parallel so the redesigned overview can render its
+  // revenue chart alongside the existing tiles without a second visible
+  // spinner. Failure of the analytics call is non-fatal — the stats
+  // section still renders.
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await nest.adminStats();
-      setStats(res);
+      const [statsRes, analyticsRes] = await Promise.allSettled([
+        nest.adminStats(),
+        nest.adminAnalytics(7),
+      ]);
+      if (statsRes.status === "fulfilled") setStats(statsRes.value);
+      else throw statsRes.reason;
+      if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value);
     } catch (e) {
       setError(e instanceof ApiError ? e.friendly : "Could not load admin stats.");
     } finally {
@@ -138,6 +150,42 @@ export default function AdminDashboard() {
                 testID="admin-tile-orders"
               />
             </View>
+
+            {/* v1.0.196 — Mini revenue chart at the top of the overview.
+                Tapping it deep-links into the full Analytics screen. Kept
+                intentionally small (90 px) so it doesn't crowd the tile
+                grid above. */}
+            {analytics && analytics.revenue_series.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => { haptics.tap(); pushFromTab(router, "/admin/analytics"); }}
+                style={styles.revenueCard}
+                accessibilityRole="button"
+                accessibilityLabel={`Revenue in the last 7 days: ${analytics.totals.gross_revenue}`}
+                testID="admin-mini-revenue"
+              >
+                <View style={styles.revenueHeader}>
+                  <View>
+                    <Text style={styles.revenueLabel}>Revenue (7d)</Text>
+                    <Text style={styles.revenueValue}>{fmtCurrency(analytics.totals.gross_revenue, analytics.currency)}</Text>
+                  </View>
+                  <View style={styles.revenueMetaCol}>
+                    <Text style={styles.revenueMeta}>{analytics.totals.paid_orders} orders</Text>
+                    <Text style={styles.revenueMeta}>AOV {fmtCurrency(analytics.totals.avg_order_value, analytics.currency)}</Text>
+                  </View>
+                </View>
+                <MiniBarChart
+                  points={analytics.revenue_series}
+                  height={64}
+                  format={(n) => fmtCurrency(n, analytics.currency)}
+                  showEndpointLabels={false}
+                  showPeakLabel={false}
+                />
+                <View style={styles.revenueFooter}>
+                  <Text style={styles.revenueFooterText}>Tap for full analytics</Text>
+                  <Ionicons name="chevron-forward" size={14} color={colors.brand} />
+                </View>
+              </TouchableOpacity>
+            ) : null}
 
             {/* v1.0.193 — People section: user + seller management. */}
             <Text style={styles.sectionTitle}>People</Text>
@@ -324,6 +372,17 @@ function StatTile({
   );
 }
 
+// v1.0.196 — shared currency formatter for the mini revenue card.
+// Kept local to avoid a util-file dance; the analytics screen has its
+// own equivalent.
+function fmtCurrency(n: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(n);
+  } catch {
+    return `${currency} ${n.toFixed(0)}`;
+  }
+}
+
 function Row({ icon, label, sub, onPress, testID }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; sub?: string; onPress: () => void; testID?: string }) {
   return (
     <TouchableOpacity onPress={() => { haptics.tap(); onPress(); }} style={styles.row} testID={testID} accessibilityRole="button" accessibilityLabel={label}>
@@ -343,6 +402,15 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
   topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+
+  revenueCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, ...shadows.card },
+  revenueHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: spacing.sm },
+  revenueLabel: { fontSize: 12, color: colors.onSurfaceMuted, fontWeight: "600" },
+  revenueValue: { fontSize: 22, fontWeight: "800", color: colors.onSurface, marginTop: 2 },
+  revenueMetaCol: { alignItems: "flex-end" },
+  revenueMeta: { fontSize: 11, color: colors.onSurfaceMuted, fontWeight: "600" },
+  revenueFooter: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: spacing.xs, marginTop: spacing.sm },
+  revenueFooterText: { fontSize: 11, color: colors.brand, fontWeight: "700" },
 
   tileRow: { flexDirection: "row", gap: spacing.md, marginBottom: spacing.md },
   tile: { flex: 1, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.lg, ...shadows.card },
