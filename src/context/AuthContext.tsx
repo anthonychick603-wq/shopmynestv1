@@ -49,9 +49,12 @@ async function registerPushToken(): Promise<void> {
     }
     if (status !== "granted") return;
 
-    const projectId =
-      (Constants.expoConfig as any)?.extra?.eas?.projectId ??
-      (Constants as any).easConfig?.projectId;
+    // expo-constants' typing has `extra?: Record<string, any>` on expoConfig and
+    // `easConfig?: { projectId?: string }` on the module root, but the exported
+    // types don't always agree between SDK versions. Narrow both without `any`.
+    const extra = Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined;
+    const easConfig = (Constants as unknown as { easConfig?: { projectId?: string } }).easConfig;
+    const projectId = extra?.eas?.projectId ?? easConfig?.projectId;
     if (!projectId) return;
 
     const push = await Notifications.getExpoPushTokenAsync({ projectId });

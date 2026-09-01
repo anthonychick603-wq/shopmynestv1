@@ -1,5 +1,47 @@
 ShopMyNest Mobile validation report
-Generated: 2026-08-31 UTC (v1.0.176, versionCode 142)
+Generated: 2026-08-31 UTC (v1.0.177, versionCode 143)
+
+v1.0.177 changes (type-safety pass 2 — no behavior change):
+  - Removed the final 13 `any` uses. `grep -rn ": any\| any\[\]\|<any>\|as any"` on
+    src/ + app/ now returns 0 matches. Type-check clean across the whole project.
+  - src/api/adapters.ts (4 fixes): added narrowSellerStatus() and
+    narrowStockStatus() enum-guard helpers at module top for the two fields
+    that come off WooCommerce as `string` but need a strict union. Removed
+    two adapter casts that were entirely gratuitous — NestOrderTrackingRow
+    already types `label_source: "shippo" | "manual" | ""` and NestOrderRaw
+    already types `billing: NestWpAddress` with an optional `email`.
+  - src/components/AppImage.tsx: fallback `style` cast now goes through the
+    common `StyleProp<ViewStyle>` (expo-image's ImageStyle is a proper subset
+    for the layout properties we forward), not `any`.
+  - src/context/RestockAlertsContext.tsx (2 fixes): storage.getItem/setItem
+    calls now use the explicit `<RestockWatch[]>` generic. RestockWatch's
+    fields are all primitives, so it recursively satisfies StorageItemValue —
+    no cast needed. Dropped the redundant `as unknown as RestockWatch[]`
+    on the return value.
+  - src/context/AuthContext.tsx (2 fixes): Expo Constants access replaced
+    the two `as any` casts with narrow local types
+    `{ eas?: { projectId?: string } }` for extra and
+    `{ easConfig?: { projectId?: string } }` for the module root. This
+    keeps the safe optional chaining without letting `any` bleed anywhere.
+  - app/(tabs)/(more)/seller/analytics.tsx: the compare-chip glyph now
+    binds the ternary to `keyof typeof Ionicons.glyphMap` so the union
+    literal ("arrow-up" | "arrow-down" | "remove") is preserved end-to-end.
+    No more `name={glyph as any}`.
+  - app/(tabs)/(more)/messages/[userId].tsx + orders/[id]/review.tsx: added
+    src/utils/upload.ts with appendFilePart(fd, field, part) — one place for
+    the React Native / DOM FormData typing gap. Both photo-upload sites now
+    call the helper instead of casting a `{uri,name,type}` payload with
+    `as any`.
+  - app/(tabs)/(more)/product/[id].tsx: `(product as any)?.stock` was
+    gratuitous — `Product.stock` is a declared `number`. Now just `product?.stock`.
+  - Type-check: full project `tsc --noEmit -p tsconfig.json` passes with
+    0 errors. The 2 pre-existing "latent" errors reported in v1.0.176's
+    section below turned out to be false positives from the isolated
+    tsconfig (missing @types/react in the check env). With the full deps
+    installed, the whole tree is clean.
+  - The `friendlyMessage` helper added in v1.0.176 is still in place;
+    catch blocks that need to surface an ApiError.friendly should use it
+    (`friendlyMessage(e) || "fallback copy"`), not `catch (e: any)`.
 
 v1.0.176 changes (cleanup pass — no behavior change):
   - Deleted 5 dead files (325 lines): OrderReviewCTA.tsx, use-nav-history.ts,

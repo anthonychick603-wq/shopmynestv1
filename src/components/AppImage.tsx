@@ -6,7 +6,7 @@
 // Use this in place of `Image` from "expo-image" for any remote URL. For
 // local `require("...")` assets, the plain Image is fine.
 import React, { useState } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { Image, type ImageProps } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radius } from "@/src/theme";
@@ -33,7 +33,10 @@ export function AppImage({
         style={[
           styles.fallback,
           fallbackRadius != null ? { borderRadius: fallbackRadius } : null,
-          style as any,
+          // expo-image's ImageStyle is a subset of ViewStyle for the properties we forward
+          // to the fallback tile (dimensions, border, margin, position). Cast through the
+          // common ViewStyle instead of any.
+          style as StyleProp<ViewStyle>,
         ]}
       >
         <Ionicons name={fallbackIcon} size={24} color={colors.onSurfaceMuted} />

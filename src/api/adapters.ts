@@ -22,6 +22,32 @@ import type {
   Product,
 } from "@/src/types";
 
+// -----------------------------------------------------------------------
+// v1.0.177 — Enum-narrowing helpers.
+//
+// The WooCommerce REST payload types on the wire are `string` for many
+// fields the app treats as a strict union (seller_status, stock_status).
+// These helpers do the narrowing once, in one place, so callers don't
+// reach for `as any`. Anything unrecognized falls to the safe default.
+
+const SELLER_APPLICATION_STATUSES = [
+  "not_submitted", "pending", "approved", "rejected",
+] as const;
+type SellerApplicationStatus = typeof SELLER_APPLICATION_STATUSES[number];
+function narrowSellerStatus(value: string | undefined, fallback: SellerApplicationStatus): SellerApplicationStatus {
+  return (SELLER_APPLICATION_STATUSES as readonly string[]).includes(value ?? "")
+    ? (value as SellerApplicationStatus)
+    : fallback;
+}
+
+const STOCK_STATUSES = ["instock", "outofstock"] as const;
+type StockStatus = typeof STOCK_STATUSES[number];
+function narrowStockStatus(value: string | undefined): StockStatus {
+  return (STOCK_STATUSES as readonly string[]).includes(value ?? "")
+    ? (value as StockStatus)
+    : "instock";
+}
+
 export function toProduct(p: NestProductRaw): Product {
   const images = [p.image, ...(p.gallery || [])].filter(Boolean) as string[];
   return {
@@ -125,7 +151,7 @@ export function toUser(u: NestUserRaw): NestUser {
     favorites: [],
     addresses: [],
     notification_preferences: {},
-    seller_application_status: (u.seller_status as any) || (u.is_seller ? "approved" : "not_submitted"),
+    seller_application_status: narrowSellerStatus(u.seller_status, u.is_seller ? "approved" : "not_submitted"),
     seller_profile: u.is_seller
       ? { shop_name: u.store_name || displayName, shop_description: "", shipping_info: "" }
       : null,
@@ -204,14 +230,14 @@ export function toOrder(o: NestOrderRaw): Order {
       carrier: t.carrier || "",
       service: t.service || "",
       tracking_url: t.tracking_url || "",
-      label_source: (t.label_source as any) || "",
+      label_source: t.label_source || "",
       shipped_at: t.shipped_at || "",
       status: t.status || "",
     })),
     shipping_status: (o.shipping_status as Order["shipping_status"]) || deriveShippingStatus(o),
     can_review: !!o.reviewable?.can_review,
     reviewable_seller_ids: o.reviewable?.seller_ids || [],
-    contact_email: (o.billing as any)?.email,
+    contact_email: o.billing?.email,
     created_at: o.date_created,
     paid_at: o.date_paid,
     // v3.7.121 (Build #16) — shipped_at is the earliest per-seller ship
@@ -260,7 +286,7 @@ export function feedRowToProduct(raw: NestProductRaw | NestFeedItemRaw): Product
     price: Number(fi.price ?? 0),
     image: fi.image,
     seller: fi.author,
-    stock_status: (fi.stock_status as any) || "instock",
+    stock_status: narrowStockStatus(fi.stock_status),
     stock_quantity: fi.stock_quantity,
   } as NestProductRaw);
 }

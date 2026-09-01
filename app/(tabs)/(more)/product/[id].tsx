@@ -289,7 +289,7 @@ export default function ProductDetail() {
               <TouchableOpacity onPress={() => { haptics.tap(); setQty((q) => Math.max(1, q - 1)); }} style={styles.qtyBtn} testID="qty-decrement" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Decrease quantity" accessibilityRole="button"><Ionicons name="remove" size={18} color={colors.onSurface} /></TouchableOpacity>
               <Text style={styles.qtyText} accessibilityLabel={`Quantity ${qty}`}>{qty}</Text>
               <TouchableOpacity onPress={() => { haptics.tap(); setQty((q) => {
-                const stockNum = Number((product as any)?.stock);
+                const stockNum = Number(product?.stock);
                 const cap = Number.isFinite(stockNum) && stockNum > 0 ? Math.min(99, stockNum) : 99;
                 if (q + 1 > cap) {
                   toast.show(`Only ${cap} available.`);

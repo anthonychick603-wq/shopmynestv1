@@ -425,7 +425,11 @@ function CompareChip({
   const positive = delta > 0;
   const negative = delta < 0;
   const tone = positive ? colors.success : negative ? colors.error : colors.onSurfaceMuted;
-  const glyph = positive ? "arrow-up" : negative ? "arrow-down" : "remove";
+  const glyph: keyof typeof import("@expo/vector-icons").Ionicons.glyphMap = positive
+    ? "arrow-up"
+    : negative
+      ? "arrow-down"
+      : "remove";
   const magnitude = Math.abs(delta);
   const primary =
     format === "currency"
@@ -434,7 +438,7 @@ function CompareChip({
   const pctText = pct == null ? "—" : `${Math.abs(pct).toFixed(1)}%`;
   return (
     <View style={styles.compareChip}>
-      <Ionicons name={glyph as any} size={12} color={tone} />
+      <Ionicons name={glyph} size={12} color={tone} />
       <Text style={[styles.compareValue, { color: tone }]}>{primary}</Text>
       <Text style={styles.comparePct}>{pctText}</Text>
       <Text style={styles.compareLabel}>{label}</Text>

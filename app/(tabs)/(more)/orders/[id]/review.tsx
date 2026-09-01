@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import { ApiError, nest, type ReviewableProduct } from "@/src/api/nest";
+import { appendFilePart } from "@/src/utils/upload";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
@@ -72,11 +73,11 @@ export default function ProductReviewComposer() {
     try {
       const uploads = await Promise.all(photos.map(async (asset, index) => {
         const formData = new FormData();
-        formData.append("file", {
+        appendFilePart(formData, "file", {
           uri: asset.uri,
           name: asset.fileName || `review-${Date.now()}-${index}.jpg`,
           type: asset.mimeType || "image/jpeg",
-        } as any);
+        });
         return nest.uploadReviewPhoto(formData);
       }));
       await nest.submitProductReview(selected.product_id, {

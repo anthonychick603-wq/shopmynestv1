@@ -21,6 +21,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image as ExpoImage } from "expo-image";
 
 import { nest, friendlyMessage, type NestMessagePhoto, type NestMessageRaw } from "@/src/api/nest";
+import { appendFilePart } from "@/src/utils/upload";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
@@ -288,11 +289,11 @@ export default function MessageThread() {
         });
         const fd = new FormData();
         fd.append("recipient_id", String(otherId));
-        fd.append("file", {
+        appendFilePart(fd, "file", {
           uri: manip.uri,
           name: `photo-${d.key}.jpg`,
           type: "image/jpeg",
-        } as any);
+        });
         const resp = await nest.uploadMessagePhoto(fd);
         setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, attachmentId: resp.attachment_id } : p)));
       } catch (e: unknown) {

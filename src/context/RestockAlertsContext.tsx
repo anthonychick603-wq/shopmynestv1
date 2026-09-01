@@ -77,11 +77,11 @@ export function RestockAlertsProvider({ children }: { children: React.ReactNode 
 
     (async () => {
       const [savedWatches, savedEnabled] = await Promise.all([
-        storage.getItem(watchesStorageKey(user.id), [] as any),
+        storage.getItem<RestockWatch[]>(watchesStorageKey(user.id), []),
         storage.getItem(enabledStorageKey(user.id), true as boolean),
       ]);
       if (cancelled) return;
-      setWatches(Array.isArray(savedWatches) ? (savedWatches as unknown as RestockWatch[]) : []);
+      setWatches(Array.isArray(savedWatches) ? savedWatches : []);
       setEnabledState(savedEnabled !== false);
       setHydrated(true);
     })();
@@ -91,7 +91,7 @@ export function RestockAlertsProvider({ children }: { children: React.ReactNode 
 
   const persistWatches = useCallback(async (next: RestockWatch[]) => {
     setWatches(next);
-    if (user) await storage.setItem(watchesStorageKey(user.id), next as any);
+    if (user) await storage.setItem<RestockWatch[]>(watchesStorageKey(user.id), next);
   }, [user]);
 
   const isWatching = useCallback((productId: string | number, variationId?: number) => {
