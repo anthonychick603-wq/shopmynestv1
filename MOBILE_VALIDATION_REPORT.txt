@@ -1,5 +1,13 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.200, versionCode 167)
+Generated: 2026-09-01 UTC (v1.0.201, versionCode 168)
+
+v1.0.201 (versionCode 168)
+  - Middle "+" create menu: approved sellers who tap "List" now land
+    directly in the add-product form (/seller/product-form) instead
+    of the inventory listings screen. Non-sellers still funnel
+    through /(tabs)/create for the seller-application flow.
+  - Typecheck: PASS.
+
 
 v1.0.200 / plugin v3.13.61 (versionCode 167)
   - Added admin category manager to the Admin console.

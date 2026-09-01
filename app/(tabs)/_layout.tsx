@@ -51,10 +51,19 @@ function CreatePlusButton() {
     });
   };
 
+  // v1.0.201 — approved sellers who pick "List" from the create menu
+  // land directly in the add-product form, not the inventory list. If
+  // the user isn't a maker yet, the /(tabs)/create screen handles the
+  // apply-first funnel.
   const go = (mode?: "blog") => {
     hide(() => {
-      if (mode === "blog") pushFromTab(router, "/blog/compose");
-      else router.push("/(tabs)/create");
+      if (mode === "blog") {
+        pushFromTab(router, "/blog/compose");
+      } else if (isMaker) {
+        pushFromTab(router, "/seller/product-form");
+      } else {
+        router.push("/(tabs)/create");
+      }
     });
   };
 
