@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class MNU_Category_Taxonomy_Compat {
-    private const VERSION = '1.0.0';
+    private const VERSION = '2.0.0';
     private const VERSION_OPTION = 'mnu_category_taxonomy_compat_version';
     private const APPLICATION_META = '_mnu_application_category_selections';
 
@@ -41,8 +41,128 @@ final class MNU_Category_Taxonomy_Compat {
         update_option( self::VERSION_OPTION, self::VERSION, false );
     }
 
+    /**
+     * Two-level taxonomy used by the ShopMyNest app and admin console.
+     *
+     * v2.0.0 (2026-09-01): expanded from a handmade/craft-only taxonomy to a
+     * general e-commerce hierarchy. The previous craft roots (Sewing,
+     * Jewelry, Woodworking, Art, Paper & Stationery, Knitting & Crochet,
+     * Candles & Home Fragrance, Bath & Body, Craft Supplies, Digital
+     * Products) are consolidated under a single 'Handmade & Crafts' root
+     * to reduce top-level clutter; their old slugs still exist as terms so
+     * historical products stay valid, and re-seeding will only add new
+     * terms, never delete anything. Roots kept as-is: Accessories,
+     * Baby & Kids, Pet Supplies, Toys & Games, Seasonal & Holiday,
+     * Personalized Gifts, Home & Living.
+     */
     private static function taxonomy_definition(): array {
         return array(
+            // --- General commerce roots ---
+            'electronics' => array(
+                'name' => 'Electronics',
+                'children' => array( 'Phones & Accessories', 'Laptops & Computers', 'Tablets & E-Readers', 'TVs & Home Theater', 'Audio & Headphones', 'Cameras & Photography', 'Wearables & Smartwatches', 'Gaming Consoles', 'Smart Home', 'Cables & Chargers', 'Other Electronics' ),
+            ),
+            'apparel' => array(
+                'name' => 'Clothing & Apparel',
+                'children' => array( "Women's Clothing", "Men's Clothing", "Girls' Clothing", "Boys' Clothing", 'Shoes', 'Activewear', 'Swimwear', 'Sleepwear', 'Underwear & Socks', 'Coats & Outerwear', 'Uniforms & Workwear', 'Other Apparel' ),
+            ),
+            'jewelry-watches' => array(
+                'name' => 'Jewelry & Watches',
+                'children' => array( 'Necklaces', 'Earrings', 'Bracelets', 'Rings', 'Watches', 'Fine Jewelry', 'Body Jewelry', "Men's Jewelry", 'Jewelry Boxes & Care', 'Other Jewelry' ),
+            ),
+            'home-living' => array(
+                'name' => 'Home & Living',
+                'children' => array( 'Décor', 'Furniture', 'Kitchen & Dining', 'Bath', 'Bedding', 'Storage & Organization', 'Lighting', 'Rugs & Carpets', 'Outdoor & Garden', 'Curtains & Blinds', 'Other Home & Living' ),
+            ),
+            'appliances' => array(
+                'name' => 'Appliances',
+                'children' => array( 'Kitchen Appliances', 'Small Appliances', 'Laundry', 'Vacuums & Floor Care', 'Heating & Cooling', 'Refrigeration', 'Other Appliances' ),
+            ),
+            'beauty-personal-care' => array(
+                'name' => 'Beauty & Personal Care',
+                'children' => array( 'Skin Care', 'Hair Care', 'Makeup', 'Fragrance', 'Bath & Body', 'Nails', "Men's Grooming", 'Tools & Accessories', 'Oral Care', 'Other Beauty' ),
+            ),
+            'health-wellness' => array(
+                'name' => 'Health & Wellness',
+                'children' => array( 'Vitamins & Supplements', 'Personal Care', 'Medical Supplies', 'Fitness & Recovery', 'Mobility Aids', 'Sexual Wellness', 'Other Health' ),
+            ),
+            'sports-outdoors' => array(
+                'name' => 'Sports & Outdoors',
+                'children' => array( 'Exercise & Fitness', 'Cycling', 'Camping & Hiking', 'Hunting & Fishing', 'Team Sports', 'Water Sports', 'Winter Sports', 'Golf', 'Yoga', 'Other Sports' ),
+            ),
+            'automotive' => array(
+                'name' => 'Automotive',
+                'children' => array( 'Parts & Accessories', 'Tires & Wheels', 'Tools & Equipment', 'Car Care', 'Interior Accessories', 'Exterior Accessories', 'Motorcycle', 'RV & Trailer', 'Other Automotive' ),
+            ),
+            'tools-home-improvement' => array(
+                'name' => 'Tools & Home Improvement',
+                'children' => array( 'Power Tools', 'Hand Tools', 'Hardware', 'Plumbing', 'Electrical', 'Paint & Wall Treatments', 'Building Materials', 'Safety & Security', 'Other Tools' ),
+            ),
+            'garden-outdoor' => array(
+                'name' => 'Garden & Outdoor',
+                'children' => array( 'Plants & Seeds', 'Planters & Pots', 'Garden Tools', 'Outdoor Furniture', 'Grills & Outdoor Cooking', 'Lawn Care', 'Pest Control', 'Other Garden' ),
+            ),
+            'baby-kids' => array(
+                'name' => 'Baby & Kids',
+                'children' => array( 'Clothing', 'Nursery', 'Feeding', 'Diapering', 'Strollers & Car Seats', 'Toys', 'Blankets', 'Accessories', 'Gifts', 'Other Baby & Kids' ),
+            ),
+            'toys-games' => array(
+                'name' => 'Toys & Games',
+                'children' => array( 'Action Figures & Dolls', 'Building & Construction', 'Puzzles', 'Board Games', 'Video Games', 'Educational', 'Outdoor Play', 'Pretend Play', 'Stuffed Animals', 'Other Toys & Games' ),
+            ),
+            'pet-supplies' => array(
+                'name' => 'Pet Supplies',
+                'children' => array( 'Dog', 'Cat', 'Fish & Aquarium', 'Bird', 'Small Animal', 'Reptile', 'Pet Clothing', 'Beds & Furniture', 'Food & Treats', 'Toys', 'Other Pet Supplies' ),
+            ),
+            'books-media' => array(
+                'name' => 'Books, Movies & Music',
+                'children' => array( 'Books', 'E-Books & Audiobooks', 'Movies & TV', 'Music', 'Magazines', 'Other Media' ),
+            ),
+            'musical-instruments' => array(
+                'name' => 'Musical Instruments',
+                'children' => array( 'Guitars', 'Keyboards & Pianos', 'Drums & Percussion', 'Wind Instruments', 'Strings', 'DJ & Recording', 'Sheet Music', 'Accessories', 'Other Instruments' ),
+            ),
+            'office-school' => array(
+                'name' => 'Office & School',
+                'children' => array( 'Office Supplies', 'Furniture', 'Printers & Ink', 'Paper Products', 'Writing Instruments', 'School Supplies', 'Backpacks & Bags', 'Calendars & Planners', 'Other Office & School' ),
+            ),
+            'grocery-gourmet' => array(
+                'name' => 'Grocery & Gourmet Food',
+                'children' => array( 'Pantry Staples', 'Snacks', 'Beverages', 'Coffee & Tea', 'Candy & Chocolate', 'Baking', 'International Foods', 'Gift Baskets', 'Other Gourmet' ),
+            ),
+            'accessories' => array(
+                'name' => 'Bags & Accessories',
+                'children' => array( 'Handbags & Purses', 'Backpacks', 'Wallets', 'Belts', 'Hats & Caps', 'Scarves & Wraps', 'Gloves', 'Sunglasses', 'Hair Accessories', 'Keychains', 'Other Accessories' ),
+            ),
+            'luggage-travel' => array(
+                'name' => 'Luggage & Travel',
+                'children' => array( 'Suitcases', 'Duffel Bags', 'Travel Accessories', 'Backpacks', 'Garment Bags', 'Other Travel' ),
+            ),
+            'industrial-scientific' => array(
+                'name' => 'Industrial & Scientific',
+                'children' => array( 'Lab & Scientific', 'Material Handling', 'Janitorial & Sanitation', 'Packaging & Shipping', 'Safety Equipment', 'Test & Measurement', 'Other Industrial' ),
+            ),
+            'collectibles-antiques' => array(
+                'name' => 'Collectibles & Antiques',
+                'children' => array( 'Coins & Currency', 'Stamps', 'Trading Cards', 'Comics', 'Vintage', 'Memorabilia', 'Militaria', 'Fine Art', 'Other Collectibles' ),
+            ),
+            'arts-crafts' => array(
+                'name' => 'Handmade & Crafts',
+                'children' => array( 'Sewn & Textiles', 'Knitting & Crochet', 'Woodworking', 'Ceramics & Pottery', 'Painting & Drawing', 'Prints & Photography', 'Sculpture & Mixed Media', 'Paper & Stationery', 'Candles & Home Fragrance', 'Handmade Soap & Bath', 'Handmade Jewelry', 'Craft Supplies & Tools', 'Digital Downloads', 'Other Handmade' ),
+            ),
+            'seasonal-holiday' => array(
+                'name' => 'Seasonal & Holiday',
+                'children' => array( 'Christmas', 'Halloween', 'Easter', 'Thanksgiving', "Valentine's Day", "Mother's Day", "Father's Day", 'Independence Day', 'Hanukkah', 'Other Holidays' ),
+            ),
+            'personalized-gifts' => array(
+                'name' => 'Personalized Gifts',
+                'children' => array( 'Wedding', 'Anniversary', 'Birthday', 'Baby', 'Memorial', 'Graduation', 'Housewarming', 'Corporate Gifts', 'Other Personalized Gifts' ),
+            ),
+            'digital-products' => array(
+                'name' => 'Digital Products',
+                'children' => array( 'Software', 'Printable Art', 'Templates', 'Patterns', 'Invitations', 'Planners', 'Fonts & Graphics', 'Digital Downloads', 'Other Digital Products' ),
+            ),
+            // --- Legacy craft roots (kept so existing products remain valid) ---
             'sewing' => array(
                 'name' => 'Sewing',
                 'children' => array( "Men's Apparel", "Women's Apparel", "Children's Apparel", 'Baby Apparel', 'Bags & Purses', 'Accessories', 'Quilts & Blankets', 'Home Textiles', 'Other Sewing' ),
@@ -54,10 +174,6 @@ final class MNU_Category_Taxonomy_Compat {
             'woodworking' => array(
                 'name' => 'Woodworking',
                 'children' => array( 'Furniture', 'Home Décor', 'Kitchen & Dining', 'Signs', 'Toys', 'Boxes & Storage', 'Outdoor', 'Other Woodworking' ),
-            ),
-            'home-living' => array(
-                'name' => 'Home & Living',
-                'children' => array( 'Décor', 'Kitchen & Dining', 'Bath', 'Bedding', 'Storage', 'Lighting', 'Outdoor & Garden', 'Other Home & Living' ),
             ),
             'art' => array(
                 'name' => 'Art',
@@ -79,37 +195,9 @@ final class MNU_Category_Taxonomy_Compat {
                 'name' => 'Bath & Body',
                 'children' => array( 'Soap', 'Bath Products', 'Skin Care', 'Hair Care', 'Grooming', 'Other Bath & Body' ),
             ),
-            'accessories' => array(
-                'name' => 'Accessories',
-                'children' => array( 'Bags', 'Wallets', 'Hats', 'Hair Accessories', 'Belts', 'Keychains', 'Other Accessories' ),
-            ),
-            'baby-kids' => array(
-                'name' => 'Baby & Kids',
-                'children' => array( 'Clothing', 'Nursery', 'Toys', 'Blankets', 'Accessories', 'Gifts', 'Other Baby & Kids' ),
-            ),
-            'pet-supplies' => array(
-                'name' => 'Pet Supplies',
-                'children' => array( 'Dog', 'Cat', 'Small Animal', 'Pet Clothing', 'Beds', 'Toys', 'Other Pet Supplies' ),
-            ),
-            'toys-games' => array(
-                'name' => 'Toys & Games',
-                'children' => array( 'Toys', 'Puzzles', 'Board Games', 'Educational', 'Pretend Play', 'Other Toys & Games' ),
-            ),
             'craft-supplies' => array(
                 'name' => 'Craft Supplies',
                 'children' => array( 'Fabric', 'Yarn', 'Beads', 'Patterns', 'Tools', 'Findings', 'Kits', 'Other Craft Supplies' ),
-            ),
-            'seasonal-holiday' => array(
-                'name' => 'Seasonal & Holiday',
-                'children' => array( 'Christmas', 'Halloween', 'Easter', 'Thanksgiving', "Valentine's Day", 'Other Holidays' ),
-            ),
-            'personalized-gifts' => array(
-                'name' => 'Personalized Gifts',
-                'children' => array( 'Wedding', 'Anniversary', 'Birthday', 'Baby', 'Memorial', 'Graduation', 'Other Personalized Gifts' ),
-            ),
-            'digital-products' => array(
-                'name' => 'Digital Products',
-                'children' => array( 'Printable Art', 'Templates', 'Patterns', 'Invitations', 'Planners', 'Digital Downloads', 'Other Digital Products' ),
             ),
         );
     }

@@ -1,5 +1,27 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.198, versionCode 165)
+Generated: 2026-09-01 UTC (v1.0.199, versionCode 166)
+
+v1.0.199 / plugin v3.13.60 (versionCode 166)
+  - Expanded product taxonomy from 17 handmade/craft roots (~120 subs)
+    to a full e-commerce hierarchy: 35 roots, 310 subcategories.
+  - New general-commerce roots: Electronics, Clothing & Apparel,
+    Jewelry & Watches, Appliances, Beauty & Personal Care, Health &
+    Wellness, Sports & Outdoors, Automotive, Tools & Home Improvement,
+    Garden & Outdoor, Books/Movies/Music, Musical Instruments, Office
+    & School, Grocery & Gourmet, Luggage & Travel, Industrial &
+    Scientific, Collectibles & Antiques, plus a consolidated Handmade
+    & Crafts root.
+  - Existing craft roots (Sewing, Jewelry, Woodworking, Art, Paper &
+    Stationery, Knitting & Crochet, Candles & Home Fragrance, Bath &
+    Body, Craft Supplies) preserved so historical products stay valid.
+  - Home & Living, Toys & Games, Pet Supplies, Baby & Kids, Bags &
+    Accessories, Seasonal & Holiday, Personalized Gifts, and Digital
+    Products expanded with more subcategories.
+  - Seeder bumped: MNU_Category_Taxonomy SEED_VERSION 1 -> 2 (plugin);
+    MNU_Category_Taxonomy_Compat VERSION 1.0.0 -> 2.0.0 (compat).
+    Re-seed is idempotent (ensure_term uses slug lookup).
+  - Typecheck: PASS. PHP -l: PASS on both files.
+
 
 v1.0.198 (versionCode 165)
   - Removed remaining owner-specific defaults and comments:
