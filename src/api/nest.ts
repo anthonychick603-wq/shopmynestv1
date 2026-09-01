@@ -560,18 +560,23 @@ export const nest = {
 
   // Seller profile (v1.0.52 - shop settings screen for the "Add name"
   // readiness step + future banner/about edits from the app).
-  // v1.0.53 — account avatar upload. The mobile app bridge stores the file
-  // via WP media_handle_upload and writes thenest_profile_photo_id +
-  // thenest_profile_photo_url on the current user; tnm_user_avatar_url()
-  // reads those on the server side so the new photo shows up on the
-  // account screen, on messages, and on the seller profile page.
+  // v1.0.53 — account avatar upload. Originally posted to the retired
+  // mynest-mobile-app-bridge plugin. That plugin no longer registers its
+  // REST namespace on production, so the client returned rest_no_route
+  // and every profile-photo upload silently failed with "Couldn't update
+  // your photo." The canonical replacement lives on the unified plugin at
+  // POST nest-ops/v1/account/photo (plugin v3.13.42+, class-mnu-ops.php
+  // save_account_photo). The multipart shape is identical: field name
+  // `file` with { uri, name, type }. The response is unchanged.
+  // v1.0.203 — point the call at the real endpoint so sellers (and
+  // buyers) can change their profile photo again.
   uploadAccountPhoto: (asset: { uri: string; fileName?: string | null; mimeType?: string | null }) => {
     const form = new FormData();
     const name = asset.fileName || "avatar.jpg";
     const type = asset.mimeType || "image/jpeg";
     // @ts-expect-error — RN FormData accepts { uri, name, type } file blobs.
     form.append("file", { uri: asset.uri, name, type });
-    return request<{ ok: boolean; photo_id: number; photo_url: string }>("bridge", "/account/photo/upload", {
+    return request<{ ok: boolean; photo_id: number; photo_url: string }>("ops", "/account/photo", {
       method: "POST",
       formData: form,
     });

@@ -1,5 +1,22 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.202, versionCode 169)
+Generated: 2026-09-01 UTC (v1.0.203, versionCode 170)
+
+v1.0.203 (versionCode 170)
+  - Fixed profile-photo upload for all users (sellers hit this most).
+    The Account tab's "change avatar" was posting to
+    /wp-json/mobile-app-bridge/v1/account/photo/upload, but the
+    mynest-mobile-app-bridge plugin has been retired on production
+    and no longer registers that namespace. Every upload returned
+    rest_no_route and surfaced as the toast "Couldn't update your
+    photo."
+    The unified plugin owns the canonical replacement at
+    POST /wp-json/nest-ops/v1/account/photo (multipart file field,
+    plugin v3.13.42+, class-mnu-ops.php save_account_photo). The
+    client now targets that route directly. No server change
+    required; sellers already running plugin v3.13.42 or newer
+    (currently v3.13.62) will see uploads succeed on first tap.
+  - Typecheck: PASS.
+
 
 v1.0.202 (versionCode 169)
   - Blog tab (Home) no longer paints a blank screen on cold launch.
