@@ -27,7 +27,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.shopmynest",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 147,
+      "versionCode": 149,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"

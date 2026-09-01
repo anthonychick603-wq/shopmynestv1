@@ -1,5 +1,8 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.181, versionCode 147)
+Generated: 2026-09-01 UTC (v1.0.181, versionCode 149)
+(versionCode bumped from 147 to 149 for EAS build — Play Console
+reported 148 was already consumed by a prior build run, so we skip
+past it. App version 1.0.181 unchanged; no user-visible changes.)
 
 === v1.0.181 — Audit backlog fixes ===
 
