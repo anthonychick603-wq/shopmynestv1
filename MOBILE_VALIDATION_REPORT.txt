@@ -1,5 +1,46 @@
 ShopMyNest Mobile validation report
-Generated: 2026-08-31 UTC (v1.0.177, versionCode 143)
+Generated: 2026-09-01 UTC (v1.0.178, versionCode 144)
+
+v1.0.178 changes (alerts routing hardening — no behavior change on other paths):
+  - src/hooks/use-notification-routing.ts: seller-application-approval
+    alerts now route to the seller dashboard when the notification
+    carries status="approved" (or when the type string itself is one
+    of the approval aliases: seller_application_approved,
+    seller_approved, application_approved). Any other status on a
+    seller_application_update falls through to /seller/apply as before,
+    so pending/rejected/resubmit-requested alerts keep taking the seller
+    back to the application form. This makes the Open button on an
+    approval row actually land somewhere useful — the shop dashboard —
+    instead of the finished application.
+  - app/(tabs)/(more)/alerts.tsx: pass meta.status through to
+    routeForPush from both call sites (onRowPress via Open button and
+    the per-row targetRoute computation that decides whether to show
+    the Open button at all).
+
+Notes on other reported items (all already resolved / out of scope):
+  - The chip-based "Product categories" screen in the older screenshot
+    predates commit 0db4058 ("Add category and sub-category dropdown
+    picker"). The current CategorySubcategoryPicker uses a native
+    Picker with a "Select a sub-category" placeholder at index 0, so
+    deselecting a chosen sub-category is already supported by scrolling
+    the wheel back to the placeholder.
+  - The raw wpcomsh-fatal CSS shown on the payout bank account screen
+    was fixed in v1.0.174 by the looksLikeServerDump() sanitizer in
+    src/api/nest.ts. Verified: the exact CSS payload from the screenshot
+    is caught by the regex (`wpcomsh-fatal|wpcomsh-[\w-]+\s*\{` +
+    `<\s*style\b`) so ApiError.friendly collapses to the generic
+    "The website is having trouble responding" message before any
+    screen renders it.
+  - The blue "Failed to download remote update" screen is emitted by
+    the Expo Go / dev-client native runtime when the JS bundle can't
+    be fetched. This project does not include expo-updates or
+    expo-dev-client and does not publish OTA updates, so app code has
+    no path to intercept that error — it fires before app JS runs.
+    A production standalone build (EAS Build or expo prebuild +
+    expo run:android) does not hit this failure mode because the JS
+    bundle is embedded, not fetched.
+
+Version: 1.0.177 → 1.0.178 (versionCode 143 → 144)
 
 v1.0.177 changes (type-safety pass 2 — no behavior change):
   - Removed the final 13 `any` uses. `grep -rn ": any\| any\[\]\|<any>\|as any"` on

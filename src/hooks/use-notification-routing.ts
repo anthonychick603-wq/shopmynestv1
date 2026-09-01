@@ -100,7 +100,22 @@ export function routeForPush(data: PushData): string | null {
     case "payout_failed":
       return "/seller/payouts";
 
+    // Seller application lifecycle. When the update carries an
+    // explicit status of "approved" the recipient can now access the
+    // seller dashboard — send them there so the alert row does
+    // something useful (v1.0.178). Any other status (pending,
+    // rejected, resubmission requested) sends them back to the apply
+    // screen where they can read the details or make edits.
     case "seller_application_update":
+    case "seller_application_approved":
+    case "seller_approved":
+    case "application_approved":
+      if (String(data.status || "").toLowerCase() === "approved"
+          || data.type === "seller_application_approved"
+          || data.type === "seller_approved"
+          || data.type === "application_approved") {
+        return "/seller/dashboard";
+      }
       return "/seller/apply";
 
     case "refund_update":

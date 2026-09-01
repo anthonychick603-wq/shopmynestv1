@@ -183,6 +183,7 @@ export default function Alerts() {
         object_id: meta.object_id as number | string | undefined,
         object_type: meta.object_type as string | undefined,
         actor_id: meta.actor_id as number | string | undefined,
+        status: meta.status as string | undefined,
       });
       if (path && path !== "/alerts") {
         pushFromTab(router, path);
@@ -254,6 +255,7 @@ export default function Alerts() {
             object_id: meta.object_id as number | string | undefined,
             object_type: meta.object_type as string | undefined,
             actor_id: meta.actor_id as number | string | undefined,
+            status: meta.status as string | undefined,
           });
           const hasRoute = !!targetRoute && targetRoute !== "/alerts";
           return (
