@@ -1,5 +1,18 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.201, versionCode 168)
+Generated: 2026-09-01 UTC (v1.0.202, versionCode 169)
+
+v1.0.202 (versionCode 169)
+  - Blog tab (Home) no longer paints a blank screen on cold launch.
+    Two guards were added:
+      1. A 12-second watchdog forces loading=false if the first
+         load() ever fails to resolve, so the empty-state or error
+         card can paint instead of an indefinite blank.
+      2. useFocusEffect now retries load(1) when the tab regains
+         focus with zero posts and nothing in flight, so simply
+         switching tabs recovers the screen without a pull-to-
+         refresh.
+  - Typecheck: PASS.
+
 
 v1.0.201 (versionCode 168)
   - Middle "+" create menu: approved sellers who tap "List" now land

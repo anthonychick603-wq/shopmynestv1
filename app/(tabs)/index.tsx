@@ -161,6 +161,18 @@ export default function Blog() {
   // every time. Now we only refetch when the user explicitly pulls to
   // refresh, or when the tab has been out of focus for a very long time
   // (>5 min) so an app resumed hours later still feels fresh.
+  //
+  // v1.0.202 — blank-Home-on-cold-launch fix. On some Android devices the
+  // mount effect's first load() would settle with loading=true still in
+  // effect (or the JS bridge would race with the tab layout mount and
+  // drop the skeleton frame), leaving the tab visually empty until the
+  // user pulled to refresh. Two guards:
+  //   1. A 12-second watchdog forces loading=false so the empty state
+  //      or error state can paint even if a request never resolves.
+  //   2. useFocusEffect now also retries when the tab regains focus
+  //      with no posts loaded and no in-flight request — that way
+  //      simply switching tabs recovers the screen without needing a
+  //      pull gesture.
   const mountedRef = useRef(false);
   const lastLoadRef = useRef(0);
   useEffect(() => {
@@ -168,16 +180,41 @@ export default function Blog() {
     mountedRef.current = true;
     load(1);
     lastLoadRef.current = Date.now();
+    const watchdog = setTimeout(() => {
+      // If load(1) hasn't cleared `loading` in 12 s, unblock the UI so
+      // the user sees either an empty-state or an error instead of a
+      // blank screen forever.
+      setLoading((prev) => (prev ? false : prev));
+    }, 12000);
+    return () => clearTimeout(watchdog);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount
   }, []);
   useFocusEffect(
     useCallback(() => {
       const STALE_MS = 5 * 60 * 1000;
+      // Stale-refresh path: unchanged.
       if (mountedRef.current && Date.now() - lastLoadRef.current > STALE_MS) {
         load(1);
         lastLoadRef.current = Date.now();
+        return;
       }
-    }, [load]),
+      // v1.0.202 recovery path: nothing loaded yet, nothing in flight,
+      // and we've been mounted at least a second (so we're not fighting
+      // the initial useEffect). Fire load(1) so tab-switch counts as a
+      // retry.
+      const beenMountedAWhile = Date.now() - lastLoadRef.current > 1000;
+      if (
+        mountedRef.current &&
+        beenMountedAWhile &&
+        posts.length === 0 &&
+        !loading &&
+        !loadingMore &&
+        !refreshing
+      ) {
+        load(1);
+        lastLoadRef.current = Date.now();
+      }
+    }, [load, posts.length, loading, loadingMore, refreshing]),
   );
 
   // v1.0.134 — poll the abandoned-cart snapshot on focus for logged-in
