@@ -554,6 +554,15 @@ export const nest = {
     request<{ items: NestNotificationRaw[]; total: number; unread?: number }>("marketplace", "/notifications", { query }),
   markNotificationsRead: (ids?: number[]) =>
     request<{ ok: boolean }>("marketplace", "/notifications/read", { method: "POST", body: { ids: ids || [] } }),
+  // v1.0.191 — permanent dismiss. Server route landed in plugin v3.13.55.
+  // Empty `ids` is treated as a no-op server-side; to clear everything the
+  // caller uses `dismissAllNotifications()` (DELETE /notifications), which
+  // is an explicit endpoint so "clear all" can't collide with a bug that
+  // sends an empty array.
+  dismissNotifications: (ids: number[]) =>
+    request<{ deleted: number }>("marketplace", "/notifications/dismiss", { method: "POST", body: { ids } }),
+  dismissAllNotifications: () =>
+    request<{ deleted: number }>("marketplace", "/notifications", { method: "DELETE" }),
 
   // -------------------------------------------------------------------------
   // Saved searches — the-nest/v1/saved-searches (v3.7.101).

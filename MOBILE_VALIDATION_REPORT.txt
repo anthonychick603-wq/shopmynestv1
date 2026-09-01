@@ -1,5 +1,13 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.190, versionCode 157)
+Generated: 2026-09-01 UTC (v1.0.191, versionCode 158)
+
+v1.0.191 (versionCode 158)
+  - Dismissable alerts: per-row × button on every alert; optimistic remove + server DELETE via new dismissNotifications([id]).
+  - "Clear all" header pill (destructive-styled) with confirm dialog; wipes list optimistically + calls dismissAllNotifications().
+  - Server: WP plugin v3.13.55 adds POST /notifications/dismiss, DELETE /notifications/{id}, DELETE /notifications; new TNM_Social::dismiss_notifications / dismiss_all_notifications with user_id scoping.
+  - On failure both paths surface a toast and reload the canonical list; unread badge stays in sync via decrementUnread / setUnreadCount.
+  - Typecheck: PASS. PHP -l: PASS (rest + social).
+
 
 === v1.0.190 — Approval alert routes to shop setup; one-tap alert rows ===
 

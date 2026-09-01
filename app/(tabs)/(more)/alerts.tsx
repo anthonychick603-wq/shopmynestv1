@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -177,6 +177,56 @@ export default function Alerts() {
   // v1.0.190 — onOpenPress removed. Row-body tap handles both mark-read
   // and navigate; there is no longer a separate Open button.
 
+  // v1.0.191 — dismiss a single alert. Optimistic: pull it out of local
+  // state immediately and shrink the badge if it was unread, then fire
+  // the server call. On failure we surface a toast and reload the
+  // canonical list. Non-numeric ids (defensive; the server only issues
+  // numeric IDs, but the client type is `string`) short-circuit so we
+  // never send garbage to the server.
+  const dismissOne = useCallback(
+    (item: NotificationItem) => {
+      haptics.tap();
+      const wasUnread = !item.read;
+      setItems((prev) => prev.filter((n) => n.id !== item.id));
+      if (wasUnread) decrementUnread(1);
+      const numericId = Number(item.id);
+      if (!Number.isFinite(numericId) || numericId <= 0) return;
+      nest.dismissNotifications([numericId]).catch((e) => {
+        toast.error(e instanceof ApiError ? e.friendly : "Couldn’t dismiss that alert");
+        load();
+        refreshAlertsBadge();
+      });
+    },
+    [decrementUnread, load, refreshAlertsBadge],
+  );
+
+  // v1.0.191 — clear-all is destructive so we confirm first. Optimistic
+  // wipe of the local list and badge; on failure we reload from server.
+  const dismissAll = useCallback(() => {
+    if (items.length === 0) return;
+    haptics.tap();
+    Alert.alert(
+      "Clear all alerts?",
+      "This will permanently remove every alert from your list. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear all",
+          style: "destructive",
+          onPress: () => {
+            setItems([]);
+            setUnreadCount(0);
+            nest.dismissAllNotifications().catch((e) => {
+              toast.error(e instanceof ApiError ? e.friendly : "Couldn’t clear alerts");
+              load();
+              refreshAlertsBadge();
+            });
+          },
+        },
+      ],
+    );
+  }, [items.length, load, refreshAlertsBadge, setUnreadCount]);
+
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -213,6 +263,12 @@ export default function Alerts() {
           {unread > 0 ? (
             <TouchableOpacity onPress={() => { haptics.tap(); markAllRead(); }} testID="alerts-mark-all-read" accessibilityRole="button" accessibilityLabel="Mark all notifications as read">
               <Text style={styles.markRead}>Mark all read</Text>
+            </TouchableOpacity>
+          ) : null}
+          {/* v1.0.191 — Clear-all pill: destructive, so it confirms first. */}
+          {items.length > 0 ? (
+            <TouchableOpacity onPress={dismissAll} testID="alerts-clear-all" accessibilityRole="button" accessibilityLabel="Clear all alerts" hitSlop={8}>
+              <Text style={styles.clearAll}>Clear all</Text>
             </TouchableOpacity>
           ) : null}
           <CartHeaderButton />
@@ -263,6 +319,21 @@ export default function Alerts() {
               {hasRoute ? (
                 <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} style={{ marginLeft: spacing.xs }} />
               ) : null}
+              {/* v1.0.191 — per-row dismiss. Sits AFTER the chevron and
+                  stops propagation so tapping the × doesn't also
+                  fire the row's mark-read + navigate. hitSlop keeps
+                  the visual small while the touch target stays
+                  comfortable (>= 44pt). */}
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); dismissOne(item); }}
+                style={styles.dismissBtn}
+                testID={`alert-${item.id}-dismiss`}
+                accessibilityRole="button"
+                accessibilityLabel={`Dismiss ${item.title}`}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={18} color={colors.onSurfaceMuted} />
+              </TouchableOpacity>
             </TouchableOpacity>
           );
         }}
@@ -276,6 +347,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg },
   backBtn: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
   markRead: { color: colors.brand, fontWeight: "700" },
+  // v1.0.191 — Clear-all pill uses a muted/destructive color so it does
+  // not compete with "Mark all read" and reads as the more drastic option.
+  clearAll: { color: colors.error, fontWeight: "700" },
+  dismissBtn: { width: 28, height: 28, alignItems: "center", justifyContent: "center", marginLeft: spacing.xs, borderRadius: radius.pill },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   // v1.0.190 — Row is now a single Touchable (whole-row tap = mark
   // read + navigate). Removed the separate Open pill; a chevron on
