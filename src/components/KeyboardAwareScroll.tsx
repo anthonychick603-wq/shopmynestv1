@@ -71,26 +71,53 @@ export const KeyboardAwareScroll = forwardRef<ScrollView, Props>(function Keyboa
 
   const [kbHeight, setKbHeight] = useState(0);
   const [kbScreenY, setKbScreenY] = useState<number | null>(null);
+  // v1.0.188 — poll for focus changes while the keyboard is up. Without this
+  // pressing "next" on the on-screen keyboard to move to a later input never
+  // fires a keyboard event, so we'd leave the new field buried. RN doesn't
+  // expose a global focus-change subscription, so a short interval is the
+  // simplest reliable trigger.
+  const focusedTagRef = useRef<unknown>(null);
 
   useEffect(() => {
+    // v1.0.188 — subscribe to distinct events per platform. iOS fires WILL
+    // variants BEFORE the keyboard animates, which is what we want for
+    // smooth scrolling. Android only fires DID variants, but they fire
+    // AFTER the keyboard is fully up — so on Android we defer the scroll
+    // by one full frame + a short timeout to let our own
+    // paddingBottom/spacer expand the scroll content first, otherwise
+    // `scrollTo` gets clamped to a stale contentSize and under-scrolls.
     const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const changeEvt = Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
+    // Change-frame fires only on iOS. Registering keyboardDidShow twice on
+    // Android caused double-fire races.
+    const changeEvt = Platform.OS === "ios" ? "keyboardWillChangeFrame" : null;
+
+    const scheduleScroll = (y: number | null) => {
+      const arg = y ?? undefined;
+      if (Platform.OS === "ios") {
+        requestAnimationFrame(() => scrollFocusedIntoView(arg));
+      } else {
+        // Two rAFs = wait for our own layout (padding + spacer) to commit,
+        // then measure and scroll.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => scrollFocusedIntoView(arg));
+        });
+      }
+    };
 
     const onShow = (e: KeyboardEvent) => {
       const h = e.endCoordinates?.height ?? 0;
       const y = e.endCoordinates?.screenY ?? null;
       setKbHeight(h);
       setKbScreenY(y);
-      // Give layout a beat then scroll the focused input above the keyboard.
-      requestAnimationFrame(() => scrollFocusedIntoView(y ?? undefined));
+      scheduleScroll(y);
     };
     const onChange = (e: KeyboardEvent) => {
       const h = e.endCoordinates?.height ?? 0;
       const y = e.endCoordinates?.screenY ?? null;
       setKbHeight(h);
       setKbScreenY(y);
-      requestAnimationFrame(() => scrollFocusedIntoView(y ?? undefined));
+      scheduleScroll(y);
     };
     const onHide = () => {
       setKbHeight(0);
@@ -99,12 +126,37 @@ export const KeyboardAwareScroll = forwardRef<ScrollView, Props>(function Keyboa
 
     const subs = [
       Keyboard.addListener(showEvt, onShow),
-      Keyboard.addListener(changeEvt, onChange),
       Keyboard.addListener(hideEvt, onHide),
     ];
+    if (changeEvt) subs.push(Keyboard.addListener(changeEvt, onChange));
     return () => subs.forEach((s) => s.remove());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollMargin]);
+
+  // Poll for focus changes while the keyboard is visible so tapping "next"
+  // (or tapping straight into another field) re-scrolls the newly focused
+  // input above the keyboard.
+  useEffect(() => {
+    if (kbScreenY == null) {
+      focusedTagRef.current = null;
+      return;
+    }
+    const id = setInterval(() => {
+      type FocusedNode = { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void };
+      type TextInputState = { State?: {
+        currentlyFocusedInput?: () => FocusedNode | null;
+        currentlyFocusedField?: () => FocusedNode | null;
+      } };
+      const State = (TextInput as unknown as TextInputState).State;
+      const focused = State?.currentlyFocusedInput?.() ?? State?.currentlyFocusedField?.() ?? null;
+      if (focused && focused !== focusedTagRef.current) {
+        focusedTagRef.current = focused;
+        requestAnimationFrame(() => scrollFocusedIntoView());
+      }
+    }, 150);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kbScreenY]);
 
   const scrollFocusedIntoView = useCallback(
     (kbScreenYArg?: number) => {
@@ -141,11 +193,14 @@ export const KeyboardAwareScroll = forwardRef<ScrollView, Props>(function Keyboa
         if (overlap > 0) {
           // Nudge the scroll offset down by the overlap. `_lastContentOffsetY`
           // is a private field we stash on the ScrollView in onScroll below.
+          // v1.0.188 — tolerate the initial-load case where the user hasn't
+          // scrolled yet and `_lastContentOffsetY` is still undefined; also
+          // use `??` instead of truthy check so a genuine 0 offset (top of
+          // form) is preserved rather than replaced with just `overlap`.
           const scrollWithCache = scroll as ScrollView & { _lastContentOffsetY?: number };
+          const currentY = scrollWithCache._lastContentOffsetY ?? 0;
           scroll.scrollTo({
-            y: scrollWithCache._lastContentOffsetY
-              ? scrollWithCache._lastContentOffsetY + overlap
-              : overlap,
+            y: currentY + overlap,
             animated: true,
           });
         }

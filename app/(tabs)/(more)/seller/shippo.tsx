@@ -132,7 +132,13 @@ export default function SellerShipFromAddress() {
         <AlertsBellButton />
         <CartHeaderButton />
       </View>
-      <KeyboardAwareScroll contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + spacing.xl }]}
+      {/* v1.0.188 — keyboardVerticalOffset compensates for the sticky
+          header row that sits above KeyboardAwareScroll. Without it,
+          iOS's padding behavior undershoots by exactly the header
+          height (≈50pt), leaving the bottom inputs buried. */}
+      <KeyboardAwareScroll
+          contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + spacing.xl }]}
+          keyboardVerticalOffset={56}
           keyboardShouldPersistTaps="handled">
           <View style={styles.hero}>
             <Ionicons name="location-outline" size={28} color={colors.brand} />

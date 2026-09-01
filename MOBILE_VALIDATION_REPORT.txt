@@ -1,5 +1,59 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.187, versionCode 154)
+Generated: 2026-09-01 UTC (v1.0.188, versionCode 155)
+
+=== v1.0.188 — Ship-from address inputs above the keyboard ===
+
+Bug fix: on the seller Ship-from address screen (and every other form
+using KeyboardAwareScroll), the on-screen keyboard was still burying
+the lower inputs — the wrapper's auto-scroll fired but under-scrolled
+because of three separate races.
+
+Root causes patched in src/components/KeyboardAwareScroll.tsx:
+
+  1) On Android, `keyboardDidShow` fires AFTER the keyboard is already
+     fully up, while our internal `paddingBottom` + spacer haven't
+     laid out yet. Calling `scrollTo` in that same tick clamps to the
+     stale (pre-expansion) contentSize and under-scrolls. Fix: on
+     Android, wait TWO rAF frames after the keyboard event so the
+     spacer commits before we measure and scroll.
+
+  2) The subscription registered `keyboardDidShow` twice on Android
+     (once as show, once as change) which caused double-fires and
+     an intermittent race between the two scroll attempts. Fix: only
+     register the change-frame listener on iOS where the event
+     actually exists.
+
+  3) The `scrollTo` fallback branch used `_lastContentOffsetY ? … : overlap`,
+     which threw away the current offset when the user hadn't scrolled
+     (offset = 0 is falsy) and forced the ScrollView to jump to a
+     tiny absolute Y. Fix: use `?? 0` so a genuine top-of-form scroll
+     position is preserved and we always add `overlap` to whatever the
+     current offset is.
+
+  4) The wrapper never re-scrolled when focus moved between fields
+     while the keyboard was already up (tapping "next" on the
+     keyboard, or tapping straight into another input). Fix: while
+     the keyboard is visible, poll `TextInput.State.currentlyFocusedInput()`
+     every 150ms; when the identity changes, re-scroll the new field
+     above the keyboard.
+
+Screen fix in app/(tabs)/(more)/seller/shippo.tsx:
+
+  5) The Ship-from screen has a sticky header ABOVE the KeyboardAwareScroll
+     wrapper, but the wrapper's `keyboardVerticalOffset` defaulted to 0.
+     On iOS, `behavior="padding"` therefore undershot the shrink by
+     exactly the header height (≈50pt), leaving the bottom inputs
+     buried. Fix: pass `keyboardVerticalOffset={56}` on the shippo
+     screen so iOS accounts for the header row.
+
+Which surfaces benefit:
+  - Seller > Ship-from address form (primary bug report).
+  - Buyer > Address edit form (uses the same wrapper).
+  - Seller > Product variations editor.
+  - Any other screen using `<KeyboardAwareScroll>` inherits the four
+    wrapper-level fixes automatically.
+
+Typecheck: tsc --noEmit -p tsconfig.json passes clean (0 errors).
 
 === v1.0.187 — Native OS dropdown category pickers ===
 
