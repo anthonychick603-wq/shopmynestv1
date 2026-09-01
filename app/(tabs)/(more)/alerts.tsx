@@ -156,41 +156,26 @@ export default function Alerts() {
     [decrementUnread, refreshAlertsBadge],
   );
 
-  // v1.0.165 — tapping the row body only marks it read; the explicit
-  // "Open" button on the right is what navigates. This makes the row
-  // feel like a read receipt with a dedicated action button, so a user
-  // scanning alerts can dismiss unread state without being yanked to
-  // another screen.
+  // v1.0.190 — The founder's preferred pattern is inbox-style: tapping
+  // the row body BOTH marks-as-read AND navigates. The previous split
+  // (row-body = mark-read only, right-side Open button = navigate) was
+  // hard to discover and made the title look truncated when a wide
+  // Open pill sat next to it. Tapping the row now marks-as-read AND
+  // navigates in one gesture. A chevron-forward hint remains on the
+  // right for affordance, but no longer intercepts the press.
   const onRowPress = useCallback(
-    (item: NotificationItem) => {
+    (item: NotificationItem, targetRoute: string | null) => {
       haptics.tap();
       markOneRead(item);
-    },
-    [markOneRead],
-  );
-
-  // v1.0.165 — Open button: mark read + navigate. The route mapping is
-  // shared with push tap handling via routeForPush() so tapping the
-  // Open button and tapping a push notification land in the same place.
-  const onOpenPress = useCallback(
-    (item: NotificationItem) => {
-      haptics.press();
-      markOneRead(item);
-      const meta = (item.meta ?? {}) as Record<string, unknown>;
-      const path = routeForPush({
-        type: item.type,
-        order_id: meta.order_id as number | string | undefined,
-        object_id: meta.object_id as number | string | undefined,
-        object_type: meta.object_type as string | undefined,
-        actor_id: meta.actor_id as number | string | undefined,
-        status: meta.status as string | undefined,
-      });
-      if (path && path !== "/alerts") {
-        pushFromTab(router, path);
+      if (targetRoute && targetRoute !== "/alerts") {
+        pushFromTab(router, targetRoute);
       }
     },
     [markOneRead, router],
   );
+
+  // v1.0.190 — onOpenPress removed. Row-body tap handles both mark-read
+  // and navigate; there is no longer a separate Open button.
 
   if (!user) {
     return (
@@ -241,13 +226,11 @@ export default function Alerts() {
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 100 }}
         ListEmptyComponent={<EmptyState icon="notifications-outline" title="You're all caught up" message="No notifications yet. New orders and updates will land here." testID="alerts-empty" />}
         renderItem={({ item }) => {
-          // v1.0.165 — Row body marks-as-read, right-side "Open" button
-          // navigates. Nested Touchables need the outer one to allow child
-          // presses; on RN we get that by hitting stopPropagation on the
-          // inner press via a separate TouchableOpacity that is a sibling
-          // (not a child) of the outer press target. To keep the layout
-          // simple, we make the row a View and use two Touchables inside:
-          // one wraps the icon + text block, the other is the Open button.
+          // v1.0.190 — One-tap inbox pattern. Tapping anywhere on the
+          // row body marks-as-read AND navigates in a single gesture.
+          // A chevron on the right hints that the row is tappable
+          // when a route exists, but it is decorative (inside the same
+          // Touchable) so the whole row remains one big hit target.
           const meta = (item.meta ?? {}) as Record<string, unknown>;
           const targetRoute = routeForPush({
             type: item.type,
@@ -259,40 +242,28 @@ export default function Alerts() {
           });
           const hasRoute = !!targetRoute && targetRoute !== "/alerts";
           return (
-            <View style={[styles.row, !item.read && styles.rowUnread]} testID={`alert-${item.id}`}>
-              <TouchableOpacity
-                activeOpacity={0.6}
-                onPress={() => onRowPress(item)}
-                style={styles.rowBody}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}${item.body ? ". " + item.body : ""}`}
-                accessibilityHint={item.read ? undefined : "Marks as read"}
-              >
-                <View style={styles.rowIcon}>
-                  <Ionicons name={ICON_FOR[item.type] ?? "notifications-outline"} size={20} color={colors.brand} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>{item.title}</Text>
-                  {item.body ? <Text style={styles.rowBodyText}>{item.body}</Text> : null}
-                  <Text style={styles.rowTime}>{formatDistanceToNow(parseServerDate(item.created_at) ?? new Date(0), { addSuffix: true })}</Text>
-                </View>
-                {!item.read ? <View style={styles.dot} /> : null}
-              </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.6}
+              onPress={() => onRowPress(item, targetRoute)}
+              style={[styles.row, !item.read && styles.rowUnread]}
+              testID={`alert-${item.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.read ? "" : "Unread. "}${item.title}${item.body ? ". " + item.body : ""}`}
+              accessibilityHint={hasRoute ? "Opens details" : (item.read ? undefined : "Marks as read")}
+            >
+              <View style={styles.rowIcon}>
+                <Ionicons name={ICON_FOR[item.type] ?? "notifications-outline"} size={20} color={colors.brand} />
+              </View>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle} numberOfLines={2}>{item.title}</Text>
+                {item.body ? <Text style={styles.rowBodyText} numberOfLines={3}>{item.body}</Text> : null}
+                <Text style={styles.rowTime}>{formatDistanceToNow(parseServerDate(item.created_at) ?? new Date(0), { addSuffix: true })}</Text>
+              </View>
+              {!item.read ? <View style={styles.dot} /> : null}
               {hasRoute ? (
-                <TouchableOpacity
-                  activeOpacity={0.75}
-                  onPress={() => onOpenPress(item)}
-                  style={styles.openBtn}
-                  testID={`alert-${item.id}-open`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${item.title}`}
-                  hitSlop={8}
-                >
-                  <Text style={styles.openBtnText}>Open</Text>
-                  <Ionicons name="chevron-forward" size={14} color={colors.onBrand} style={{ marginLeft: 2 }} />
-                </TouchableOpacity>
+                <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} style={{ marginLeft: spacing.xs }} />
               ) : null}
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
@@ -306,17 +277,15 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
   markRead: { color: colors.brand, fontWeight: "700" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  // v1.0.165 — Card became a View wrapping two Touchables. `row` is the
-  // container; `rowBody` is the tappable area for mark-as-read; `openBtn`
-  // is the pill-shaped action button on the right that navigates.
-  row: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, paddingLeft: spacing.lg, paddingRight: spacing.md, paddingVertical: spacing.md, marginBottom: spacing.md, gap: spacing.md, ...shadows.card },
-  rowBody: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: spacing.md, paddingVertical: spacing.sm },
+  // v1.0.190 — Row is now a single Touchable (whole-row tap = mark
+  // read + navigate). Removed the separate Open pill; a chevron on
+  // the right hints at tappability when a route exists.
+  row: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, marginBottom: spacing.md, gap: spacing.md, ...shadows.card },
+  rowText: { flex: 1, minWidth: 0 },
   rowUnread: { borderLeftWidth: 3, borderLeftColor: colors.brand },
   rowIcon: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   rowTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   rowBodyText: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
   rowTime: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6 },
-  openBtn: { flexDirection: "row", alignItems: "center", backgroundColor: colors.brand, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, alignSelf: "center" },
-  openBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 13 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6, marginLeft: spacing.xs },
 });

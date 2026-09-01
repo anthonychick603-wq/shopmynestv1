@@ -1,5 +1,52 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.189, versionCode 156)
+Generated: 2026-09-01 UTC (v1.0.190, versionCode 157)
+
+=== v1.0.190 — Approval alert routes to shop setup; one-tap alert rows ===
+
+Bug: The "Your seller application was approved" alert on the Alerts
+screen didn't feel tappable and its title was truncated. Sellers had
+no obvious path from the approval alert into the flow that actually
+finishes onboarding (name, tagline, about).
+
+Root causes:
+  1) The alert row was split into two Touchables — body tap marked
+     read, a separate small pill labeled "Open" navigated. That pill
+     was easy to miss and consumed enough width to truncate long
+     titles.
+  2) `rowTitle` had no `numberOfLines` cap so it either overflowed
+     or clipped depending on width.
+  3) The approved-application route pointed to /seller/dashboard,
+     but the dashboard is not where a fresh seller sets up their shop
+     — /seller/shop-settings is (owns store_name, tagline, about).
+
+Fixes:
+
+  app/(tabs)/(more)/alerts.tsx
+    - Row is now a single TouchableOpacity: tapping ANYWHERE on it
+      marks-as-read AND navigates in one gesture (inbox pattern).
+    - Removed the separate "Open" pill button (dead code path,
+      cleaner layout).
+    - Added a decorative chevron on the right when a route exists,
+      so the affordance is obvious.
+    - `rowTitle` gets `numberOfLines={2}`, `rowBodyText` gets
+      `numberOfLines={3}` — no more clipped titles.
+    - `rowText` gets `minWidth: 0` so the flex child collapses
+      properly next to the icon and chevron.
+
+  src/hooks/use-notification-routing.ts
+    - `seller_application_approved` / `seller_approved` /
+      `application_approved` and any `seller_application_update`
+      with status=approved now route to /seller/shop-settings
+      instead of /seller/dashboard, so an approved seller lands
+      directly on the shop-setup screen where they can enter their
+      shop name, tagline, and about. Non-approved statuses still
+      route back to /seller/apply.
+
+Behaviour parity with push notifications:
+  Push-tap and Alerts-row-tap share `routeForPush()` so the tapping
+  experience is identical on both surfaces.
+
+Typecheck: tsc --noEmit -p tsconfig.json passes clean (0 errors).
 
 === v1.0.189 — Seller-application copy pass ===
 
