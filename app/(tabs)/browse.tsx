@@ -6,10 +6,15 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerListItem } from "@/src/api/nest";
 import { addRecentSearch, loadRecentSearches, clearRecentSearches } from "@/src/utils/recent-searches";
-import { toCategory, toProduct } from "@/src/api/adapters";
+import { toProduct } from "@/src/api/adapters";
+import { MultiCategoryDropdown } from "@/src/components/MultiCategoryDropdown";
+import {
+  toHierarchicalCategory,
+  type HierarchicalCategory,
+} from "@/src/utils/categories";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
-import type { Category, Product } from "@/src/types";
+import type { Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -45,13 +50,22 @@ export default function Browse() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { category: initialCat } = useLocalSearchParams<{ category?: string }>();
+  // v1.0.187 — browse-side filter is multi-select: shoppers can pick any
+  // number of categories AND drill in with sub-category checkboxes.
+  // We preserve the deep-link `?category=<id>` shape by seeding the array
+  // with just that one id.
+  const initialCategoryIds = useMemo(
+    () => (initialCat ? [initialCat] : []),
+    [initialCat],
+  );
   const { user } = useAuth();
   const { addProduct } = useCart();
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
 
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const [category, setCategory] = useState<string | undefined>(initialCat);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialCategoryIds);
+  const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<string[]>([]);
   const [sort, setSort] = useState<SortKey>("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
@@ -59,7 +73,7 @@ export default function Browse() {
   const [size, setSize] = useState("");
   const [brand, setBrand] = useState("");
   const [appliedAttrs, setAppliedAttrs] = useState<{ condition?: string; size?: string; brand?: string }>({});
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<HierarchicalCategory[]>([]);
   // v1.0.44 — Discover shops row. Sorted by product count descending so the
   // most active shops surface first. Fails silently — the row just doesn't
   // render if the endpoint 500s or the seller list is empty.
@@ -83,7 +97,7 @@ export default function Browse() {
     // or the user backed out to another route) cannot call setState on an
     // unmounted native view. Fabric release builds could hard-close on this.
     let alive = true;
-    nest.getCategories().then((cs) => { if (alive) setCategories(cs.map(toCategory)); }).catch(() => {});
+    nest.getCategories().then((cs) => { if (alive) setCategories(cs.map(toHierarchicalCategory)); }).catch(() => {});
     // v1.0.83 — show the first 25 shops here (sorted by product count desc);
     // "See all" opens the searchable directory. Fails silently — the row just
     // doesn't render if the endpoint errors or returns nothing.
@@ -118,9 +132,18 @@ export default function Browse() {
     setError(null);
     setLoading(true);
     try {
+      // v1.0.187 — union the two arrays so WooCommerce's /products endpoint
+      // receives one comma-joined `category` filter (it accepts a CSV of ids).
+      // Sub-category ids are terminal category ids in the tree — filtering by
+      // both sets is a strict AND against the product→category assignment,
+      // which is what shoppers expect when they check both.
+      const combinedCategoryIds = [
+        ...selectedCategoryIds,
+        ...selectedSubcategoryIds,
+      ];
       const res = await nest.getProducts({
         per_page: 50,
-        category: category || undefined,
+        category: combinedCategoryIds.length > 0 ? combinedCategoryIds.join(",") : undefined,
         search: submitted || undefined,
         sort: sort || undefined,
         min_price: minPrice || undefined,
@@ -149,7 +172,7 @@ export default function Browse() {
         setRefreshing(false);
       }
     }
-  }, [category, submitted, sort, minPrice, maxPrice, appliedAttrs]);
+  }, [selectedCategoryIds, selectedSubcategoryIds, submitted, sort, minPrice, maxPrice, appliedAttrs]);
 
   useEffect(() => {
     load();
@@ -210,9 +233,13 @@ export default function Browse() {
       setSubmitted(effectiveSearch);
       addRecentSearch(effectiveSearch).then(loadRecentSearches).catch(() => {});
     }
+    const combinedCategoryIds = [
+      ...selectedCategoryIds,
+      ...selectedSubcategoryIds,
+    ];
     const hasAnyCriteria =
       !!effectiveSearch ||
-      !!category ||
+      combinedCategoryIds.length > 0 ||
       !!appliedAttrs.condition ||
       !!appliedAttrs.size ||
       !!appliedAttrs.brand ||
@@ -226,7 +253,7 @@ export default function Browse() {
     try {
       await nest.saveSearch({
         search: effectiveSearch || undefined,
-        category: category || undefined,
+        category: combinedCategoryIds.length > 0 ? combinedCategoryIds.join(",") : undefined,
         sort: sort || undefined,
         min_price: minPrice || undefined,
         max_price: maxPrice || undefined,
@@ -250,7 +277,8 @@ export default function Browse() {
   const hasAnyCriteria =
     !!submitted ||
     !!search.trim() ||
-    !!category ||
+    selectedCategoryIds.length > 0 ||
+    selectedSubcategoryIds.length > 0 ||
     !!appliedAttrs.condition ||
     !!appliedAttrs.size ||
     !!appliedAttrs.brand ||
@@ -310,18 +338,22 @@ export default function Browse() {
         </View>
       ) : null}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow} keyboardShouldPersistTaps="handled">
-        <CategoryChip label="All" selected={!category} onPress={() => { haptics.tap(); setCategory(undefined); }} testID="cat-all" />
-        {categories.map((c) => (
-          <CategoryChip
-            key={c.id}
-            label={c.name}
-            selected={category === c.id}
-            onPress={() => { haptics.tap(); setCategory(c.id === category ? undefined : c.id); }}
-            testID={`cat-${c.id}`}
-          />
-        ))}
-      </ScrollView>
+      {/* v1.0.187 — chained multi-select dropdowns replace the horizontal
+          chip strip. Buyers can pick any number of categories, then drill
+          in with sub-category checkboxes for tighter filtering. */}
+      <View style={styles.dropdownWrap}>
+        <MultiCategoryDropdown
+          categories={categories}
+          selectedCategoryIds={selectedCategoryIds}
+          selectedSubcategoryIds={selectedSubcategoryIds}
+          onChange={(catIds, subIds) => {
+            haptics.tap();
+            setSelectedCategoryIds(catIds);
+            setSelectedSubcategoryIds(subIds);
+          }}
+          testIDPrefix="browse-cats"
+        />
+      </View>
 
       {shops.length > 0 ? (
         <View style={styles.shopsBlock}>
@@ -378,7 +410,7 @@ export default function Browse() {
         </View>
       </View>
     </View>
-  ), [search, category, categories, total, activeFilters, shops, recent, hasAnyCriteria, savingAlert]);
+  ), [search, selectedCategoryIds, selectedSubcategoryIds, categories, total, activeFilters, shops, recent, hasAnyCriteria, savingAlert]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -467,20 +499,6 @@ export default function Browse() {
   );
 }
 
-function CategoryChip({ label, selected, onPress, testID }: { label: string; selected: boolean; onPress: () => void; testID?: string }) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      testID={testID}
-      style={[styles.chip, selected && styles.chipSelected]}
-      accessibilityRole="button"
-      accessibilityLabel={`${label} category${selected ? ", selected" : ""}`}
-    >
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -489,11 +507,10 @@ const styles = StyleSheet.create({
   searchWrap: { marginHorizontal: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.md, flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: spacing.sm, ...shadows.card },
   searchWrapFlex: { flex: 1, marginHorizontal: 0, marginTop: 0, marginBottom: 0 },
   searchInput: { flex: 1, fontSize: 15, color: colors.onSurface, paddingVertical: 6 },
-  chipsRow: { paddingHorizontal: spacing.lg, gap: spacing.sm, paddingBottom: spacing.sm, height: 56, alignItems: "center" },
-  chip: { flexShrink: 0, height: 36, paddingHorizontal: spacing.lg, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, justifyContent: "center", borderWidth: 1, borderColor: colors.border },
-  chipSelected: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { color: colors.onSurface, fontSize: 13, fontWeight: "700" },
-  chipTextSelected: { color: colors.onBrand },
+  // v1.0.187 — the category-chip strip was replaced by MultiCategoryDropdown;
+  // its styles were removed along with the CategoryChip helper. `dropdownWrap`
+  // is the horizontal padding around the dropdown block inside the sticky header.
+  dropdownWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.xs },
   controlsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
   count: { color: colors.onSurfaceMuted, fontSize: 13, fontWeight: "700" },
   controlBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.surfaceSecondary, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, ...shadows.card },

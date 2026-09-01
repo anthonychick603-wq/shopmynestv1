@@ -1,6 +1,70 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.181, versionCode 149)
-(versionCode bumped from 147 to 149 for EAS build — Play Console
+Generated: 2026-09-01 UTC (v1.0.187, versionCode 154)
+
+=== v1.0.187 — Native OS dropdown category pickers ===
+
+Feature refinement: replace chip-grid category selection with chained
+native OS dropdowns across every surface that picks or filters by
+category.
+
+Design (per user):
+  - Two chained dropdowns: category → sub-category (sub only appears
+    after a category is picked).
+  - Native OS picker feel: iOS wheel inside a bottom-sheet with a
+    Cancel/Done header; Android scrollable list of tap-to-select rows
+    in the same sheet frame — matches platform expectations without
+    needing a native single-select popover on Android.
+  - Single-select on seller-side surfaces (a product has one category).
+  - Multi-select checkboxes on buyer-side browse (a shopper can filter
+    by any number of categories AND sub-categories at once).
+  - All surfaces updated: seller/apply, seller/product-form,
+    seller/[id] (shop view), browse.
+
+Components:
+  - src/components/NativeCategoryDropdown.tsx (new, 531 LOC).
+    Single-select primitive. Two chained dropdown fields, each opening
+    a bottom-sheet modal. Uses @react-native-picker/picker (2.11.1,
+    already installed) for the iOS wheel; renders a scrollable
+    checkmark-row list on Android for tap-to-commit selection.
+    "All categories" mode when allowAll={true}.
+  - src/components/MultiCategoryDropdown.tsx (new, 556 LOC).
+    Multi-select primitive for browse. Same field/sheet frame, but
+    each row is a checkbox toggle. Sub-category sheet groups options
+    under their parent category (SECTION HEADER: parent name) and
+    only shows sub-categories under currently-checked parents; if a
+    parent gets unchecked, its child selections are pruned.
+  - src/components/CategorySubcategoryPicker.tsx (rewritten as shim).
+    Delegates to NativeCategoryDropdown. Same public API as v1.0.179,
+    so the three seller call sites (apply.tsx, product-form.tsx,
+    seller/[id].tsx) required no changes.
+
+Wiring:
+  - app/(tabs)/browse.tsx:
+      * State: `category: string | undefined` →
+        `selectedCategoryIds: string[]` + `selectedSubcategoryIds: string[]`.
+      * `categories` state: `Category[]` → `HierarchicalCategory[]`
+        (needed for parent/child relations).
+      * `nest.getProducts` query: `category` now receives a
+        comma-joined CSV of IDs (WooCommerce's /products endpoint
+        accepts CSV in the `category` query param).
+      * `nest.saveSearch` (alert save) uses the same CSV encoding.
+      * `hasAnyCriteria` checks use array length instead of truthiness.
+      * Deep-link `?category=<id>` still works: seeds the array with
+        that one id.
+      * Removed: the horizontal CategoryChip scroll strip and its
+        associated helper component/styles.
+
+Accessibility:
+  - Every field is `accessibilityRole="button"` with a descriptive
+    label reporting current selection.
+  - Every sheet row on multi-select uses `accessibilityRole="checkbox"`
+    with `accessibilityState.checked`.
+  - Every sheet row on single-select uses `accessibilityState.selected`.
+  - hitSlop 8pt on every icon-only touch target inside the sheet
+    headers (Cancel/Done/Clear).
+
+Typecheck: tsc --noEmit -p tsconfig.json passes clean (0 errors).
+
 reported 148 was already consumed by a prior build run, so we skip
 past it. App version 1.0.181 unchanged; no user-visible changes.)
 
