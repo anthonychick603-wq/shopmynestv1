@@ -153,14 +153,14 @@ export default function PostComments() {
               accessibilityRole="button"
               accessibilityLabel="Send comment"
               accessibilityState={{ disabled: !draft.trim() || sending }}
-            >
+             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               {sending ? <ActivityIndicator color={colors.onBrand} size="small" /> : <Ionicons name="send" size={18} color={colors.onBrand} />}
             </TouchableOpacity>
           </View>
         ) : (
           <View style={[styles.signIn, { paddingBottom: spacing.sm }]}>
             <Text style={styles.signInText}>Sign in to join the conversation.</Text>
-            <TouchableOpacity style={styles.signInBtn} onPress={() => { haptics.tap(); router.push("/(auth)/login"); }} testID="comments-signin">
+            <TouchableOpacity style={styles.signInBtn} onPress={() => { haptics.tap(); router.push("/(auth)/login"); }} testID="comments-signin" accessibilityRole="button">
               <Text style={styles.signInBtnText}>Sign in</Text>
             </TouchableOpacity>
           </View>

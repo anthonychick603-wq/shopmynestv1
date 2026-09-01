@@ -187,7 +187,7 @@ export default function BlogPostDetail() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="blog-detail-back" accessibilityRole="button" accessibilityLabel="Go back">
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="blog-detail-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>Post</Text>
@@ -348,7 +348,7 @@ export default function BlogPostDetail() {
               accessibilityRole="button"
               accessibilityLabel={editingId !== null ? "Save changes" : "Send comment"}
               accessibilityState={{ disabled: !draft.trim() || sending }}
-            >
+             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               {sending ? (
                 <ActivityIndicator color={colors.onBrand} size="small" />
               ) : (
@@ -359,7 +359,7 @@ export default function BlogPostDetail() {
         ) : (
           <View style={[styles.signIn, { paddingBottom: spacing.sm }]}>
             <Text style={styles.signInText}>Sign in to join the conversation.</Text>
-            <TouchableOpacity style={styles.signInBtn} onPress={() => router.push("/(auth)/login")} testID="blog-comments-signin">
+            <TouchableOpacity style={styles.signInBtn} onPress={() => router.push("/(auth)/login")} testID="blog-comments-signin" accessibilityRole="button">
               <Text style={styles.signInBtnText}>Sign in</Text>
             </TouchableOpacity>
           </View>

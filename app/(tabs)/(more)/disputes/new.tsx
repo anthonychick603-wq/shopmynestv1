@@ -129,7 +129,7 @@ export default function NewDispute() {
         {REASONS.map((r) => {
           const selected = reason === r.slug;
           return (
-            <TouchableOpacity key={r.slug} style={[styles.reasonRow, selected && styles.reasonRowSelected]} onPress={() => { haptics.tap(); setReason(r.slug); }} testID={`dispute-reason-${r.slug}`}>
+            <TouchableOpacity key={r.slug} style={[styles.reasonRow, selected && styles.reasonRowSelected]} onPress={() => { haptics.tap(); setReason(r.slug); }} testID={`dispute-reason-${r.slug}`} accessibilityRole="button">
               <Text style={[styles.reasonText, selected && { color: colors.brand, fontWeight: "800" }]}>{r.label}</Text>
               <Ionicons name={selected ? "radio-button-on" : "radio-button-off"} size={20} color={selected ? colors.brand : colors.onSurfaceMuted} />
             </TouchableOpacity>
@@ -160,7 +160,7 @@ export default function NewDispute() {
                   onPress={() => setEvidence((cur) => cur.filter((_, i) => i !== index))}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove evidence photo ${index + 1}`}
-                >
+                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="close" size={14} color={colors.onBrand} />
                 </TouchableOpacity>
               </View>
@@ -168,13 +168,13 @@ export default function NewDispute() {
           </View>
         ) : null}
         {evidence.length < 5 ? (
-          <TouchableOpacity style={styles.addEvidenceBtn} onPress={addEvidence} testID="dispute-add-evidence">
+          <TouchableOpacity style={styles.addEvidenceBtn} onPress={addEvidence} testID="dispute-add-evidence" accessibilityRole="button">
             <Ionicons name="images-outline" size={18} color={colors.brand} />
             <Text style={styles.addEvidenceText}>{evidence.length ? "Add another photo" : "Add evidence photos"}</Text>
           </TouchableOpacity>
         ) : null}
 
-        <TouchableOpacity style={styles.checkRow} onPress={() => { haptics.tap(); setContacted((c) => !c); }} testID="dispute-contacted">
+        <TouchableOpacity style={styles.checkRow} onPress={() => { haptics.tap(); setContacted((c) => !c); }} testID="dispute-contacted" accessibilityRole="button">
           <Ionicons name={contacted ? "checkbox" : "square-outline"} size={22} color={contacted ? colors.brand : colors.onSurfaceMuted} />
           <Text style={styles.checkText}>I already contacted the seller about this</Text>
         </TouchableOpacity>

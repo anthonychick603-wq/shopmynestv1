@@ -42,14 +42,14 @@ export default function SellerReviewsInbox() {
 
   if (loading) return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
   return <SafeAreaView style={styles.safe} edges={["top"]}>
-    <View style={styles.top}><TouchableOpacity onPress={() => safeBack(router, "/seller/dashboard")} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.title}>Product reviews</Text><View style={styles.topBtn} /></View>
+    <View style={styles.top}><TouchableOpacity onPress={() => safeBack(router, "/seller/dashboard")} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.title}>Product reviews</Text><View style={styles.topBtn} /></View>
     {error ? <EmptyState icon="cloud-offline-outline" title="Couldn't load reviews" message={error} actionLabel="Retry" onAction={() => { setLoading(true); load(1); }} /> : <FlatList
       data={items} keyExtractor={(item) => String(item.id)}
       contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
       refreshControl={<RefreshControl refreshing={false} onRefresh={() => load(1)} tintColor={colors.brand} colors={[colors.brand]} />}
       renderItem={({ item }) => <ReviewRow item={item} onRespond={() => setActive(item)} />}
       ListEmptyComponent={<EmptyState icon="star-outline" title="No product reviews yet" message="New verified-purchase reviews will appear here." />}
-      ListFooterComponent={page < totalPages ? <TouchableOpacity style={styles.more} disabled={loadingMore} onPress={() => { setLoadingMore(true); load(page + 1); }}>{loadingMore ? <ActivityIndicator color={colors.brand} /> : <Text style={styles.moreText}>Load more</Text>}</TouchableOpacity> : null}
+      ListFooterComponent={page < totalPages ? <TouchableOpacity style={styles.more} disabled={loadingMore} onPress={() => { setLoadingMore(true); load(page + 1); }} accessibilityRole="button">{loadingMore ? <ActivityIndicator color={colors.brand} /> : <Text style={styles.moreText}>Load more</Text>}</TouchableOpacity> : null}
     />}
     {active ? <ResponseModal item={active} onClose={() => setActive(null)} onSaved={(updated) => { setItems((current) => current.map((item) => item.id === updated.id ? updated : item)); setActive(null); }} /> : null}
   </SafeAreaView>;
@@ -60,7 +60,7 @@ function ReviewRow({ item, onRespond }: { item: ProductReview; onRespond: () => 
     <Text style={styles.product}>{decodeEntities(item.product_name || "Product")}</Text>
     <Text style={styles.buyer}>{decodeEntities(item.reviewer?.display_name || "Buyer")} · <Text style={styles.stars}>{"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}</Text></Text>
     {item.review ? <Text style={styles.review}>{decodeEntities(item.review)}</Text> : null}
-    {item.seller_response ? <View style={styles.response}><Text style={styles.responseTitle}>Your response</Text><Text style={styles.responseText}>{decodeEntities(item.seller_response)}</Text></View> : <TouchableOpacity style={styles.respond} onPress={onRespond}><Text style={styles.respondText}>Respond</Text></TouchableOpacity>}
+    {item.seller_response ? <View style={styles.response}><Text style={styles.responseTitle}>Your response</Text><Text style={styles.responseText}>{decodeEntities(item.seller_response)}</Text></View> : <TouchableOpacity style={styles.respond} onPress={onRespond} accessibilityRole="button"><Text style={styles.respondText}>Respond</Text></TouchableOpacity>}
   </View>;
 }
 
@@ -77,7 +77,7 @@ function ResponseModal({ item, onClose, onSaved }: { item: ProductReview; onClos
       toast.error(e instanceof ApiError ? e.friendly : "Couldn't post your response.");
     } finally { setSaving(false); }
   };
-  return <Modal transparent animationType="fade" visible onRequestClose={onClose}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.sheetTop}><Text style={styles.sheetTitle}>Respond to review</Text><TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color={colors.onSurface} /></TouchableOpacity></View><TextInput style={styles.input} value={response} onChangeText={(value) => setResponse(value.slice(0, 2000))} multiline maxLength={2000} placeholder="Write a helpful response…" placeholderTextColor={colors.onSurfaceMuted} /><Text style={styles.counter}>{response.length}/2000</Text><Button title="Post response" onPress={submit} loading={saving} disabled={!response.trim() || saving} /></View></View></Modal>;
+  return <Modal transparent animationType="fade" visible onRequestClose={onClose}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.sheetTop}><Text style={styles.sheetTitle}>Respond to review</Text><TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={22} color={colors.onSurface} /></TouchableOpacity></View><TextInput style={styles.input} value={response} onChangeText={(value) => setResponse(value.slice(0, 2000))} multiline maxLength={2000} placeholder="Write a helpful response…" placeholderTextColor={colors.onSurfaceMuted} /><Text style={styles.counter}>{response.length}/2000</Text><Button title="Post response" onPress={submit} loading={saving} disabled={!response.trim() || saving} /></View></View></Modal>;
 }
 
 const styles = StyleSheet.create({

@@ -136,7 +136,7 @@ export default function Register() {
           {err ? <Text style={styles.err}>{err}</Text> : null}
 
           <Button title="Send verification code" onPress={submit} loading={loading} testID="register-submit" style={{ marginTop: spacing.md }} />
-          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/login"); }} style={{ marginTop: spacing.lg }} testID="register-goto-login">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/login"); }} style={{ marginTop: spacing.lg }} testID="register-goto-login" accessibilityRole="button">
             <Text style={styles.link}>Already have an account? Sign in</Text>
           </TouchableOpacity>
         </KeyboardAwareScroll>

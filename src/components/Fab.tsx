@@ -33,7 +33,7 @@ export function Fab({ icon = "add", onPress, accessibilityLabel, testID, bottomO
         accessibilityLabel={accessibilityLabel}
         testID={testID}
         activeOpacity={0.85}
-      >
+       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name={icon} size={26} color={colors.onBrand} />
       </TouchableOpacity>
     </View>

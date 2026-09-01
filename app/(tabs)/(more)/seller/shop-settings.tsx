@@ -147,7 +147,7 @@ export default function ShopSettings() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity style={styles.topBtn} onPress={() => { haptics.tap(); onBack(); }} accessibilityRole="button" accessibilityLabel="Go back">
+      <TouchableOpacity style={styles.topBtn} onPress={() => { haptics.tap(); onBack(); }} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Shop settings</Text>

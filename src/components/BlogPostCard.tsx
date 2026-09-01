@@ -129,7 +129,7 @@ export function BlogPostCard({
                 hitSlop={8}
                 style={styles.metaChip}
                 testID={`blog-card-favorite-${post.id}`}
-              >
+               accessibilityRole="button">
                 <Ionicons
                   name={isFavorite ? "heart" : "heart-outline"}
                   size={16}

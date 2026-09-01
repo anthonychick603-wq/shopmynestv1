@@ -86,7 +86,7 @@ export default function SavedSearchesScreen() {
     const summary = summariseQuery(item);
     return (
       <View style={styles.row}>
-        <TouchableOpacity style={styles.rowMain} onPress={() => { haptics.tap(); onOpen(item); }} testID={`saved-search-${item.id}`}>
+        <TouchableOpacity style={styles.rowMain} onPress={() => { haptics.tap(); onOpen(item); }} testID={`saved-search-${item.id}`} accessibilityRole="button">
           <Ionicons name="search-outline" size={18} color={colors.onSurfaceMuted} />
           <View style={{ flex: 1 }}>
             <Text style={styles.label} numberOfLines={1}>{item.label}</Text>
@@ -110,7 +110,7 @@ export default function SavedSearchesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.topBtn} testID="saved-searches-back" accessibilityRole="button" accessibilityLabel="Go back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.topBtn} testID="saved-searches-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Saved searches</Text>

@@ -511,7 +511,7 @@ export default function Cart() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top title="Cart" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 220 + insets.bottom }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 220 + insets.bottom }} keyboardShouldPersistTaps="handled">
         {/* Shipping to */}
         {address ? (
           <View style={styles.addrCard} testID="cart-address">
@@ -521,12 +521,12 @@ export default function Cart() {
               <Text style={styles.addrName}>{[address.first_name, address.last_name].filter(Boolean).join(" ") || "Recipient"}</Text>
               <Text style={styles.addrLine}>{formatAddress(address)}</Text>
             </View>
-            <TouchableOpacity onPress={openAddressPicker} testID="cart-address-edit">
+            <TouchableOpacity onPress={openAddressPicker} testID="cart-address-edit" accessibilityRole="button">
               <Text style={styles.addrEdit}>Change</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity style={styles.addrPrompt} onPress={openAddressPicker} testID="cart-address-add" activeOpacity={0.85}>
+          <TouchableOpacity style={styles.addrPrompt} onPress={openAddressPicker} testID="cart-address-add" activeOpacity={0.85} accessibilityRole="button">
             <View style={styles.addrIcon}><Ionicons name="location-outline" size={18} color={colors.brand} /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.addrName}>Add a shipping address</Text>
@@ -543,18 +543,18 @@ export default function Cart() {
               <Text style={styles.itemTitle} numberOfLines={2}>{it.product.title}</Text>
               <Text style={styles.itemSeller}>by {it.product.seller?.name ?? "My Nest"}</Text>
               <View style={styles.qtyRow}>
-                <TouchableOpacity onPress={() => { haptics.tap(); updateItem(idx, Math.max(0, it.quantity - 1)); }} style={styles.qtyBtn} testID={`cart-qty-dec-${idx}`} accessibilityLabel={`Decrease quantity of ${it.product.title}`}>
+                <TouchableOpacity onPress={() => { haptics.tap(); updateItem(idx, Math.max(0, it.quantity - 1)); }} style={styles.qtyBtn} testID={`cart-qty-dec-${idx}`} accessibilityLabel={`Decrease quantity of ${it.product.title}`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                   <Ionicons name="remove" size={16} color={colors.onSurface} />
                 </TouchableOpacity>
                 <Text style={styles.qtyText}>{it.quantity}</Text>
-                <TouchableOpacity onPress={() => { haptics.tap(); updateItem(idx, it.quantity + 1); }} style={styles.qtyBtn} testID={`cart-qty-inc-${idx}`} accessibilityLabel={`Increase quantity of ${it.product.title}`}>
+                <TouchableOpacity onPress={() => { haptics.tap(); updateItem(idx, it.quantity + 1); }} style={styles.qtyBtn} testID={`cart-qty-inc-${idx}`} accessibilityLabel={`Increase quantity of ${it.product.title}`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                   <Ionicons name="add" size={16} color={colors.onSurface} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }} />
                 <Text style={styles.itemPrice}>${it.line_total.toFixed(2)}</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={() => { haptics.warning(); removeItem(idx); }} testID={`cart-remove-${idx}`} style={styles.removeBtn} accessibilityLabel={`Remove ${it.product.title} from cart`}>
+            <TouchableOpacity onPress={() => { haptics.warning(); removeItem(idx); }} testID={`cart-remove-${idx}`} style={styles.removeBtn} accessibilityLabel={`Remove ${it.product.title} from cart`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
               <Ionicons name="trash-outline" size={18} color={colors.error} />
             </TouchableOpacity>
           </View>
@@ -608,7 +608,7 @@ export default function Cart() {
           </View>
         ) : null}
 
-        <View style={styles.couponCard}>
+        <View style={styles.couponCard} accessibilityRole="button">
           <Text style={styles.couponLabel}>Promo code</Text>
           {appliedCoupon ? (
             <View style={styles.couponAppliedRow}>
@@ -631,7 +631,7 @@ export default function Cart() {
                 }}
                 accessibilityLabel="Remove coupon"
                 style={styles.couponRemoveBtn}
-              >
+               accessibilityRole="button">
                 <Text style={styles.couponRemoveText}>Remove</Text>
               </TouchableOpacity>
             </View>
@@ -657,7 +657,7 @@ export default function Cart() {
                 }}
                 style={styles.couponApplyBtn}
                 accessibilityLabel="Apply coupon"
-              >
+               accessibilityRole="button">
                 <Text style={styles.couponApplyText}>Apply</Text>
               </TouchableOpacity>
             </View>
@@ -729,7 +729,7 @@ export default function Cart() {
           testID="cart-checkout"
           accessibilityState={{ disabled: paying || !canCheckout }}
           accessibilityLabel={canCheckout ? "Checkout" : "Complete your shipping details to check out"}
-        >
+         accessibilityRole="button">
           {paying ? (
             <ActivityIndicator color={colors.onBrand} />
           ) : (
@@ -831,7 +831,7 @@ function AddressFormModal({
         <View style={[styles.modalSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Shipping address</Text>
-            <TouchableOpacity onPress={onCancel} testID="address-form-cancel" accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={24} color={colors.onSurface} /></TouchableOpacity>
+            <TouchableOpacity onPress={onCancel} testID="address-form-cancel" accessibilityRole="button" accessibilityLabel="Close" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="close" size={24} color={colors.onSurface} /></TouchableOpacity>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.lg }}>
             <Field label="Full name" value={fullName} onChangeText={setFullName} testID="address-full-name" autoCapitalize="words" />
@@ -850,7 +850,7 @@ function AddressFormModal({
             onPress={submit}
             disabled={!canSave}
             testID="address-form-save"
-          >
+           accessibilityRole="button">
             <Text style={styles.checkoutText}>Save address</Text>
           </TouchableOpacity>
         </View>

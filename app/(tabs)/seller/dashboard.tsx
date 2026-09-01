@@ -177,7 +177,7 @@ export default function SellerDashboard() {
             colors={[colors.brand]}
           />
         }
-      >
+       keyboardShouldPersistTaps="handled">
         <Text style={styles.hello}>Hi {user.name.split(" ")[0]},</Text>
         <Text style={styles.shopName}>{user.seller_profile?.shop_name ?? "Your shop"}</Text>
 
@@ -296,7 +296,7 @@ export default function SellerDashboard() {
                 pushFromTab(router, `/order/${o.id}`);
               }}
               testID={`dash-order-${o.id}`}
-            >
+             accessibilityRole="button">
               <View style={{ flex: 1 }}>
                 <Text style={styles.orderId}>#{o.id}</Text>
                 <StatusPill status={o.status} />
@@ -328,7 +328,7 @@ export default function SellerDashboard() {
                   testID="dash-oos-link"
                   accessibilityLabel={`View ${oosCount} out of stock items`}
                   style={styles.oosLink}
-                >
+                 accessibilityRole="button">
                   <Ionicons name="alert-circle" size={14} color={colors.error} />
                   <Text style={styles.oosLinkText}>Out of stock ({oosCount})</Text>
                   <Ionicons name="chevron-forward" size={14} color={colors.error} />
@@ -379,7 +379,7 @@ export default function SellerDashboard() {
                     }}
                     testID={`dash-edit-${p.id}`}
                     accessibilityLabel={`Edit ${p.title}`}
-                  >
+                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                     <Ionicons name="create-outline" size={18} color={colors.onSurface} />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -390,7 +390,7 @@ export default function SellerDashboard() {
                     }}
                     testID={`dash-boost-${p.id}`}
                     accessibilityLabel={`Boost ${p.title}`}
-                  >
+                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                     <Ionicons name="rocket-outline" size={18} color={colors.brand} />
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -398,7 +398,7 @@ export default function SellerDashboard() {
                     onPress={() => confirmDelete(p)}
                     testID={`dash-delete-${p.id}`}
                     accessibilityLabel={`Delete ${p.title}`}
-                  >
+                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                     <Ionicons name="trash-outline" size={18} color={colors.error} />
                   </TouchableOpacity>
                 </View>
@@ -453,7 +453,7 @@ function Stat({
       disabled={!onPress}
       activeOpacity={0.7}
       testID={testID}
-    >
+     accessibilityRole="button">
       <View style={styles.statIconWrap}>
         <Ionicons name={icon} size={18} color={colors.brand} />
       </View>
@@ -490,7 +490,7 @@ function ActionTile({
       }}
       activeOpacity={0.75}
       testID={testID}
-    >
+     accessibilityRole="button">
       <View style={styles.actionIconWrap}>
         <Ionicons name={icon} size={20} color={colors.brand} />
       </View>

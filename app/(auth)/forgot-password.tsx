@@ -90,7 +90,7 @@ export default function ForgotPassword() {
             testID="forgot-submit"
             style={{ marginTop: spacing.md }}
           />
-          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/login"); }} style={{ marginTop: spacing.lg }} testID="forgot-goto-login">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/login"); }} style={{ marginTop: spacing.lg }} testID="forgot-goto-login" accessibilityRole="button">
             <Text style={styles.link}>Back to sign in</Text>
           </TouchableOpacity>
         </KeyboardAwareScroll>

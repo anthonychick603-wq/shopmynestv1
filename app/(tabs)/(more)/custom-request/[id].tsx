@@ -199,7 +199,7 @@ function MessageRow({ message }: { message: NestCustomRequestMessageRaw }) {
 }
 
 function Composer({ value, onChange, onSend, disabled }: { value: string; onChange: (value: string) => void; onSend: () => void; disabled: boolean }) {
-  return <View style={styles.composer}><TextInput value={value} onChangeText={onChange} placeholder="Write a message…" placeholderTextColor={colors.onSurfaceMuted} multiline style={styles.composerInput} testID="custom-request-message" /><TouchableOpacity style={[styles.sendButton, disabled && styles.sendButtonDisabled]} onPress={() => { haptics.tap(); onSend(); }} disabled={disabled} testID="custom-request-send" accessibilityLabel="Send message" accessibilityRole="button"><Ionicons name="send" size={18} color={colors.onBrand} /></TouchableOpacity></View>;
+  return <View style={styles.composer}><TextInput value={value} onChangeText={onChange} placeholder="Write a message…" placeholderTextColor={colors.onSurfaceMuted} multiline style={styles.composerInput} testID="custom-request-message" /><TouchableOpacity style={[styles.sendButton, disabled && styles.sendButtonDisabled]} onPress={() => { haptics.tap(); onSend(); }} disabled={disabled} testID="custom-request-send" accessibilityLabel="Send message" accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="send" size={18} color={colors.onBrand} /></TouchableOpacity></View>;
 }
 
 function QuoteModal({ visible, price, leadDays, note, working, onPrice, onLeadDays, onNote, onClose, onSubmit }: { visible: boolean; price: string; leadDays: string; note: string; working: boolean; onPrice: (value: string) => void; onLeadDays: (value: string) => void; onNote: (value: string) => void; onClose: () => void; onSubmit: () => void }) {
@@ -211,7 +211,7 @@ function DeclineModal({ visible, reason, working, onReason, onClose, onSubmit }:
 }
 
 function Top({ title, onBack }: { title: string; onBack: () => void }) {
-  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="custom-request-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle} numberOfLines={1}>{title}</Text><View style={styles.headerActions}><AlertsBellButton /><CartHeaderButton /></View></View>;
+  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="custom-request-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle} numberOfLines={1}>{title}</Text><View style={styles.headerActions}><AlertsBellButton /><CartHeaderButton /></View></View>;
 }
 
 function actionFor({ status, isBuyer, onWithdraw, onAccept, onPay, onQuote, onDecline }: { status: NestCustomRequestStatus; isBuyer: boolean; onWithdraw: () => void; onAccept: () => void; onPay: () => void; onQuote: () => void; onDecline: () => void }) {

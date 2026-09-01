@@ -69,7 +69,7 @@ export default function DisputesList() {
           renderItem={({ item }) => {
             const s = statusStyle(item.status);
             return (
-              <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); pushDetail(router, `/disputes/${item.id}`); }} testID={`dispute-row-${item.id}`}>
+              <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); pushDetail(router, `/disputes/${item.id}`); }} testID={`dispute-row-${item.id}`} accessibilityRole="button">
                 <View style={{ flex: 1 }}>
                   <Text style={styles.rowTitle}>Order #{item.order_id}</Text>
                   <Text style={styles.rowReason} numberOfLines={1}>{item.description || item.reason}</Text>

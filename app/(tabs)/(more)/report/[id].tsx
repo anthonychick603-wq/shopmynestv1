@@ -64,10 +64,10 @@ export default function ReportItem() {
           <Text style={styles.topTitle}>{headerTitle}</Text>
           <AlertsBellButton />
         </View>
-        <ScrollView contentContainerStyle={{ padding: spacing.lg }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
           <Text style={styles.body}>{"Tell us what's wrong — our team will review your report."}</Text>
           {REASONS.map((r) => (
-            <TouchableOpacity key={r.id} onPress={() => { haptics.tap(); setReason(r.id); }} style={[styles.row, reason === r.id && styles.rowActive]} testID={`report-reason-${r.id}`}>
+            <TouchableOpacity key={r.id} onPress={() => { haptics.tap(); setReason(r.id); }} style={[styles.row, reason === r.id && styles.rowActive]} testID={`report-reason-${r.id}`} accessibilityRole="button">
               <Ionicons name={reason === r.id ? "radio-button-on" : "radio-button-off"} size={22} color={reason === r.id ? colors.brand : colors.onSurfaceMuted} />
               <Text style={styles.rowLabel}>{r.label}</Text>
             </TouchableOpacity>

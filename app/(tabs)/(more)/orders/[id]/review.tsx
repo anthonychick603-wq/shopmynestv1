@@ -102,7 +102,7 @@ export default function ProductReviewComposer() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, `/order/${orderId}`)} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back">
+        <TouchableOpacity onPress={() => safeBack(router, `/order/${orderId}`)} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Leave a review</Text>
@@ -114,7 +114,7 @@ export default function ProductReviewComposer() {
         <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>Which item would you like to review?</Text>
           {products.length === 0 ? <EmptyState icon="star-outline" title="Nothing to review yet" message="All eligible products in this completed order have already been reviewed." /> : products.map((product) => (
-            <TouchableOpacity key={product.product_id} disabled={product.already_reviewed} style={[styles.productRow, product.already_reviewed && { opacity: 0.55 }]} onPress={() => setSelected(product)}>
+            <TouchableOpacity key={product.product_id} disabled={product.already_reviewed} style={[styles.productRow, product.already_reviewed && { opacity: 0.55 }]} onPress={() => setSelected(product)} accessibilityRole="button">
               {product.image ? <Image source={{ uri: product.image }} style={styles.productImage} /> : <View style={styles.productImage} />}
               <View style={{ flex: 1 }}><Text style={styles.productName}>{product.name}</Text><Text style={styles.productMeta}>{product.already_reviewed ? "Already reviewed" : "Leave a review"}</Text></View>
               <Ionicons name={product.already_reviewed ? "checkmark-circle" : "chevron-forward"} size={20} color={product.already_reviewed ? colors.success : colors.onSurfaceMuted} />
@@ -123,17 +123,17 @@ export default function ProductReviewComposer() {
         </ScrollView>
       ) : (
         <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.selectedProduct} onPress={() => !initialProductId && setSelected(null)}>
+          <TouchableOpacity style={styles.selectedProduct} onPress={() => !initialProductId && setSelected(null)} accessibilityRole="button">
             <Text style={styles.selectedLabel}>Reviewing</Text><Text style={styles.productName}>{selected.name}</Text>
           </TouchableOpacity>
           {selected.already_reviewed ? <EmptyState icon="checkmark-circle-outline" title="Already reviewed" message="You already reviewed this product from this order." /> : <>
             <Text style={styles.label}>Your rating</Text>
-            <View style={styles.stars}>{[1, 2, 3, 4, 5].map((star) => <TouchableOpacity key={star} onPress={() => { haptics.tap(); setRating(star); }} accessibilityLabel={`${star} stars`}><Ionicons name={star <= rating ? "star" : "star-outline"} size={36} color={colors.brand} /></TouchableOpacity>)}</View>
+            <View style={styles.stars}>{[1, 2, 3, 4, 5].map((star) => <TouchableOpacity key={star} onPress={() => { haptics.tap(); setRating(star); }} accessibilityLabel={`${star} stars`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button"><Ionicons name={star <= rating ? "star" : "star-outline"} size={36} color={colors.brand} /></TouchableOpacity>)}</View>
             <Text style={styles.label}>Your review</Text>
             <TextInput style={styles.input} value={review} onChangeText={(value) => setReview(value.slice(0, 2000))} multiline maxLength={2000} placeholder="Tell other buyers about this product…" placeholderTextColor={colors.onSurfaceMuted} />
             <Text style={styles.counter}>{review.length}/2000</Text>
-            <View style={styles.photoHeader}><Text style={styles.label}>Photos (optional)</Text><TouchableOpacity onPress={pickPhotos}><Text style={styles.photoAction}>Add photos</Text></TouchableOpacity></View>
-            <View style={styles.photos}>{photos.map((photo, index) => <View key={`${photo.uri}-${index}`} style={styles.photoTile}><Image source={{ uri: photo.uri }} style={styles.photo} /><TouchableOpacity onPress={() => setPhotos((current) => current.filter((_, i) => i !== index))} style={styles.removePhoto}><Ionicons name="close" size={14} color={colors.onBrand} /></TouchableOpacity></View>)}</View>
+            <View style={styles.photoHeader}><Text style={styles.label}>Photos (optional)</Text><TouchableOpacity onPress={pickPhotos} accessibilityRole="button"><Text style={styles.photoAction}>Add photos</Text></TouchableOpacity></View>
+            <View style={styles.photos}>{photos.map((photo, index) => <View key={`${photo.uri}-${index}`} style={styles.photoTile}><Image source={{ uri: photo.uri }} style={styles.photo} /><TouchableOpacity onPress={() => setPhotos((current) => current.filter((_, i) => i !== index))} style={styles.removePhoto} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={14} color={colors.onBrand} /></TouchableOpacity></View>)}</View>
             <Button title="Post review" onPress={submit} loading={submitting} disabled={submitting} testID="product-review-submit" />
           </>}
         </KeyboardAwareScroll>

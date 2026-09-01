@@ -135,7 +135,7 @@ export default function SellerBankAccount() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top onBack={goBack} />
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
           <View style={styles.savedCard}>
             <View style={styles.savedIconWrap}>
               <Ionicons name="checkmark-circle" size={40} color={colors.onBrand} />
@@ -251,7 +251,7 @@ export default function SellerBankAccount() {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back">
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
       </TouchableOpacity>
       <Text style={styles.topTitle}>Payout bank account</Text>

@@ -171,7 +171,7 @@ export default function ProductDetail() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="product-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="product-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <TouchableOpacity style={styles.topBtn} onPress={onFav} testID="product-favorite" accessibilityRole="button" accessibilityLabel={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"} hitSlop={8}>
             <Ionicons name={isFavorite(product.id) ? "heart" : "heart-outline"} size={20} color={isFavorite(product.id) ? colors.error : colors.onSurface} />
@@ -185,12 +185,12 @@ export default function ProductDetail() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 200 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
-      >
+       keyboardShouldPersistTaps="handled">
         <AppImage source={{ uri: product.images[imageIdx] }} style={styles.hero} resizeMode="cover" fallbackIcon="pricetag-outline" />
         {product.images.length > 1 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow} keyboardShouldPersistTaps="handled">
             {product.images.map((img, i) => (
-              <TouchableOpacity key={i} onPress={() => { haptics.tap(); setImageIdx(i); }} style={[styles.thumb, imageIdx === i && styles.thumbActive]} accessibilityLabel={`Show image ${i + 1}`}>
+              <TouchableOpacity key={i} onPress={() => { haptics.tap(); setImageIdx(i); }} style={[styles.thumb, imageIdx === i && styles.thumbActive]} accessibilityLabel={`Show image ${i + 1}`} accessibilityRole="button">
                 <AppImage source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" fallbackIcon="pricetag-outline" />
               </TouchableOpacity>
             ))}
@@ -205,7 +205,7 @@ export default function ProductDetail() {
               onPress={() => { haptics.tap(); router.push(`/product/${product.id}/reviews` as Href); }}
               testID="product-reviews-link"
               accessibilityLabel={`Read ${product.product_rating.review_count} product reviews`}
-            >
+             accessibilityRole="button">
               <Text style={styles.ratingStars}>★</Text>
               <Text style={styles.ratingText}>{product.product_rating.rating.toFixed(1)} · {product.product_rating.review_count} {product.product_rating.review_count === 1 ? "review" : "reviews"}</Text>
               <Ionicons name="chevron-forward" size={15} color={colors.onSurfaceMuted} />
@@ -221,7 +221,7 @@ export default function ProductDetail() {
           </View>
 
           {product.seller ? (
-            <TouchableOpacity style={styles.sellerRow} onPress={() => { haptics.tap(); router.push(`/seller/${product.seller!.id}`); }} testID="product-seller-link" activeOpacity={0.85} accessibilityLabel={`View shop by ${product.seller!.name}`}>
+            <TouchableOpacity style={styles.sellerRow} onPress={() => { haptics.tap(); router.push(`/seller/${product.seller!.id}`); }} testID="product-seller-link" activeOpacity={0.85} accessibilityLabel={`View shop by ${product.seller!.name}`} accessibilityRole="button">
               {product.seller.profile_photo ? (
                 <AppImage source={{ uri: product.seller.profile_photo }} style={styles.sellerAvatar} fallbackIcon="person-outline" />
               ) : (
@@ -260,7 +260,7 @@ export default function ProductDetail() {
               }}
               testID="product-ask-seller"
               activeOpacity={0.85}
-            >
+             accessibilityRole="button">
               <Ionicons name="chatbubble-ellipses-outline" size={18} color={colors.brand} />
               <Text style={styles.askSellerText}>Ask the seller about this item</Text>
             </TouchableOpacity>
@@ -308,7 +308,7 @@ export default function ProductDetail() {
             <Text style={styles.infoText}>Ships from My Nest. Sellers set their own turnaround; delivery details finalize at checkout.</Text>
           </View>
 
-          <TouchableOpacity style={styles.reportBtn} onPress={() => { haptics.tap(); router.push(`/report/${product.id}`); }} testID="product-report" accessibilityLabel="Report this item">
+          <TouchableOpacity style={styles.reportBtn} onPress={() => { haptics.tap(); router.push(`/report/${product.id}`); }} testID="product-report" accessibilityLabel="Report this item" accessibilityRole="button">
             <Ionicons name="flag-outline" size={16} color={colors.onSurfaceMuted} />
             <Text style={styles.reportText}>Report this item</Text>
           </TouchableOpacity>
@@ -334,11 +334,11 @@ export default function ProductDetail() {
         ) : (
           <View style={styles.purchaseActions}>
             <View style={styles.purchaseRow}>
-              <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-add-cart">
+              <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-add-cart" accessibilityRole="button">
                 <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
                 <Text style={styles.actionSecondaryText}>Add to cart</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-buy-now">
+              <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-buy-now" accessibilityRole="button">
                 {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
               </TouchableOpacity>
             </View>

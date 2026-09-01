@@ -173,7 +173,7 @@ export default function Verify() {
             disabled={resendLoading || resendCooldown > 0}
             style={{ marginTop: spacing.lg }}
             testID="verify-resend"
-          >
+           accessibilityRole="button">
             <Text style={[styles.link, (resendLoading || resendCooldown > 0) && { opacity: 0.5 }]}>
               {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : resendLoading ? "Sending…" : "Send a new code"}
             </Text>
@@ -183,7 +183,7 @@ export default function Verify() {
             onPress={() => { haptics.tap(); router.replace("/(auth)/register"); }}
             style={{ marginTop: spacing.md }}
             testID="verify-restart"
-          >
+           accessibilityRole="button">
             <Text style={styles.linkMuted}>Wrong email? Start over</Text>
           </TouchableOpacity>
         </KeyboardAwareScroll>

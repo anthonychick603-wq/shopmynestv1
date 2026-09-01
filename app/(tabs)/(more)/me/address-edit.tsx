@@ -131,7 +131,7 @@ export default function AddressEditScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/me/addresses"); }} style={styles.iconBtn} accessibilityLabel="Back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/me/addresses"); }} style={styles.iconBtn} accessibilityLabel="Back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>{isEdit ? "Edit address" : "New address"}</Text>

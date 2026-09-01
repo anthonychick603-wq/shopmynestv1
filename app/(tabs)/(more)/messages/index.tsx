@@ -109,7 +109,7 @@ export default function MessagesInbox() {
                 style={styles.row}
                 onPress={() => { haptics.tap(); router.push({ pathname: "/messages/[userId]", params: { userId: String(item.user.id), name } }); }}
                 testID={`msg-row-${item.user.id}`}
-              >
+               accessibilityRole="button">
                 {item.user.avatar ? (
                   <AppImage source={{ uri: item.user.avatar }} style={styles.avatar} fallbackIcon="person-outline" />
                 ) : (

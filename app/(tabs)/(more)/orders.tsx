@@ -124,7 +124,7 @@ export default function Orders() {
               style={styles.card}
               testID={`seller-order-${item.id}`}
               accessibilityLabel={`Open sold order ${item.id}, status ${item.status}`}
-            >
+             accessibilityRole="button">
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Text style={styles.orderId}>#{item.id}</Text>
                 <StatusPill status={item.status} />
@@ -150,7 +150,7 @@ export default function Orders() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
           ListEmptyComponent={<EmptyState icon="receipt-outline" title="No orders yet" message="Once you place an order it will show up here." testID="orders-empty" />}
           renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => { haptics.tap(); pushDetail(router, `/order/${item.id}`); }} style={styles.card} testID={`order-${item.id}`} accessibilityLabel={`Open order ${item.id}, status ${item.status}`}>
+            <TouchableOpacity onPress={() => { haptics.tap(); pushDetail(router, `/order/${item.id}`); }} style={styles.card} testID={`order-${item.id}`} accessibilityLabel={`Open order ${item.id}, status ${item.status}`} accessibilityRole="button">
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Text style={styles.orderId}>#{item.id}</Text>
                 <StatusPill status={item.status} />

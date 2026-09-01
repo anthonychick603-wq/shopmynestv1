@@ -145,7 +145,7 @@ export default function SellerProfile() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }} style={styles.topBtn} testID="seller-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }} style={styles.topBtn} testID="seller-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>{storeName}</Text>
         <View style={styles.topRight}>
           {/* v1.0.56 - share the shop. */}
@@ -215,7 +215,7 @@ export default function SellerProfile() {
                     }}
                     testID="seller-follow"
                     accessibilityLabel={isFollowing ? "Unfollow this shop" : "Follow this shop"}
-                  >
+                   accessibilityRole="button">
                     <Ionicons name={isFollowing ? "checkmark" : "add"} size={16} color={isFollowing ? colors.brand : colors.onBrand} />
                     <Text style={[styles.followBtnText, isFollowing && styles.followBtnTextActive]}>
                       {isFollowing ? "Following" : "Follow"}
@@ -225,7 +225,7 @@ export default function SellerProfile() {
                     style={styles.messageBtn}
                     onPress={() => { haptics.tap(); router.push({ pathname: "/messages/[userId]", params: { userId: String(id), name: storeName } }); }}
                     testID="seller-message"
-                  >
+                   accessibilityRole="button">
                     <Ionicons name="chatbubble-ellipses" size={16} color={colors.onBrand} />
                     <Text style={styles.messageBtnText}>Message shop</Text>
                   </TouchableOpacity>
@@ -260,7 +260,7 @@ export default function SellerProfile() {
                       style={styles.seeAllReviews}
                       onPress={() => { haptics.tap(); router.push({ pathname: "/seller/[id]/reviews", params: { id: String(id), name: storeName } }); }}
                       testID="seller-see-all-reviews"
-                    >
+                     accessibilityRole="button">
                       <Text style={styles.seeAllReviewsText}>See all {reviewTotal} reviews</Text>
                       <Ionicons name="chevron-forward" size={16} color={colors.brand} />
                     </TouchableOpacity>

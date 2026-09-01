@@ -53,7 +53,7 @@ export default function AdminOperations() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={colors.brand} />}
-      >
+       keyboardShouldPersistTaps="handled">
         <Text style={styles.intro}>Server-authoritative queues for work that needs a person. Counts come directly from the marketplace backend rather than being inferred from client screens.</Text>
         {error ? <Text style={styles.warning}>{error}</Text> : null}
 
@@ -93,14 +93,14 @@ export default function AdminOperations() {
 }
 
 function Top({ onBack }: { onBack: () => void }) {
-  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle}>Operations</Text><AlertsBellButton /></View>;
+  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle}>Operations</Text><AlertsBellButton /></View>;
 }
 function Metric({ value, label, urgent = false }: { value: number; label: string; urgent?: boolean }) {
   return <View style={styles.metric}><Text style={[styles.metricValue, urgent && { color: colors.error }]}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>;
 }
 function QueueRow({ icon, title, metric, onPress, urgent = false }: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; metric: { count: number; oldest_hours: number }; onPress: () => void; urgent?: boolean }) {
   const age = metric.oldest_hours > 0 ? ` · oldest ${metric.oldest_hours}h` : "";
-  return <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); onPress(); }}><View style={styles.rowIcon}><Ionicons name={icon} size={18} color={urgent ? colors.error : colors.brand} /></View><View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowSub}>{metric.count} waiting{age}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.onSurfaceMuted} /></TouchableOpacity>;
+  return <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); onPress(); }} accessibilityRole="button"><View style={styles.rowIcon}><Ionicons name={icon} size={18} color={urgent ? colors.error : colors.brand} /></View><View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowSub}>{metric.count} waiting{age}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.onSurfaceMuted} /></TouchableOpacity>;
 }
 
 const styles = StyleSheet.create({

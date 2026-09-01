@@ -968,20 +968,12 @@ export const nest = {
   },
 };
 
-// WebView checkout URL. Since we're in Expo Go, we open the site's own /checkout/
-// with a `?mynest_token=<token>` query param — the mynest-mobile-app-bridge plugin
-// picks that up and hydrates the WordPress session so the cart shows up.
-// The site's /cart/ page adds items via the ?add-to-cart= URL param.
-export function checkoutUrlForCart(token: string, items: { product_id: number; quantity: number }[]): string {
-  const first = items[0];
-  if (!first) return `${SITE_URL}/checkout/?mynest_token=${encodeURIComponent(token)}`;
-  const params = new URLSearchParams({
-    "add-to-cart": String(first.product_id),
-    quantity: String(first.quantity),
-    mynest_token: token,
-  });
-  return `${SITE_URL}/cart/?${params.toString()}`;
-}
+// v1.0.181 — Removed checkoutUrlForCart. It generated a WebView-checkout URL
+// used by an early WebView-based flow; the app now uses the native Stripe
+// Payment Sheet end-to-end and no code path routes buyers to /cart/ or
+// /checkout/ on the WordPress site. If a future feature needs to open the
+// web cart (e.g. legacy fallback), reintroduce it then; keeping unused
+// exports invites a future contributor to import them by mistake.
 
 export const SITE = SITE_URL;
 

@@ -125,7 +125,7 @@ export default function SellerShipFromAddress() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
           testID="ship-from-back"
-        >
+         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Ship-from address</Text>

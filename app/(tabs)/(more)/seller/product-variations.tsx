@@ -182,7 +182,7 @@ export default function ProductVariationsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/seller/listings"); }} style={styles.iconBtn} accessibilityLabel="Back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/seller/listings"); }} style={styles.iconBtn} accessibilityLabel="Back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title} numberOfLines={1}>Variations</Text>
@@ -206,13 +206,13 @@ export default function ProductVariationsScreen() {
                   style={styles.input}
                   autoCapitalize="words"
                 />
-                <TouchableOpacity onPress={() => removeAttribute(idx)} style={styles.iconBtn} accessibilityLabel="Remove attribute">
+                <TouchableOpacity onPress={() => removeAttribute(idx)} style={styles.iconBtn} accessibilityLabel="Remove attribute" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                   <Ionicons name="trash-outline" size={18} color={colors.error} />
                 </TouchableOpacity>
               </View>
               <View style={styles.chipRow}>
                 {attr.options.map(opt => (
-                  <TouchableOpacity key={opt} onPress={() => removeOption(idx, opt)} style={styles.chip} accessibilityLabel={`Remove ${opt}`}>
+                  <TouchableOpacity key={opt} onPress={() => removeOption(idx, opt)} style={styles.chip} accessibilityLabel={`Remove ${opt}`} accessibilityRole="button">
                     <Text style={styles.chipText}>{opt}</Text>
                     <Ionicons name="close" size={14} color={colors.onSurfaceMuted} />
                   </TouchableOpacity>
@@ -228,14 +228,14 @@ export default function ProductVariationsScreen() {
                   onSubmitEditing={() => addOption(idx)}
                   returnKeyType="done"
                 />
-                <TouchableOpacity onPress={() => addOption(idx)} style={styles.addBtn} accessibilityLabel="Add option">
+                <TouchableOpacity onPress={() => addOption(idx)} style={styles.addBtn} accessibilityLabel="Add option" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                   <Ionicons name="add" size={20} color={colors.onBrand} />
                 </TouchableOpacity>
               </View>
             </View>
           ))}
 
-          <TouchableOpacity onPress={addAttribute} style={styles.addAttr} accessibilityLabel="Add attribute">
+          <TouchableOpacity onPress={addAttribute} style={styles.addAttr} accessibilityLabel="Add attribute" accessibilityRole="button">
             <Ionicons name="add-circle-outline" size={20} color={colors.brand} />
             <Text style={styles.addAttrText}>Add attribute</Text>
           </TouchableOpacity>

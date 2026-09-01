@@ -76,7 +76,7 @@ export function SellerReadinessCard({ readiness }: { readiness: NestSellerReadin
             onPress={() => handlePress(step)}
             testID={`readiness-${step.key}`}
             activeOpacity={0.7}
-          >
+           accessibilityRole="button">
             <View style={styles.iconWrap}>
               <Ionicons
                 name={step.ok ? "checkmark-circle" : step.blocking ? "ellipse-outline" : "ellipse-outline"}

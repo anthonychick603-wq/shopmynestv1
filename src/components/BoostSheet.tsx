@@ -84,7 +84,7 @@ export function BoostSheet({ visible, product, onClose }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} accessibilityRole="button">
         <View style={styles.sheet} onStartShouldSetResponder={() => true}>
           <View style={styles.handle} />
           <View style={styles.titleRow}>
@@ -101,7 +101,7 @@ export function BoostSheet({ visible, product, onClose }: Props) {
                 onPress={() => setTier(t.slug)}
                 style={[styles.tier, selected && styles.tierSelected]}
                 testID={`boost-tier-${t.slug}`}
-              >
+               accessibilityRole="button">
                 <View style={{ flex: 1 }}>
                   <Text style={styles.tierLabel}>{t.label}</Text>
                   <Text style={styles.tierBlurb}>{t.blurb}</Text>

@@ -53,7 +53,7 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
       onLongPress={onLongPress}
       delayLongPress={350}
       style={[styles.card, layout === "grid" ? styles.gridCard : styles.fullCard]}
-    >
+     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
       <View>
         <AppImage source={{ uri: image }} style={imgStyle} contentFit="cover" fallbackIcon="pricetag-outline" />
         <TouchableOpacity

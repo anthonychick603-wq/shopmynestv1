@@ -107,7 +107,7 @@ export default function CouponEditScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, scopeMode === "admin" ? "/admin/coupons" : "/seller/coupons"); }} style={styles.iconBtn} accessibilityLabel="Back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, scopeMode === "admin" ? "/admin/coupons" : "/seller/coupons"); }} style={styles.iconBtn} accessibilityLabel="Back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>{isEdit ? "Edit coupon" : "New coupon"}</Text>
@@ -125,7 +125,7 @@ export default function CouponEditScreen() {
           <Text style={styles.label}>Discount type</Text>
           <View style={styles.chipRow}>
             {TYPES.map(t => (
-              <TouchableOpacity key={t.value} onPress={() => { haptics.tap(); setType(t.value); }} style={[styles.chip, type === t.value && styles.chipActive]}>
+              <TouchableOpacity key={t.value} onPress={() => { haptics.tap(); setType(t.value); }} style={[styles.chip, type === t.value && styles.chipActive]} accessibilityRole="button">
                 <Text style={[styles.chipText, type === t.value && styles.chipTextActive]}>{t.label}</Text>
               </TouchableOpacity>
             ))}

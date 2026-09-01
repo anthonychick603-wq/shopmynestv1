@@ -55,7 +55,7 @@ export default function AddressBookScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.iconBtn} accessibilityLabel="Back">
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/account"); }} style={styles.iconBtn} accessibilityLabel="Back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>Addresses</Text>
@@ -85,7 +85,7 @@ export default function AddressBookScreen() {
               style={styles.card}
               onPress={() => { haptics.tap(); router.push({ pathname: "/me/address-edit", params: { id: item.id } } as never); }}
               accessibilityLabel={`Edit address ${item.label || item.address_1}`}
-            >
+             accessibilityRole="button">
               <View style={{ flex: 1 }}>
                 <View style={styles.labelRow}>
                   <Text style={styles.label} numberOfLines={1}>{item.label || `${item.first_name} ${item.last_name}`.trim() || "Address"}</Text>
@@ -98,7 +98,7 @@ export default function AddressBookScreen() {
                   {[item.city, item.state, item.postcode, item.country].filter(Boolean).join(", ")}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => onDelete(item)} style={styles.iconBtn} accessibilityLabel="Delete">
+              <TouchableOpacity onPress={() => onDelete(item)} style={styles.iconBtn} accessibilityLabel="Delete" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
                 <Ionicons name="trash-outline" size={18} color={colors.error} />
               </TouchableOpacity>
             </TouchableOpacity>

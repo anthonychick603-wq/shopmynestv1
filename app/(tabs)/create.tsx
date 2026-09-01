@@ -43,7 +43,7 @@ export default function CreateTab() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: spacing.lg }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: spacing.lg }} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <NestLogo compact />
           <AlertsBellButton />

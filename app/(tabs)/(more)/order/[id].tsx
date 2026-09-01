@@ -166,7 +166,7 @@ export default function OrderDetail() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.top}>
-          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back">
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
           </TouchableOpacity>
           <Text style={styles.topTitle}>Order</Text>
@@ -184,7 +184,7 @@ export default function OrderDetail() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle}>Order #{order.id}</Text>
         <AlertsBellButton />
         <CartHeaderButton />
@@ -274,7 +274,7 @@ export default function OrderDetail() {
           />
         ) : null}
         {order.status === "delivered" ? (
-          <TouchableOpacity style={styles.leaveReviewBtn} onPress={() => router.push(`/orders/${order.id}/review` as Href)} testID="order-leave-review">
+          <TouchableOpacity style={styles.leaveReviewBtn} onPress={() => router.push(`/orders/${order.id}/review` as Href)} testID="order-leave-review" accessibilityRole="button">
             <Ionicons name="star-outline" size={18} color={colors.onBrand} />
             <Text style={styles.leaveReviewText}>Leave a review</Text>
           </TouchableOpacity>
@@ -302,15 +302,15 @@ export default function OrderDetail() {
           </Text>
           <View style={styles.protectBtns}>
             {orderDispute ? (
-              <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/${orderDispute.id}`)} testID="order-view-active-dispute">
+              <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/${orderDispute.id}`)} testID="order-view-active-dispute" accessibilityRole="button">
                 <Text style={styles.protectPrimaryText}>View active case</Text>
               </TouchableOpacity>
             ) : refund && ["requested", "approved", "processing", "completed"].includes(refund.state) ? null : refund?.eligibility?.can_request && refund.state !== "denied" ? null : (
-              <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/new?order=${order.id}`)} testID="order-open-dispute">
+              <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/new?order=${order.id}`)} testID="order-open-dispute" accessibilityRole="button">
                 <Text style={styles.protectPrimaryText}>{refund?.state === "denied" ? "Escalate to buyer protection" : "Open buyer-protection case"}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={styles.protectGhost} onPress={() => router.push("/disputes")} testID="order-view-disputes">
+            <TouchableOpacity style={styles.protectGhost} onPress={() => router.push("/disputes")} testID="order-view-disputes" accessibilityRole="button">
               <Text style={styles.protectGhostText}>My cases</Text>
             </TouchableOpacity>
           </View>
@@ -440,7 +440,7 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
           const on = status === value;
           const label = SELLER_STATUS_LABELS[value] || value;
           return (
-            <TouchableOpacity key={value} onPress={() => { haptics.tap(); setStatus(value); }} style={[styles.statusChip, on && styles.statusChipOn]} testID={`order-status-${value}`} accessibilityLabel={`Set status to ${label}`}>
+            <TouchableOpacity key={value} onPress={() => { haptics.tap(); setStatus(value); }} style={[styles.statusChip, on && styles.statusChipOn]} testID={`order-status-${value}`} accessibilityLabel={`Set status to ${label}`} accessibilityRole="button">
               <Text style={[styles.statusChipText, on && styles.statusChipTextOn]}>{label}</Text>
             </TouchableOpacity>
           );
@@ -593,7 +593,7 @@ function ShippingLabelSection({ orderId, platformKeepsShipping }: { orderId: str
                 onPress={() => setSelectedRateId(r.object_id)}
                 style={styles.rateRow}
                 testID={`order-rate-${r.object_id}`}
-              >
+               accessibilityRole="button">
                 <Ionicons name={sel ? "radio-button-on" : "radio-button-off"} size={20} color={sel ? colors.brand : colors.onSurfaceMuted} />
                 <Text style={styles.rateLabel} numberOfLines={2}>
                   {[r.provider, r.servicelevel?.name].filter(Boolean).join(" ")}
@@ -616,7 +616,7 @@ function ShippingLabelSection({ orderId, platformKeepsShipping }: { orderId: str
             );
           })() : null}
           <Button title="Buy this label" onPress={buy} loading={buying} testID="order-label-buy" />
-          <TouchableOpacity onPress={() => { setRates(null); setError(null); }} style={styles.labelCancel} testID="order-label-cancel">
+          <TouchableOpacity onPress={() => { setRates(null); setError(null); }} style={styles.labelCancel} testID="order-label-cancel" accessibilityRole="button">
             <Text style={styles.labelCancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -671,7 +671,7 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back">
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/account")} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Order #{data.number || data.id}</Text>

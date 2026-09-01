@@ -193,7 +193,7 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
           style={styles.cta}
           onPress={() => setModalOpen(true)}
           testID="refund-request-open"
-        >
+         accessibilityRole="button">
           <Ionicons name="return-down-back-outline" size={18} color={colors.onBrand} />
           <Text style={styles.ctaText}>{requestLabel}</Text>
         </TouchableOpacity>
@@ -234,7 +234,7 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
                   key={r.key}
                   style={[styles.reasonRow, reason === r.key && styles.reasonRowActive]}
                   onPress={() => setReason(r.key)}
-                >
+                 accessibilityRole="button">
                   <Ionicons
                     name={reason === r.key ? "radio-button-on" : "radio-button-off"}
                     size={18}
@@ -259,7 +259,7 @@ export function RefundStatusCard({ orderId, refund, onChange, activeCaseId = nul
                 style={styles.modalCancel}
                 onPress={() => setModalOpen(false)}
                 disabled={submitting}
-              >
+               accessibilityRole="button">
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <Button

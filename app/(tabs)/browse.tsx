@@ -292,7 +292,7 @@ export default function Browse() {
               <Text style={styles.recentClear}>Clear</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentRow} keyboardShouldPersistTaps="handled">
             {recent.map((q) => (
               <TouchableOpacity
                 key={q}
@@ -310,7 +310,7 @@ export default function Browse() {
         </View>
       ) : null}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow} keyboardShouldPersistTaps="handled">
         <CategoryChip label="All" selected={!category} onPress={() => { haptics.tap(); setCategory(undefined); }} testID="cat-all" />
         {categories.map((c) => (
           <CategoryChip
@@ -331,7 +331,7 @@ export default function Browse() {
               <Text style={styles.shopsSeeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopsRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopsRow} keyboardShouldPersistTaps="handled">
             {shops.map((s) => (
               <TouchableOpacity
                 key={s.id}
@@ -425,7 +425,7 @@ export default function Browse() {
 
       <Modal visible={filterOpen} transparent animationType="fade" onRequestClose={() => setFilterOpen(false)}>
         <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setFilterOpen(false)} accessibilityRole="button" accessibilityLabel="Close filters">
-          <ScrollView style={styles.sheet} contentContainerStyle={{ paddingBottom: spacing.md }} onStartShouldSetResponder={() => true}>
+          <ScrollView style={styles.sheet} contentContainerStyle={{ paddingBottom: spacing.md }} onStartShouldSetResponder={() => true} keyboardShouldPersistTaps="handled">
             <Text style={styles.sheetTitle}>Filters</Text>
 
             <Text style={styles.filterLabel}>Condition</Text>

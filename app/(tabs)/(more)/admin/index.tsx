@@ -77,7 +77,7 @@ export default function AdminDashboard() {
           />
         }
         testID="admin-scroll"
-      >
+       keyboardShouldPersistTaps="handled">
         {loading && !stats ? (
           <View style={styles.center}><ActivityIndicator color={colors.onSurface} /></View>
         ) : error && !stats ? (

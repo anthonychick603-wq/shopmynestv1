@@ -128,7 +128,7 @@ export default function Payouts() {
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
-      >
+       keyboardShouldPersistTaps="handled">
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Available to request</Text>
           <Text style={styles.balanceValue}>${available.toFixed(2)}</Text>
@@ -209,7 +209,7 @@ function Mini({ label, value }: { label: string; value: string }) {
 function Top({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle}>Earnings & payouts</Text>
       <AlertsBellButton />
       <CartHeaderButton />

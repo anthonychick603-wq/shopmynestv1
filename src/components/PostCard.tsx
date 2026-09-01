@@ -36,7 +36,7 @@ export function PostCard({ post, onPressAuthor }: { post: Post; onPressAuthor?: 
   const body = stripHtml(post.content) || post.excerpt;
   return (
     <View style={styles.card} testID={`post-card-${post.id}`}>
-      <TouchableOpacity style={styles.head} onPress={onPressAuthor} activeOpacity={onPressAuthor ? 0.7 : 1} disabled={!onPressAuthor} testID={`post-author-${post.id}`}>
+      <TouchableOpacity style={styles.head} onPress={onPressAuthor} activeOpacity={onPressAuthor ? 0.7 : 1} disabled={!onPressAuthor} testID={`post-author-${post.id}`} accessibilityRole="button">
         {post.author.profile_photo ? (
           <AppImage source={{ uri: post.author.profile_photo }} style={styles.avatar} fallbackIcon="person-outline" />
         ) : (
@@ -53,7 +53,7 @@ export function PostCard({ post, onPressAuthor }: { post: Post; onPressAuthor?: 
 
       {post.image ? <AppImage source={{ uri: post.image }} style={styles.image} fallbackIcon="image-outline" /> : null}
 
-      <TouchableOpacity style={styles.footer} onPress={() => pushFromCard(router, `/post/${post.id}/comments`, insideMore)} activeOpacity={0.7} testID={`post-comments-${post.id}`}>
+      <TouchableOpacity style={styles.footer} onPress={() => pushFromCard(router, `/post/${post.id}/comments`, insideMore)} activeOpacity={0.7} testID={`post-comments-${post.id}`} accessibilityRole="button">
         <Ionicons name="chatbubble-outline" size={16} color={colors.onSurfaceMuted} />
         <Text style={styles.footerText}>{post.comments} {post.comments === 1 ? "comment" : "comments"}</Text>
       </TouchableOpacity>

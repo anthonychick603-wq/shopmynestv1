@@ -60,14 +60,14 @@ export default function ProductReviewsScreen() {
       ListHeaderComponent={<View style={styles.summary}><Text style={styles.summaryStars}>★ {average.toFixed(1)}</Text><Text style={styles.summaryText}>{total} {total === 1 ? "review" : "reviews"}</Text></View>}
       renderItem={({ item }) => <ReviewCard item={item} onPhoto={(photos, index) => setViewer({ photos, index })} />}
       ListEmptyComponent={<EmptyState icon="star-outline" title="No reviews yet" message="Verified buyers can review this product after their order is completed." />}
-      ListFooterComponent={page < totalPages ? <TouchableOpacity style={styles.more} onPress={onMore} disabled={loadingMore}>{loadingMore ? <ActivityIndicator color={colors.brand} /> : <Text style={styles.moreText}>Load more</Text>}</TouchableOpacity> : null}
+      ListFooterComponent={page < totalPages ? <TouchableOpacity style={styles.more} onPress={onMore} disabled={loadingMore} accessibilityRole="button">{loadingMore ? <ActivityIndicator color={colors.brand} /> : <Text style={styles.moreText}>Load more</Text>}</TouchableOpacity> : null}
     />
     <PhotoViewer viewer={viewer} onClose={() => setViewer(null)} onChange={(index) => viewer && setViewer({ ...viewer, index })} />
   </SafeAreaView>;
 }
 
 function Top({ onBack }: { onBack: () => void }) {
-  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle}>Product reviews</Text><View style={styles.topBtn} /></View>;
+  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle}>Product reviews</Text><View style={styles.topBtn} /></View>;
 }
 
 function ReviewCard({ item, onPhoto }: { item: ProductReview; onPhoto: (photos: string[], index: number) => void }) {
@@ -80,13 +80,13 @@ function ReviewCard({ item, onPhoto }: { item: ProductReview; onPhoto: (photos: 
     <View style={styles.verified}><Ionicons name="checkmark-circle" size={14} color={colors.success} /><Text style={styles.verifiedText}>Verified purchase</Text></View>
     {item.variation_id ? <Text style={styles.variation}>{decodeEntities(item.variation_name || "Purchased variation")}</Text> : null}
     {item.review ? <Text style={styles.body}>{decodeEntities(item.review)}</Text> : null}
-    {item.photos?.length ? <View style={styles.photoRow}>{item.photos.map((photo, index) => <TouchableOpacity key={`${photo}-${index}`} onPress={() => onPhoto(item.photos, index)}><Image source={{ uri: photo }} style={styles.thumbnail} /></TouchableOpacity>)}</View> : null}
+    {item.photos?.length ? <View style={styles.photoRow}>{item.photos.map((photo, index) => <TouchableOpacity key={`${photo}-${index}`} onPress={() => onPhoto(item.photos, index)} accessibilityRole="button"><Image source={{ uri: photo }} style={styles.thumbnail} /></TouchableOpacity>)}</View> : null}
     {item.seller_response ? <View style={styles.response}><Text style={styles.responseTitle}>Seller response</Text><Text style={styles.responseBody}>{decodeEntities(item.seller_response)}</Text></View> : null}
   </View>;
 }
 
 function PhotoViewer({ viewer, onClose, onChange }: { viewer: { photos: string[]; index: number } | null; onClose: () => void; onChange: (index: number) => void }) {
-  return <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={onClose}><Pressable style={styles.viewer} onPress={onClose}>{viewer ? <><Image source={{ uri: viewer.photos[viewer.index] }} style={styles.viewerImage} resizeMode="contain" /><TouchableOpacity style={styles.close} onPress={onClose}><Ionicons name="close" size={24} color={colors.onBrand} /></TouchableOpacity>{viewer.index > 0 ? <TouchableOpacity style={[styles.nav, { left: spacing.md }]} onPress={() => onChange(viewer.index - 1)}><Ionicons name="chevron-back" size={28} color={colors.onBrand} /></TouchableOpacity> : null}{viewer.index < viewer.photos.length - 1 ? <TouchableOpacity style={[styles.nav, { right: spacing.md }]} onPress={() => onChange(viewer.index + 1)}><Ionicons name="chevron-forward" size={28} color={colors.onBrand} /></TouchableOpacity> : null}</> : null}</Pressable></Modal>;
+  return <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={onClose}><Pressable style={styles.viewer} onPress={onClose}>{viewer ? <><Image source={{ uri: viewer.photos[viewer.index] }} style={styles.viewerImage} resizeMode="contain" /><TouchableOpacity style={styles.close} onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={24} color={colors.onBrand} /></TouchableOpacity>{viewer.index > 0 ? <TouchableOpacity style={[styles.nav, { left: spacing.md }]} onPress={() => onChange(viewer.index - 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={28} color={colors.onBrand} /></TouchableOpacity> : null}{viewer.index < viewer.photos.length - 1 ? <TouchableOpacity style={[styles.nav, { right: spacing.md }]} onPress={() => onChange(viewer.index + 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Open"><Ionicons name="chevron-forward" size={28} color={colors.onBrand} /></TouchableOpacity> : null}</> : null}</Pressable></Modal>;
 }
 
 const styles = StyleSheet.create({

@@ -160,7 +160,7 @@ export default function SellerAnalytics() {
               colors={[colors.brand]}
             />
           }
-        >
+         keyboardShouldPersistTaps="handled">
           <View style={styles.sectionRow}>
             <Text style={styles.sectionLabel}>Revenue (net)</Text>
             <TouchableOpacity
@@ -282,7 +282,7 @@ export default function SellerAnalytics() {
                 activeOpacity={0.7}
                 onPress={() => { haptics.tap(); router.push(`/product/${p.id}` as Href); }}
                 testID={`analytics-top-${p.id}`}
-              >
+               accessibilityRole="button">
                 <Text style={styles.rank}>#{i + 1}</Text>
                 <AppImage source={{ uri: p.image }} style={styles.productImg} fallbackIcon="pricetag-outline" />
                 <View style={{ flex: 1 }}>

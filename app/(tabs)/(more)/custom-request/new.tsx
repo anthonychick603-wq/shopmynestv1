@@ -154,11 +154,11 @@ function FieldLabel({ label, count }: { label: string; count?: string }) {
 }
 
 function PhotoThumb({ photo, onRemove }: { photo: UploadedPhoto; onRemove: () => void }) {
-  return <View style={styles.photoWrap}><AppImage source={{ uri: photo.uri }} style={styles.photoThumb} fallbackIcon="image-outline" /><TouchableOpacity style={styles.removePhoto} onPress={() => { haptics.tap(); onRemove(); }} accessibilityLabel="Remove reference photo" accessibilityRole="button"><Ionicons name="close" size={14} color={colors.onBrand} /></TouchableOpacity></View>;
+  return <View style={styles.photoWrap}><AppImage source={{ uri: photo.uri }} style={styles.photoThumb} fallbackIcon="image-outline" /><TouchableOpacity style={styles.removePhoto} onPress={() => { haptics.tap(); onRemove(); }} accessibilityLabel="Remove reference photo" accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="close" size={14} color={colors.onBrand} /></TouchableOpacity></View>;
 }
 
 function Top({ onBack }: { onBack: () => void }) {
-  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="new-custom-request-back" accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle}>New request</Text><View style={styles.headerActions}><AlertsBellButton /><CartHeaderButton /></View></View>;
+  return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} testID="new-custom-request-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle}>New request</Text><View style={styles.headerActions}><AlertsBellButton /><CartHeaderButton /></View></View>;
 }
 
 const styles = StyleSheet.create({

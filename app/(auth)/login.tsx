@@ -77,7 +77,7 @@ export default function Login() {
           />
           {err ? <Text style={styles.err}>{err}</Text> : null}
           <Button title="Sign in" onPress={submit} loading={loading} testID="login-submit" style={{ marginTop: spacing.md }} />
-          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/register"); }} style={{ marginTop: spacing.lg }} testID="login-goto-register">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.replace("/(auth)/register"); }} style={{ marginTop: spacing.lg }} testID="login-goto-register" accessibilityRole="button">
             <Text style={styles.link}>New here? Create an account</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { haptics.tap(); router.push({ pathname: "/(auth)/forgot-password", params: email.trim() ? { email: email.trim() } : {} }); }} style={{ marginTop: spacing.sm }} testID="login-forgot" accessibilityLabel="Forgot password" accessibilityRole="button">

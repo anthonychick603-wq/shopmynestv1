@@ -564,7 +564,7 @@ function decode(s: string): string {
 function Top({ onBack, title, onDuplicate, duplicating }: { onBack: () => void; title: string; onDuplicate?: () => void; duplicating?: boolean }) {
   return (
     <View style={styles.top}>
-      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
       <Text style={styles.topTitle} numberOfLines={1}>{title}</Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
         {onDuplicate ? (
@@ -575,7 +575,7 @@ function Top({ onBack, title, onDuplicate, duplicating }: { onBack: () => void; 
             testID="pf-duplicate-header"
             accessibilityRole="button"
             accessibilityLabel="Duplicate this listing"
-          >
+           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             {duplicating ? (
               <ActivityIndicator size="small" color={colors.brand} />
             ) : (

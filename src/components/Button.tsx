@@ -53,7 +53,7 @@ export function Button({
         variant === "primary" && shadows.card,
         style,
       ]}
-    >
+     accessibilityRole="button">
       {loading ? (
         <ActivityIndicator color={variant === "primary" ? colors.onBrand : colors.brand} />
       ) : (

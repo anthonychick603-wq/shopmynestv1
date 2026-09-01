@@ -115,7 +115,7 @@ export function BlogCommentMenu({ commentId, authorId, content, onEdit, onDelete
             ) : (
               <MenuRow icon="flag-outline" label="Report comment" onPress={goReport} testID={`blog-comment-menu-report-${commentId}`} />
             )}
-            <TouchableOpacity onPress={closeSheet} style={styles.cancelBtn} testID="blog-comment-menu-cancel">
+            <TouchableOpacity onPress={closeSheet} style={styles.cancelBtn} testID="blog-comment-menu-cancel" accessibilityRole="button">
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -139,7 +139,7 @@ function MenuRow({
   testID?: string;
 }) {
   return (
-    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID}>
+    <TouchableOpacity onPress={onPress} style={styles.row} testID={testID} accessibilityRole="button">
       <Ionicons name={icon} size={22} color={destructive ? colors.error : colors.onSurface} />
       <Text style={[styles.rowLabel, destructive && { color: colors.error }]}>{label}</Text>
     </TouchableOpacity>

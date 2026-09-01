@@ -120,7 +120,7 @@ export default function DisputeDetail() {
             <Text style={styles.statusLabel}>{statusLabel(dispute.status)}</Text>
             <Text style={styles.statusSub}>Dispute #{dispute.id} · Order #{dispute.order_id}</Text>
           </View>
-          <TouchableOpacity onPress={() => { haptics.tap(); router.push(`/order/${dispute.order_id}`); }} testID="dispute-view-order">
+          <TouchableOpacity onPress={() => { haptics.tap(); router.push(`/order/${dispute.order_id}`); }} testID="dispute-view-order" accessibilityRole="button">
             <Text style={styles.viewOrder}>View order</Text>
           </TouchableOpacity>
         </View>

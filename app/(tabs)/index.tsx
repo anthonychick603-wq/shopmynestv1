@@ -249,7 +249,7 @@ export default function Blog() {
       <View style={styles.header}>
         <NestLogo subtitle="Handmade, with love" />
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <TouchableOpacity testID="header-search" accessibilityLabel="Search products" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/browse"); }} style={styles.iconBtn}>
+          <TouchableOpacity testID="header-search" accessibilityLabel="Search products" accessibilityRole="button" onPress={() => { haptics.tap(); router.push("/(tabs)/browse"); }} style={styles.iconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="search" size={20} color={colors.onSurface} />
           </TouchableOpacity>
           {/* v1.0.116 — shared bell component so the unread badge is
@@ -283,7 +283,7 @@ export default function Blog() {
                   pushFromTab(router, "/(tabs)/(more)/blog/[id]", { id: item.id, post: JSON.stringify(item) });
                 }}
                 testID={`blog-open-${item.id}`}
-              >
+               accessibilityRole="button">
                 <BlogPostCard
                   post={item}
                   isFavorite={isBlogFavorite(item.id)}
@@ -354,7 +354,7 @@ export default function Blog() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.homeFeedRow}
                     testID="home-foryou-scroller"
-                  >
+                   keyboardShouldPersistTaps="handled">
                     {forYouItems.map((item) => (
                       <View key={item.id} style={styles.homeFeedItem}>
                         <ProductCard
@@ -383,7 +383,7 @@ export default function Blog() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.homeFeedRow}
                     testID="home-recent-scroller"
-                  >
+                   keyboardShouldPersistTaps="handled">
                     {recentlyViewed.map((item) => (
                       <View key={item.id} style={styles.homeFeedItem}>
                         <ProductCard
@@ -417,7 +417,7 @@ export default function Blog() {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.homeFeedRow}
                     testID="home-feed-scroller"
-                  >
+                   keyboardShouldPersistTaps="handled">
                     {homeItems.map((item) => (
                       <View key={item.id} style={styles.homeFeedItem}>
                         <ProductCard
@@ -450,7 +450,7 @@ export default function Blog() {
                   onPress={() => { haptics.tap(); (user ? pushFromTab(router, "/seller/apply") : pushFromTab(router, "/(auth)/login")); }}
                   style={styles.becomeSellerCard}
                   activeOpacity={0.85}
-                >
+                 accessibilityRole="button">
                   <View style={{ flex: 1 }}>
                     <Text style={styles.becomeSellerTitle}>Build your Nest</Text>
                     <Text style={styles.becomeSellerBody}>Apply to sell your handmade goods on My Nest.</Text>

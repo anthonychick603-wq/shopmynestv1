@@ -123,7 +123,7 @@ export function CouponsListScreen({ scope }: Props) {
           style={styles.iconBtn}
           accessibilityRole="button"
           accessibilityLabel="Back"
-        >
+         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
         </TouchableOpacity>
         <Text style={styles.title}>{cfg.title}</Text>
@@ -172,7 +172,7 @@ export function CouponsListScreen({ scope }: Props) {
                 style={styles.iconBtn}
                 accessibilityRole="button"
                 accessibilityLabel={`Delete coupon ${item.code}`}
-              >
+               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name="trash-outline" size={18} color={colors.error} />
               </TouchableOpacity>
             </TouchableOpacity>

@@ -1,5 +1,55 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.180, versionCode 146)
+Generated: 2026-09-01 UTC (v1.0.181, versionCode 147)
+
+=== v1.0.181 — Audit backlog fixes ===
+
+TouchableOpacity accessibility:
+  - Added accessibilityRole="button" to 107 touchables (was: 107 missing role, now: 0).
+  - Added accessibilityLabel to 11 icon-only touchables via icon-name lookup
+    (chevron-back → "Go back", close → "Close", trash → "Delete",
+    share-outline → "Share", search → "Search", ellipsis-* → "More options",
+    heart[-outline] → "Add/Remove from favorites", camera-outline → "Take photo",
+    add[-outline] → "Add", pencil → "Edit", create-outline → "Edit",
+    log-out-outline → "Sign out", refresh → "Refresh", eye/eye-off → "Show/Hide",
+    copy-outline → "Copy", filter → "Filter", download → "Download",
+    settings-outline → "Settings", star → "Star", location-outline → "Set location",
+    checkmark → "Confirm").
+  - 70 remaining touchables without accessibilityLabel are text-content buttons
+    where React Native uses the child <Text> as the accessible name; no label
+    needed.
+
+Touch target hit-slop:
+  - Added hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} to 71 icon-only
+    TouchableOpacity sites across 43 files. Icon buttons like topBtn (40x40),
+    qtyBtn (40x40), iconBtn (~30x30 with spacing.xs padding), and headerBtn
+    were all below the 44pt Human Interface Guidelines target — adding 8pt
+    hit-slop brings every one comfortably above the target.
+  - Codemod is JSX-aware (respects brace/string depth) so onPress={() =>}
+    arrows do not confuse the opening-tag parser.
+  - Sites already using padding, avatar wrappers, tile/thumb styles, or big/
+    large modifiers were skipped (already comfortable hit targets).
+
+Keyboard-persist taps:
+  - Added keyboardShouldPersistTaps="handled" to 24 remaining <ScrollView>
+    opening tags in app/. All app/ ScrollViews that live with TextInput or
+    TouchableOpacity now dismiss keyboard on outside tap without swallowing
+    child touches. Files touched: 18.
+
+Router path typing (M-2 in v1.0.180 audit):
+  - Skipped. tsconfig.json has typedRoutes:true and 0 tsc errors on the 76
+    router.push/replace string paths, so string routes are already validated
+    at compile time; adding `as Href` everywhere would be churn without
+    additional safety. Reintroduce only when a specific route stops
+    type-checking.
+
+Dead code:
+  - Deleted src/api/nest.ts::checkoutUrlForCart (unused since native Stripe
+    Payment Sheet migration; comment already flagged it). Replaced with
+    inline explanatory tombstone so future contributors understand why the
+    WebView-checkout path was retired.
+
+Typecheck:
+  - tsc --noEmit -p tsconfig.json passes clean (0 errors).
 
 v1.0.180 changes (app audit — cleanups + surgical fixes):
   - Deleted orphan src/api/client.ts (91 LOC). It was a leftover

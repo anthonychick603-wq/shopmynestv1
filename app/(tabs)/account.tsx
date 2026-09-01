@@ -91,7 +91,7 @@ export default function Account() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           {/* Unlisted admin-only entry point to blog moderation. The backend
               remains the final authorization gate, and the client now mirrors it
@@ -101,7 +101,7 @@ export default function Account() {
             delayLongPress={800}
             onLongPress={() => (user.role === "admin" ? pushFromTab(router, "/blog/moderation") : undefined)}
             testID="acc-blog-moderation"
-          >
+           accessibilityRole="button">
             <NestLogo compact title="Account" />
           </TouchableOpacity>
           {/* v1.0.149 — grouped so the bell sits next to the cart, not
