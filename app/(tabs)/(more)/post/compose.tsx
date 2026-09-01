@@ -13,6 +13,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { appendFilePart } from "@/src/utils/upload";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
@@ -44,7 +45,7 @@ export default function PostComposer() {
     const name = localImage.fileName || uri.split("/").pop() || `photo-${Date.now()}.jpg`;
     const type = localImage.mimeType || "image/jpeg";
     const form = new FormData();
-    form.append("file", { uri, name, type } as unknown as Blob);
+    appendFilePart(form, "file", { uri, name, type });
     const media = await nest.uploadMedia(form);
     return media.id;
   };

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -141,7 +142,7 @@ export default function AddressEditScreen() {
       {loading ? (
         <View style={styles.loading}><ActivityIndicator color={colors.brand} /></View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+        <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.md }} keyboardShouldPersistTaps="handled">
           {/* v1.0.161 — Account contact section: what the plugin v3.13.32
               buyer_contact_incomplete gate reads from user_email and
               billing_phone user meta. Sits at the top so it's the first
@@ -178,7 +179,7 @@ export default function AddressEditScreen() {
           </View>
 
           <Button title={isEdit ? "Save changes" : "Add address"} onPress={() => { haptics.press(); save(); }} loading={saving} style={{ marginTop: spacing.lg }} />
-        </ScrollView>
+        </KeyboardAwareScroll>
       )}
     </SafeAreaView>
   );

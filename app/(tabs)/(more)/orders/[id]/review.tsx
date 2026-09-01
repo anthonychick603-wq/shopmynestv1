@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -110,7 +111,7 @@ export default function ProductReviewComposer() {
       {loading ? <View style={styles.center}><ActivityIndicator color={colors.brand} /></View> : error ? (
         <EmptyState icon="cloud-offline-outline" title="Couldn't load this order" message={error} actionLabel="Retry" onAction={load} />
       ) : !selected ? (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}>
+        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>Which item would you like to review?</Text>
           {products.length === 0 ? <EmptyState icon="star-outline" title="Nothing to review yet" message="All eligible products in this completed order have already been reviewed." /> : products.map((product) => (
             <TouchableOpacity key={product.product_id} disabled={product.already_reviewed} style={[styles.productRow, product.already_reviewed && { opacity: 0.55 }]} onPress={() => setSelected(product)}>
@@ -121,7 +122,7 @@ export default function ProductReviewComposer() {
           ))}
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}>
+        <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={styles.selectedProduct} onPress={() => !initialProductId && setSelected(null)}>
             <Text style={styles.selectedLabel}>Reviewing</Text><Text style={styles.productName}>{selected.name}</Text>
           </TouchableOpacity>
@@ -135,7 +136,7 @@ export default function ProductReviewComposer() {
             <View style={styles.photos}>{photos.map((photo, index) => <View key={`${photo.uri}-${index}`} style={styles.photoTile}><Image source={{ uri: photo.uri }} style={styles.photo} /><TouchableOpacity onPress={() => setPhotos((current) => current.filter((_, i) => i !== index))} style={styles.removePhoto}><Ionicons name="close" size={14} color={colors.onBrand} /></TouchableOpacity></View>)}</View>
             <Button title="Post review" onPress={submit} loading={submitting} disabled={submitting} testID="product-review-submit" />
           </>}
-        </ScrollView>
+        </KeyboardAwareScroll>
       )}
     </SafeAreaView>
   );

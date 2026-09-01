@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -112,7 +113,7 @@ export default function DisputeDetail() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Top onBack={() => safeBack(router, "/(tabs)/account")} />
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
+      <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         <View style={styles.statusCard}>
           <View style={[styles.statusDot, { backgroundColor: s.color }]} />
           <View style={{ flex: 1 }}>
@@ -182,7 +183,7 @@ export default function DisputeDetail() {
             <Button title="Escalate to My Nest" variant="outline" onPress={() => { haptics.warning(); escalate(); }} loading={working} testID="dispute-escalate" />
           </View>
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScroll>
     </SafeAreaView>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -191,7 +192,7 @@ export default function ProductVariationsScreen() {
       {loading ? (
         <View style={styles.loading}><ActivityIndicator color={colors.brand} /></View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 + insets.bottom }}>
+        <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 + insets.bottom }} keyboardShouldPersistTaps="handled">
           <Text style={styles.help}>Add attributes (like Size or Color), list the options, then set a price and stock for each combination.</Text>
 
           {attributes.map((attr, idx) => (
@@ -276,7 +277,7 @@ export default function ProductVariationsScreen() {
           )}
 
           <Button title="Save variations" onPress={() => { haptics.press(); save(); }} loading={saving} style={{ marginTop: spacing.lg }} />
-        </ScrollView>
+        </KeyboardAwareScroll>
       )}
     </SafeAreaView>
   );

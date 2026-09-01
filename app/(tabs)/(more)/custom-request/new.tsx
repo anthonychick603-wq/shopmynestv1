@@ -13,6 +13,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { appendFilePart } from "@/src/utils/upload";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
@@ -66,7 +67,7 @@ export default function NewCustomRequest() {
         const name = asset.fileName || asset.uri.split("/").pop() || `reference-${Date.now()}.jpg`;
         const type = asset.mimeType || "image/jpeg";
         const form = new FormData();
-        form.append("file", { uri: asset.uri, name, type } as unknown as Blob);
+        appendFilePart(form, "file", { uri: asset.uri, name, type });
         const uploaded = await nest.uploadMedia(form);
         nextPhotos.push({ id: uploaded.id, uri: uploaded.url || asset.uri });
       }

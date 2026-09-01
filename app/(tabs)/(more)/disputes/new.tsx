@@ -13,6 +13,7 @@ import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { appendFilePart } from "@/src/utils/upload";
 
 const REASONS: { slug: string; label: string }[] = [
   { slug: "not_arrived", label: "Item never arrived" },
@@ -56,7 +57,7 @@ export default function NewDispute() {
       const name = asset.fileName || uri.split("/").pop() || `evidence-${Date.now()}.jpg`;
       const type = asset.mimeType || "image/jpeg";
       const form = new FormData();
-      form.append("file", { uri, name, type } as unknown as Blob);
+      appendFilePart(form, "file", { uri, name, type });
       const media = await nest.uploadMedia(form);
       if (media.url) urls.push(media.url);
     }

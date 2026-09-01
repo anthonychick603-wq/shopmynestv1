@@ -1,5 +1,59 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.179, versionCode 145)
+Generated: 2026-09-01 UTC (v1.0.180, versionCode 146)
+
+v1.0.180 changes (app audit — cleanups + surgical fixes):
+  - Deleted orphan src/api/client.ts (91 LOC). It was a leftover
+    API layer from an earlier iteration, exporting a DUPLICATE
+    ApiError class that could have been imported by mistake and
+    silently changed error handling at runtime. Nothing in the
+    tree imported it any more; there is now exactly one ApiError
+    in the project (src/api/nest.ts).
+
+  - Completed the v1.0.177 upload-helper migration. Six FormData
+    call sites still used `as unknown as Blob` at the append site
+    instead of going through the appendFilePart helper. Converted:
+      * app/(tabs)/(more)/seller/import.tsx (CSV import)
+      * app/(tabs)/(more)/seller/product-form.tsx (product image)
+      * app/(tabs)/(more)/post/compose.tsx (post image)
+      * app/(tabs)/(more)/disputes/new.tsx (evidence photo)
+      * app/(tabs)/(more)/blog/compose.tsx (blog cover)
+      * app/(tabs)/(more)/custom-request/new.tsx (reference photo)
+    Result: no `as unknown as Blob` cast outside src/utils/upload.ts.
+
+  - Rolled the v1.0.175 KeyboardAwareScroll component out to six
+    more form screens that were still using plain ScrollView with
+    TextInput children:
+      * me/address-edit.tsx (shipping address form)
+      * seller/product-variations.tsx (variation editor)
+      * seller/coupon-edit.tsx (coupon form)
+      * orders/[id]/review.tsx (review + rating form branch)
+      * disputes/[id].tsx (buyer-protection thread)
+      * order/[id].tsx (seller decision view; buyer view kept
+        ScrollView because it has RefreshControl and no TextInput)
+    Focused-input auto-scroll and bottom-padding are now consistent
+    across the app's forms.
+
+  - Added keyboardShouldPersistTaps="handled" to the eight ScrollView
+    / KeyboardAwareScroll instances above so tapping a button under
+    an open keyboard fires the onPress AND dismisses the keyboard in
+    one tap instead of eating the first tap.
+
+Backlog (not fixed this build; documented in the audit report):
+  - ~248 TouchableOpacity sites without accessibility attributes.
+  - ~68 icon-only TouchableOpacity sites without hitSlop.
+  - ~26 ScrollView sites without keyboardShouldPersistTaps that do
+    not currently host a TextInput but could inherit an open
+    keyboard on back-navigation.
+  - ~90 router.push/replace calls missing `as Href` type assertion.
+  - Various v1.0.9x-era comments in nest.ts describing superseded
+    fixes; no functional impact.
+  - Move off Expo Go for production (build with EAS Build so the
+    Expo Go "Failed to download remote update" blue screen is
+    architecturally impossible).
+
+See ShopMyNest-Mobile-AUDIT-v1.0.180.md for the full report.
+
+Version: 1.0.179 → 1.0.180 (versionCode 145 → 146)
 
 v1.0.179 changes (chip-grid category picker):
   - src/components/CategorySubcategoryPicker.tsx: rewritten from a

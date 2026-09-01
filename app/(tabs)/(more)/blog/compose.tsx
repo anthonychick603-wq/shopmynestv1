@@ -13,6 +13,7 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { EmptyState } from "@/src/components/EmptyState";
+import { appendFilePart } from "@/src/utils/upload";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
@@ -95,7 +96,7 @@ export default function BlogComposer() {
         const uri = localImage.uri;
         const name = localImage.fileName || uri.split("/").pop() || `photo-${Date.now()}.jpg`;
         const type = localImage.mimeType || "image/jpeg";
-        form.append("image", { uri, name, type } as unknown as Blob);
+        appendFilePart(form, "image", { uri, name, type });
       }
       await nest.createBlogPost(form);
       toast.success("Posted");

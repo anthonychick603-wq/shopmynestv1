@@ -13,6 +13,7 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { CategorySubcategoryPicker } from "@/src/components/CategorySubcategoryPicker";
 import { toast } from "@/src/components/Toast";
+import { appendFilePart } from "@/src/utils/upload";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
@@ -244,7 +245,7 @@ export default function ProductForm() {
     const type = localImage.mimeType || "image/jpeg";
     const form = new FormData();
     // React Native FormData file part.
-    form.append("file", { uri, name, type } as unknown as Blob);
+    appendFilePart(form, "file", { uri, name, type });
     const media = await nest.uploadMedia(form);
     return media.id;
   };

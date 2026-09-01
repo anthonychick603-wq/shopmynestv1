@@ -11,6 +11,7 @@ import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { toast } from "@/src/components/Toast";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { appendFilePart } from "@/src/utils/upload";
 
 type Phase = "idle" | "uploading" | "preview" | "running" | "done" | "error";
 
@@ -59,7 +60,7 @@ export default function ImportScreen() {
       setPhase("uploading");
       const form = new FormData();
       // React Native FormData expects { uri, name, type }
-      form.append("file", { uri: asset.uri, name: asset.name, type: "text/csv" } as unknown as Blob);
+      appendFilePart(form, "file", { uri: asset.uri, name: asset.name, type: "text/csv" });
 
       const result = await nest.uploadImport(form);
       setUpload(result);

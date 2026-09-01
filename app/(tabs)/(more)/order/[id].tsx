@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -190,6 +191,7 @@ export default function OrderDetail() {
       </View>
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
+        keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
       >
         <View style={styles.card}>
@@ -675,7 +677,7 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
         <Text style={styles.topTitle}>Order #{data.number || data.id}</Text>
         <View style={{ width: 36 }} />
       </View>
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
+      <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         {/*
           v1.0.141 — removed the read-only "Your fulfillment status" card
           that used to sit here. Its two facts (current seller_status and
@@ -730,7 +732,7 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
         <SellerFulfillment orderId={String(data.id)} data={data} onUpdated={onUpdated} />
         <OrderBuyerMessageCard data={data} />
         <Text style={styles.placedAt}>Placed {data.date_created ? format(parseServerDate(data.date_created) ?? new Date(0), "PPpp") : ""}</Text>
-      </ScrollView>
+      </KeyboardAwareScroll>
     </SafeAreaView>
   );
 }

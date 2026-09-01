@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -117,7 +118,7 @@ export default function CouponEditScreen() {
       {loading ? (
         <View style={styles.loading}><ActivityIndicator color={colors.brand} /></View>
       ) : (
-        <ScrollView contentContainerStyle={{ padding: spacing.md }}>
+        <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.md }} keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>Code</Text>
           <TextInput value={code} onChangeText={setCode} autoCapitalize="characters" style={styles.input} placeholder="SUMMER10" placeholderTextColor={colors.onSurfaceMuted} />
 
@@ -154,7 +155,7 @@ export default function CouponEditScreen() {
           </View>
 
           <Button title={isEdit ? "Save changes" : "Create coupon"} onPress={() => { haptics.press(); save(); }} loading={saving} style={{ marginTop: spacing.lg }} />
-        </ScrollView>
+        </KeyboardAwareScroll>
       )}
     </SafeAreaView>
   );
