@@ -1,5 +1,14 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.193, versionCode 160)
+Generated: 2026-09-01 UTC (v1.0.194, versionCode 161)
+
+v1.0.194 (versionCode 161)
+  - New /admin/products REST surface (plugin v3.13.58): paginated list of every product across sellers, status filter (any/publish/draft/private/pending), featured filter, search, per-row actions (feature/unfeature/hide/publish/unlist/trash), atomic bulk endpoint.
+  - Login handler ban check (v3.13.57) unchanged.
+  - New mobile admin/products.tsx screen: infinite scroll with thumbnails, status chip strip, featured toggle, per-row ActionSheet, multi-select mode with floating bulk action bar.
+  - Admin dashboard: Products row added to People section (name kept generic — actual scope shown on the destination screen).
+  - Product-status tones added to AdminStatusPill (publish/draft/private/trash).
+  - Typecheck: PASS. PHP -l: PASS.
+
 
 v1.0.193 (versionCode 160)
   - New /admin/users REST surface (plugin v3.13.57): paginated list, status filter (all/active/banned/sellers/admins), search across username/email/display name, promote to admin, demote, soft-ban, unban.

@@ -41,6 +41,11 @@ const STATE_TONE: Record<string, StatusTone> = {
   suspended: "waiting",
   admin: "inMotion",
   seller: "waiting",
+  // products (WP post_status)
+  publish: "done",
+  draft: "neutral",
+  private: "waiting",
+  trash: "error",
 };
 
 export function AdminStatusPill({ status, style }: { status: string; style?: object }) {

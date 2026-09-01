@@ -438,6 +438,19 @@ export const nest = {
   adminUnbanUser: (id: number | string) =>
     request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/unban`, { method: "POST" }),
 
+  // v1.0.194 — admin product management. Server routes registered by
+  // MNU_Admin_Products (plugin v3.13.58).
+  adminListProducts: (query?: { page?: number; per_page?: number; search?: string; status?: AdminProductStatus; featured?: 0 | 1; seller_id?: number }) =>
+    request<AdminProductList>("marketplace", "/admin/products", { query }),
+  adminProductAction: (id: number | string, action: AdminProductAction) =>
+    request<{ ok: boolean; product: AdminProduct }>("marketplace", `/admin/products/${id}/${action}`, { method: "POST" }),
+  adminProductsBulk: (action: AdminProductAction, ids: (number | string)[]) =>
+    request<{ action: AdminProductAction; total: number; success: number; failed: Array<{ id: number; code: string; message: string }>; ok_ids: number[] }>(
+      "marketplace",
+      "/admin/products/bulk",
+      { method: "POST", body: { action, ids: ids.map(Number) } }
+    ),
+
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
     request<{ comments: NestBlogCommentRaw[]; total: number; pages: number }>(
@@ -1419,6 +1432,35 @@ export type AdminPayout = {
   processed_at: string;
 };
 export type AdminPayoutList = { items: AdminPayout[]; page: number; total: number; total_pages: number; status: string };
+
+// v1.0.194 — admin product management.
+export type AdminProductStatus = "any" | "publish" | "draft" | "pending" | "private" | "trash";
+export type AdminProductAction = "feature" | "unfeature" | "hide" | "publish" | "unlist" | "trash";
+export type AdminProduct = {
+  id: number;
+  title: string;
+  sku: string;
+  status: string;
+  featured: boolean;
+  price: number;
+  currency: string;
+  stock: number | null;
+  in_stock: boolean;
+  image: string;
+  permalink: string;
+  seller_id: number | null;
+  seller_name: string;
+  created_at: string;
+};
+export type AdminProductList = {
+  items: AdminProduct[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  status: string;
+  search: string;
+};
 
 // v1.0.193 — admin user management.
 export type AdminUserStatus = "all" | "active" | "banned" | "sellers" | "admins";

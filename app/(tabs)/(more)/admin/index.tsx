@@ -149,6 +149,13 @@ export default function AdminDashboard() {
                 onPress={() => pushFromTab(router, "/admin/users")}
                 testID="admin-nav-users"
               />
+              <Row
+                icon="cube-outline"
+                label="Products"
+                sub="Feature, hide, or unlist listings across every seller"
+                onPress={() => pushFromTab(router, "/admin/products")}
+                testID="admin-nav-products"
+              />
             </View>
 
             <Text style={styles.sectionTitle}>Operations</Text>
