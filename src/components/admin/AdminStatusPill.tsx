@@ -39,6 +39,8 @@ const STATE_TONE: Record<string, StatusTone> = {
   banned: "error",
   active: "done",
   suspended: "waiting",
+  admin: "inMotion",
+  seller: "waiting",
 };
 
 export function AdminStatusPill({ status, style }: { status: string; style?: object }) {

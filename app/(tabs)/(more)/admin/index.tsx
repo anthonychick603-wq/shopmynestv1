@@ -139,6 +139,18 @@ export default function AdminDashboard() {
               />
             </View>
 
+            {/* v1.0.193 — People section: user + seller management. */}
+            <Text style={styles.sectionTitle}>People</Text>
+            <View style={styles.card}>
+              <Row
+                icon="people-outline"
+                label="Users"
+                sub="Search accounts, promote, or suspend"
+                onPress={() => pushFromTab(router, "/admin/users")}
+                testID="admin-nav-users"
+              />
+            </View>
+
             <Text style={styles.sectionTitle}>Operations</Text>
             <View style={styles.card}>
               <Row

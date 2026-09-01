@@ -1,5 +1,14 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.192, versionCode 159)
+Generated: 2026-09-01 UTC (v1.0.193, versionCode 160)
+
+v1.0.193 (versionCode 160)
+  - New /admin/users REST surface (plugin v3.13.57): paginated list, status filter (all/active/banned/sellers/admins), search across username/email/display name, promote to admin, demote, soft-ban, unban.
+  - Login handler now returns 403 "account_banned" for suspended accounts so mobile clients get a clean error state instead of a silently-invalid token.
+  - Reconciliation route now mirrored on the-nest/v1 namespace so the mobile SDK's marketplace base can reach it.
+  - New mobile admin/users.tsx screen: infinite scroll, status chip filter, search, avatar + role pills, iOS ActionSheet / Android AlertDialog row actions, inline ban-reason prompt.
+  - Admin dashboard: new "People" section adds Users row.
+  - Typecheck: PASS. PHP -l: PASS on class-mnu-admin-users.php + class-tnm-rest.php.
+
 
 v1.0.192 (versionCode 159)
   - New shared admin UI kit: AdminHeader, AdminCard, FilterBar, InfiniteList, AdminStatusPill, AdminSkeleton (src/components/admin/).

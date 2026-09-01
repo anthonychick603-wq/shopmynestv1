@@ -425,6 +425,19 @@ export const nest = {
   adminReconciliation: (days: number = 30) =>
     request<AdminReconciliationReport>("marketplace", "/admin/reconciliation", { query: { days } }),
 
+  // v1.0.193 — admin user management. Server routes registered by
+  // MNU_Admin_Users (plugin v3.13.57).
+  adminListUsers: (query?: { page?: number; per_page?: number; search?: string; status?: AdminUserStatus }) =>
+    request<AdminUserList>("marketplace", "/admin/users", { query }),
+  adminPromoteUser: (id: number | string) =>
+    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/promote`, { method: "POST" }),
+  adminDemoteUser: (id: number | string) =>
+    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/demote`, { method: "POST" }),
+  adminBanUser: (id: number | string, reason?: string) =>
+    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/ban`, { method: "POST", body: { reason: reason || "" } }),
+  adminUnbanUser: (id: number | string) =>
+    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/unban`, { method: "POST" }),
+
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
     request<{ comments: NestBlogCommentRaw[]; total: number; pages: number }>(
@@ -1406,6 +1419,32 @@ export type AdminPayout = {
   processed_at: string;
 };
 export type AdminPayoutList = { items: AdminPayout[]; page: number; total: number; total_pages: number; status: string };
+
+// v1.0.193 — admin user management.
+export type AdminUserStatus = "all" | "active" | "banned" | "sellers" | "admins";
+export type AdminUser = {
+  id: number;
+  username: string;
+  email: string;
+  display_name: string;
+  roles: string[];
+  is_admin: boolean;
+  is_seller: boolean;
+  is_banned: boolean;
+  banned_reason: string;
+  registered_at: string;
+  order_count: number;
+  avatar: string;
+};
+export type AdminUserList = {
+  items: AdminUser[];
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+  status: AdminUserStatus;
+  search: string;
+};
 
 // v1.0.192 — reconciliation shape. Each row corresponds to one Woo order
 // whose ledger, transfer, or refund state does not fully balance.
