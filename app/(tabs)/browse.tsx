@@ -6,6 +6,10 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerListItem } from "@/src/api/nest";
 import { addRecentSearch, loadRecentSearches, clearRecentSearches } from "@/src/utils/recent-searches";
+// v1.0.215 (P0 #9) — server-backed search dropdown (autocomplete + trending
+// + server-synced recent). Sits directly under the search input while the
+// buyer is focused / typing.
+import { SearchSuggestOverlay } from "@/src/components/SearchSuggestOverlay";
 import { toProduct } from "@/src/api/adapters";
 import { MultiCategoryDropdown } from "@/src/components/MultiCategoryDropdown";
 import {
@@ -89,6 +93,13 @@ export default function Browse() {
   const [filterOpen, setFilterOpen] = useState(false);
   // v1.0.63 — recent searches (client-side) and saving-alert affordance.
   const [recent, setRecent] = useState<string[]>([]);
+  // v1.0.215 (P0 #9) — server-synced recent searches. Populated only when
+  // signed in; falls back to the local list otherwise. Kept in sync every
+  // time the buyer submits a search (server logs it, then we re-fetch).
+  const [serverRecent, setServerRecent] = useState<string[]>([]);
+  // v1.0.215 — whether the input is focused / has content. Controls whether
+  // the suggest overlay is visible.
+  const [searchFocused, setSearchFocused] = useState(false);
   const [savingAlert, setSavingAlert] = useState(false);
 
   useEffect(() => {
@@ -113,13 +124,37 @@ export default function Browse() {
     return () => { alive = false; };
   }, []);
 
+  // v1.0.215 (P0 #9) — pull the server-synced recent list on mount and
+  // whenever the sign-in state flips. Fails silently on error — the local
+  // list (loaded above) is the fallback the overlay shows in that case.
+  useEffect(() => {
+    if (!user) { setServerRecent([]); return; }
+    let alive = true;
+    nest.getRecentSearches()
+      .then((res) => { if (alive) setServerRecent((res.items || []).map((i) => i.term).filter(Boolean)); })
+      .catch(() => { if (alive) setServerRecent([]); });
+    return () => { alive = false; };
+  }, [user]);
+
   const commitSearch = useCallback((q: string) => {
     const trimmed = q.trim();
     setSubmitted(trimmed);
+    // Dismiss the overlay so the results become visible immediately on
+    // submit — the buyer has committed to this term.
+    setSearchFocused(false);
     if (trimmed) {
       addRecentSearch(trimmed).then(setRecent);
+      // v1.0.215 (P0 #9) — fire-and-forget server log. If the user is
+      // signed in, the server stamps their id and the recent list will
+      // include this term next time we refresh below.
+      nest.searchLog(trimmed).catch(() => {});
+      if (user) {
+        nest.getRecentSearches()
+          .then((res) => setServerRecent((res.items || []).map((i) => i.term).filter(Boolean)))
+          .catch(() => {});
+      }
     }
-  }, []);
+  }, [user]);
 
   // v1.0.163 — Store the latest in-flight load's identity so that if the
   // user changes filters (or leaves the tab) before it resolves, the old
@@ -285,6 +320,36 @@ export default function Browse() {
     !!minPrice ||
     !!maxPrice;
 
+  // v1.0.215 (P0 #9) — merge server-recent (authoritative for signed-in
+  // buyers) with the local strip so the overlay never looks empty when we
+  // do have local history. Dedupe by lowercased term while preserving
+  // server order first, then local for anything the server hasn't seen.
+  const mergedRecent = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const t of [...serverRecent, ...recent]) {
+      const k = t.trim().toLowerCase();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      out.push(t);
+      if (out.length >= 12) break;
+    }
+    return out;
+  }, [serverRecent, recent]);
+
+  // v1.0.215 (P0 #9) — wipe local + server recent from the overlay's
+  // "Clear" affordance. Both fire in parallel so the UI reflects the
+  // change immediately without a round-trip wait.
+  const onClearBothRecents = useCallback(() => {
+    clearRecentSearches().then(() => setRecent([]));
+    setServerRecent([]);
+    if (user) {
+      nest.clearRecentSearches().catch(() => {});
+    }
+  }, [user]);
+
+  const showSuggestOverlay = searchFocused;
+
   const StickyHeader = useMemo(() => (
     <View style={styles.stickyHeader}>
       <View style={styles.topRow}>
@@ -294,6 +359,12 @@ export default function Browse() {
             value={search}
             onChangeText={setSearch}
             onSubmitEditing={() => commitSearch(search)}
+            onFocus={() => setSearchFocused(true)}
+            // v1.0.215 — don't blur on tap-inside-overlay; the overlay's
+            // keyboardShouldPersistTaps setting keeps the keyboard up while
+            // a suggestion is being tapped. onBlur only fires when focus
+            // legitimately leaves the input (tap outside / hardware back).
+            onBlur={() => setSearchFocused(false)}
             returnKeyType="search"
             placeholder="Search handmade goods…"
             placeholderTextColor={colors.onSurfaceMuted}
@@ -301,7 +372,7 @@ export default function Browse() {
             testID="browse-search-input"
           />
           {search ? (
-            <TouchableOpacity onPress={() => { setSearch(""); setSubmitted(""); }} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={10}>
+            <TouchableOpacity onPress={() => { setSearch(""); setSubmitted(""); setSearchFocused(false); }} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={10}>
               <Ionicons name="close-circle" size={18} color={colors.onSurfaceMuted} />
             </TouchableOpacity>
           ) : null}
@@ -310,32 +381,30 @@ export default function Browse() {
         <CartHeaderButton />
       </View>
 
-      {/* v1.0.63 — recent searches strip. Shown only when the input is empty
-          so it doesn't compete with an active search's category row. */}
-      {!search && !submitted && recent.length > 0 ? (
-        <View style={styles.recentBlock}>
-          <View style={styles.recentHeader}>
-            <Text style={styles.recentTitle}>Recent searches</Text>
-            <TouchableOpacity onPress={() => { clearRecentSearches().then(() => setRecent([])); }} testID="recent-clear" accessibilityRole="button" accessibilityLabel="Clear recent searches">
-              <Text style={styles.recentClear}>Clear</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.recentRow} keyboardShouldPersistTaps="handled">
-            {recent.map((q) => (
-              <TouchableOpacity
-                key={q}
-                style={styles.recentChip}
-                accessibilityRole="button"
-                accessibilityLabel={`Search for ${q}`}
-                onPress={() => { setSearch(q); commitSearch(q); }}
-                testID={`recent-${q}`}
-              >
-                <Ionicons name="time-outline" size={14} color={colors.onSurfaceMuted} />
-                <Text style={styles.recentChipText} numberOfLines={1}>{q}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+      {/* v1.0.215 (P0 #9) — suggest overlay replaces the old client-only
+          recent-searches strip. Shown while the input is focused OR while
+          the buyer is typing (≥2 chars). Contains recent + trending when
+          empty; live suggestions (products / categories / shops) while
+          typing. Old strip is retired; server-synced recent is authoritative. */}
+      {showSuggestOverlay ? (
+        <SearchSuggestOverlay
+          query={search}
+          recent={mergedRecent}
+          onClearRecent={onClearBothRecents}
+          onPickTerm={(t) => { setSearch(t); commitSearch(t); }}
+          onPickProduct={(id) => { setSearchFocused(false); pushFromTab(router, `/(tabs)/(more)/product/${id}`); }}
+          onPickCategory={(id, name) => {
+            // Bounce back into the same screen with the category id preselected.
+            // Clear the typed text so results reflect the filter, not the term.
+            setSearchFocused(false);
+            setSearch("");
+            setSubmitted("");
+            setSelectedCategoryIds([String(id)]);
+            setSelectedSubcategoryIds([]);
+            haptics.tap();
+          }}
+          onPickShop={(id) => { setSearchFocused(false); pushFromTab(router, `/(tabs)/(more)/seller/${id}`); }}
+        />
       ) : null}
 
       {/* v1.0.187 — chained multi-select dropdowns replace the horizontal
@@ -410,7 +479,7 @@ export default function Browse() {
         </View>
       </View>
     </View>
-  ), [search, selectedCategoryIds, selectedSubcategoryIds, categories, total, activeFilters, shops, recent, hasAnyCriteria, savingAlert]);
+  ), [search, submitted, selectedCategoryIds, selectedSubcategoryIds, categories, total, activeFilters, shops, recent, hasAnyCriteria, savingAlert, showSuggestOverlay, mergedRecent, onClearBothRecents, router, commitSearch]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>

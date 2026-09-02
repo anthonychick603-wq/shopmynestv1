@@ -660,6 +660,24 @@ export const nest = {
     request<{ success: boolean }>("marketplace", `/saved-searches/${id}`, { method: "DELETE" }),
 
   // -------------------------------------------------------------------------
+  // v1.0.215 (P0 #9) — search autocomplete, trending terms, and
+  // server-synced recent searches. All four are cheap round-trips; the
+  // browse screen fans them out on focus and per keystroke (debounced).
+  // -------------------------------------------------------------------------
+  searchSuggest: (q: string) =>
+    request<NestSearchSuggestRaw>("marketplace", "/search/suggest", { query: { q }, auth: false }),
+  searchTrending: () =>
+    request<{ terms: NestSearchTrendingTermRaw[] }>("marketplace", "/search/trending", { auth: false }),
+  // Public (no auth required) so anonymous searches count toward trending;
+  // if a session cookie is present the server auto-attaches the user id.
+  searchLog: (term: string) =>
+    request<{ success: boolean; reason?: string }>("marketplace", "/search/log", { method: "POST", body: { term }, auth: false }),
+  getRecentSearches: () =>
+    request<{ items: NestSearchRecentItemRaw[] }>("marketplace", "/me/search/recent"),
+  clearRecentSearches: () =>
+    request<{ success: boolean }>("marketplace", "/me/search/recent", { method: "DELETE" }),
+
+  // -------------------------------------------------------------------------
   // Direct messaging — the-nest/v1/messages
   //   GET  /messages              → inbox: latest per conversation
   //   GET  /messages/{user_id}    → thread with a specific counterpart (marks read)
@@ -1883,6 +1901,21 @@ export type NestSavedSearchRaw = {
   created_at: string;
   updated_at: string;
 };
+
+// v1.0.215 (P0 #9) — shapes for the search suggest / trending / recent APIs.
+// All fields defaulted or made narrow so the UI can render even when the
+// server returns an empty log (fresh install).
+export type NestSearchSuggestProduct = { id: number; title: string; image: string; price: number };
+export type NestSearchSuggestCategory = { id: number; name: string; slug: string; count: number };
+export type NestSearchSuggestShop = { id: number; name: string; slug: string; logo: string };
+export type NestSearchSuggestRaw = {
+  q: string;
+  products: NestSearchSuggestProduct[];
+  categories: NestSearchSuggestCategory[];
+  shops: NestSearchSuggestShop[];
+};
+export type NestSearchTrendingTermRaw = { term: string; count: number };
+export type NestSearchRecentItemRaw = { term: string; last_used: string };
 
 export type SaveSearchPayload = {
   label?: string;
