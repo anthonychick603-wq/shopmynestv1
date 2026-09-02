@@ -18,6 +18,8 @@ import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
+import { ZoomableImage } from "@/src/components/ZoomableImage";
+import { ZoomableImageViewer } from "@/src/components/ZoomableImageViewer";
 import { pushDetail, safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
@@ -38,6 +40,9 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [imageIdx, setImageIdx] = useState(0);
+  // v1.0.207 — full-screen zoomable photo viewer. Tapping the hero
+  // opens the viewer at the currently selected image.
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -191,7 +196,15 @@ export default function ProductDetail() {
             badge in the corner so buyers know there's a clip. Inline
             playback lands in a follow-up (needs expo-video). */}
         <View style={styles.heroWrap}>
-          <AppImage source={{ uri: product.images[imageIdx] }} style={styles.hero} resizeMode="cover" fallbackIcon="pricetag-outline" />
+          {/* v1.0.207 — inline pinch-zoom hero. Pinch to peek, double-tap
+              to zoom to 2.5x, tap once to open the full-screen viewer. */}
+          <ZoomableImage
+            uri={product.images[imageIdx]}
+            style={styles.hero}
+            resizeMode="cover"
+            fallbackIcon="pricetag-outline"
+            onSingleTap={() => { haptics.tap(); setViewerOpen(true); }}
+          />
           {product.video_url ? (
             <View style={styles.heroVideoBadge} accessibilityLabel="Product has a video">
               <Ionicons name="play-circle" size={22} color={colors.onBrand} />
@@ -369,6 +382,16 @@ export default function ProductDetail() {
           </View>
         )}
       </View>
+
+      {/* v1.0.207 — full-screen zoomable photo viewer, opened by tapping
+          the hero. Handles pinch, pan, double-tap-to-zoom, and horizontal
+          swipe between images. */}
+      <ZoomableImageViewer
+        visible={viewerOpen}
+        images={product.images}
+        initialIndex={imageIdx}
+        onClose={() => setViewerOpen(false)}
+      />
     </SafeAreaView>
   );
 }

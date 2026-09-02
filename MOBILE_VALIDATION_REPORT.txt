@@ -1,5 +1,33 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-02 UTC (v1.0.206, versionCode 173)
+Generated: 2026-09-02 UTC (v1.0.207, versionCode 174)
+
+v1.0.207 (versionCode 174) — P0 #1: Pinch-to-zoom on product photos
+  - src/components/ZoomableImage.tsx (new) — inline pinch/pan for the
+    PDP hero. Two-finger pinch scales up to 3x, two-finger pan drags
+    while zoomed, double-tap toggles between 1x and 2.5x, single tap
+    opens the full-screen viewer. Springs back to identity on release
+    so the layout is never stuck zoomed. Uses react-native-gesture-
+    handler + reanimated (both already installed).
+
+  - src/components/ZoomableImageViewer.tsx (new) — full-screen viewer
+    opened by tapping the hero. Pure black background for accurate
+    photo color. Horizontal paging swipes between all product images.
+    Per-page pinch (up to 4x), pan while zoomed, double-tap to zoom.
+    Close button top-right, image counter (e.g. "2 / 5") top-center.
+    Modal is statusBarTranslucent so it covers the full screen.
+
+  - app/(tabs)/(more)/product/[id].tsx — hero now uses ZoomableImage;
+    viewer mounts at the SafeAreaView tail and opens on single tap.
+    Thumbnail row below still switches the hero image as before, and
+    the viewer opens at whichever image is currently selected.
+
+  Notes:
+    * Buyers with accessibility gestures (VoiceOver / TalkBack) still
+      hit the hero as a normal image — pinch and double-tap require
+      real touch input.
+    * The viewer does not preload adjacent images; RN's Image cache
+      handles this on the second swipe. If buyers complain about a
+      flash on first swipe, we can preload +/-1 in a follow-up.
 
 v1.0.206 (versionCode 173)
   - Runtime theme layer + mynest-theme plugin integration.
