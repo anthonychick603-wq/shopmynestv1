@@ -1,5 +1,45 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-01 UTC (v1.0.205, versionCode 172)
+Generated: 2026-09-02 UTC (v1.0.206, versionCode 173)
+
+v1.0.206 (versionCode 173)
+  - Runtime theme layer + mynest-theme plugin integration.
+    The app can now pull colors, spacing, radius, and typography
+    tokens from the standalone `mynest-theme` WordPress plugin at
+    /wp-json/mynest/v1/theme. Baked defaults in src/theme.ts stay as
+    the offline / first-launch fallback; the runtime layer fetches +
+    caches remote values and applies them BEFORE the splash hides so
+    the first render already uses the seller's palette.
+
+    New files:
+      * src/theme/runtime.ts - the fetch + cache + font loader. Loads
+        cached payload synchronously (as far as async allows), applies
+        it on top of baked defaults, then fires a background refresh
+        of the endpoint. On version bump, the new payload is written
+        to AsyncStorage and picked up on the next cold launch (we do
+        NOT hot-swap mid-session because StyleSheet.create snapshots
+        values at import time).
+      * Google Font loader with a curated 8-font list (Inter, Poppins,
+        Nunito, Work Sans, DM Sans, Merriweather, Playfair Display,
+        Lora). Fallback to system font on load failure or missing
+        family. Very first launch after a font change briefly shows
+        the system font before the new one loads - expected.
+
+    Modified:
+      * src/theme.ts - exports are now typed mutable objects
+        (`Record<string, string>` instead of `as const`) so runtime
+        loader can splice in remote values. Every existing
+        `import { colors } from "@/src/theme"` continues to work.
+      * app/_layout.tsx - awaits loadRuntimeTheme() alongside
+        useIconFonts() before hiding the splash screen. Never blocks
+        longer than the 6s fetch timeout; failures fall through.
+
+    Failure modes handled:
+      * Offline first launch: uses baked defaults, no error.
+      * Plugin inactive / endpoint 404: uses baked defaults.
+      * Malformed payload: sanitized field-by-field, ignored values
+        fall back to bakeds.
+      * Font download fails: fallback to system font, app still
+        renders with correct colors.
 
 v1.0.205 (versionCode 172)
   - Refreshed the theme palette to a softer cream/terracotta scheme

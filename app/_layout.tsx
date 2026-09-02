@@ -8,6 +8,7 @@ import { useDeepLinkRouting } from "@/src/hooks/use-deep-link-routing";
 import { useHardwareBack } from "@/src/hooks/use-hardware-back";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { useNotificationRouting } from "@/src/hooks/use-notification-routing";
+import { loadRuntimeTheme } from "@/src/theme/runtime";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
@@ -28,13 +29,32 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
 
+  // v1.0.206 — pull the seller's theme (colors / spacing / radius /
+  // typography) from the mynest-theme plugin before we un-hide the
+  // splash. Runs in parallel with icon-font loading. Never throws —
+  // if the network or plugin is unreachable, baked defaults win.
+  const [themeReady, setThemeReady] = React.useState(false);
   useEffect(() => {
-    if (loaded || error) {
+    let cancelled = false;
+    (async () => {
+      try {
+        await loadRuntimeTheme();
+      } finally {
+        if (!cancelled) setThemeReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if ((loaded || error) && themeReady) {
       SplashScreen.hideAsync();
     }
-  }, [loaded, error]);
+  }, [loaded, error, themeReady]);
 
-  if (!loaded && !error) return null;
+  if ((!loaded && !error) || !themeReady) return null;
 
   return (
     <SafeAreaProvider>
