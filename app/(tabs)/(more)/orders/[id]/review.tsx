@@ -11,7 +11,7 @@ import { appendFilePart } from "@/src/utils/upload";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
@@ -142,26 +142,64 @@ export default function ProductReviewComposer() {
   );
 }
 
+// v1.0.227 — Write-review refinement. Product rows and text input read
+// as white cards with hairline structure; body input uses field radius.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  topTitle: { fontSize: 17, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  label: { fontSize: 14, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.sm },
-  productRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, marginBottom: spacing.sm, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary },
-  productImage: { width: 48, height: 48, borderRadius: radius.sm, backgroundColor: colors.surfaceTertiary },
-  productName: { fontSize: 15, fontWeight: "700", color: colors.onSurface },
-  productMeta: { marginTop: 3, fontSize: 12, color: colors.onSurfaceMuted },
-  selectedProduct: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg },
-  selectedLabel: { fontSize: 11, fontWeight: "700", color: colors.onSurfaceMuted, textTransform: "uppercase", marginBottom: 3 },
+  topTitle: { ...typeTokens.h2, fontSize: 17 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  label: { ...typeTokens.body, fontWeight: "800", marginBottom: spacing.sm },
+  productRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: radius.card,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  productImage: { width: 48, height: 48, borderRadius: radius.field, backgroundColor: colors.surfaceTertiary },
+  productName: { ...typeTokens.body, fontWeight: "700" },
+  productMeta: { ...typeTokens.caption, marginTop: 3 },
+  selectedProduct: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  selectedLabel: { ...typeTokens.micro, fontWeight: "700", marginBottom: 3 },
   stars: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xl },
-  input: { minHeight: 130, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, color: colors.onSurface, textAlignVertical: "top", backgroundColor: colors.surfaceSecondary },
-  counter: { alignSelf: "flex-end", color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.xs, marginBottom: spacing.lg },
+  input: {
+    ...typeTokens.body,
+    minHeight: 130,
+    borderRadius: radius.field,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    padding: spacing.md,
+    color: colors.onSurface,
+    textAlignVertical: "top",
+    backgroundColor: colors.surface,
+  },
+  counter: { ...typeTokens.caption, alignSelf: "flex-end", marginTop: spacing.xs, marginBottom: spacing.lg },
   photoHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  photoAction: { color: colors.brand, fontWeight: "700", fontSize: 14, marginBottom: spacing.sm },
+  photoAction: { ...typeTokens.body, color: colors.brand, fontWeight: "700", marginBottom: spacing.sm },
   photos: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.lg },
   photoTile: { width: 72, height: 72, position: "relative" },
-  photo: { width: "100%", height: "100%", borderRadius: radius.sm },
+  photo: { width: "100%", height: "100%", borderRadius: radius.field },
   removePhoto: { position: "absolute", top: -5, right: -5, width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand },
 });

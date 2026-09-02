@@ -18,7 +18,7 @@ import { Button } from "@/src/components/Button";
 import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 
 export default function TwoFactorScreen() {
@@ -227,29 +227,30 @@ export default function TwoFactorScreen() {
   );
 }
 
+// v1.0.227 — 2FA challenge refinement.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   wrap: { padding: spacing.lg, paddingBottom: spacing["2xl"] },
   top: { flexDirection: "row", justifyContent: "flex-start" },
-  title: { fontSize: 24, fontWeight: "800", color: colors.onSurface, marginBottom: 6 },
-  body: { fontSize: 14, color: colors.onSurfaceMuted, marginBottom: spacing.sm, lineHeight: 20 },
-  hint: { fontSize: 12, color: colors.onSurfaceMuted, marginBottom: spacing.md },
+  title: { ...typeTokens.display, fontSize: 24, marginBottom: 6 },
+  body: { ...typeTokens.bodyLg, color: colors.onSurfaceMuted, marginBottom: spacing.sm, lineHeight: 20 },
+  hint: { ...typeTokens.caption, marginBottom: spacing.md },
   emailBold: { color: colors.onSurface, fontWeight: "700" },
   digits: { flexDirection: "row", justifyContent: "space-between", marginVertical: spacing.md },
   digitBox: {
     width: 48,
     height: 56,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radius.field,
     textAlign: "center",
     fontSize: 22,
     fontWeight: "700",
     color: colors.onSurface,
     backgroundColor: colors.surface,
   },
-  err: { color: colors.error, marginTop: spacing.sm },
-  info: { color: colors.brand, marginTop: spacing.sm },
-  link: { color: colors.brand, fontWeight: "700", textAlign: "center" },
-  linkMuted: { color: colors.onSurfaceMuted, textAlign: "center" },
+  err: { ...typeTokens.caption, color: colors.error, marginTop: spacing.sm },
+  info: { ...typeTokens.caption, color: colors.brand, marginTop: spacing.sm },
+  link: { ...typeTokens.body, color: colors.brand, fontWeight: "700", textAlign: "center" },
+  linkMuted: { ...typeTokens.body, color: colors.onSurfaceMuted, textAlign: "center" },
 });

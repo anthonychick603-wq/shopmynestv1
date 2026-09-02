@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { NestLogo } from "@/src/components/NestLogo";
@@ -108,16 +108,26 @@ export default function Login() {
   );
 }
 
+// v1.0.227 — Auth refinement. Title uses display token, body copy uses
+// bodyLg, links use body weight, and the trailing hint card becomes
+// white on cream with hairline structure to match the rest of the app.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   wrap: { padding: spacing.lg, paddingBottom: spacing["2xl"] },
   top: { flexDirection: "row", justifyContent: "flex-end" },
-  title: { fontSize: 24, fontWeight: "800", color: colors.onSurface, marginBottom: 6 },
-  body: { fontSize: 14, color: colors.onSurfaceMuted, marginBottom: spacing.lg },
-  err: { color: colors.error, marginBottom: spacing.sm },
-  link: { color: colors.brand, fontWeight: "700", textAlign: "center" },
-  linkMuted: { color: colors.onSurfaceMuted, textAlign: "center" },
-  demo: { marginTop: spacing.xl, padding: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: 12 },
-  demoTitle: { fontWeight: "700", color: colors.onSurface, marginBottom: 4, fontSize: 12 },
-  demoLine: { fontSize: 12, color: colors.onSurfaceMuted },
+  title: { ...typeTokens.display, fontSize: 24, marginBottom: 6 },
+  body: { ...typeTokens.bodyLg, color: colors.onSurfaceMuted, marginBottom: spacing.lg },
+  err: { ...typeTokens.caption, color: colors.error, marginBottom: spacing.sm },
+  link: { ...typeTokens.body, color: colors.brand, fontWeight: "700", textAlign: "center" },
+  linkMuted: { ...typeTokens.body, color: colors.onSurfaceMuted, textAlign: "center" },
+  demo: {
+    marginTop: spacing.xl,
+    padding: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  demoTitle: { ...typeTokens.caption, fontWeight: "700", color: colors.onSurface, marginBottom: 4 },
+  demoLine: { ...typeTokens.caption },
 });

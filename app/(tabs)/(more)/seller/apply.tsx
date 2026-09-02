@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { CategorySubcategoryPicker } from "@/src/components/CategorySubcategoryPicker";
@@ -281,28 +281,75 @@ function Top({ onBack, title }: { onBack: () => void; title: string }) {
   );
 }
 
+// v1.0.227 — Seller onboarding (Apply) refinement. The handmade
+// notice becomes a hero white card with brand accent; category picker
+// tiles are white with hairline; Add category is a dashed Notion tile.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  intro: { color: colors.onSurfaceMuted, marginBottom: spacing.md, lineHeight: 20 },
-  rejectedBox: { flexDirection: "row", gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.error, backgroundColor: colors.surfaceTertiary, marginBottom: spacing.md },
-  rejectedTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
-  rejectedText: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 18, marginTop: 2 },
-  resubmitBlocked: { color: colors.error, fontSize: 12, lineHeight: 17, textAlign: "center", marginTop: spacing.sm },
-  handmadeNotice: { padding: spacing.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.brand, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.lg },
+  topTitle: { ...typeTokens.h2, fontSize: 18 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  intro: { ...typeTokens.body, color: colors.onSurfaceMuted, marginBottom: spacing.md, lineHeight: 20 },
+  rejectedBox: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: colors.card,
+    marginBottom: spacing.md,
+  },
+  rejectedTitle: { ...typeTokens.body, fontWeight: "800" },
+  rejectedText: { ...typeTokens.caption, lineHeight: 18, marginTop: 2 },
+  resubmitBlocked: { ...typeTokens.caption, color: colors.error, lineHeight: 17, textAlign: "center", marginTop: spacing.sm },
+  handmadeNotice: {
+    padding: spacing.lg,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+    marginBottom: spacing.lg,
+  },
   handmadeHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
-  handmadeTitle: { color: colors.onSurface, fontSize: 16, fontWeight: "800", flex: 1 },
-  handmadeBody: { color: colors.onSurface, fontSize: 13, lineHeight: 19 },
-  handmadeCheckRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  handmadeCheckText: { color: colors.onSurface, flex: 1, fontSize: 13, lineHeight: 19, fontWeight: "700" },
-  label: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.xs },
-  hint: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.sm },
-  categoryCard: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.sm },
+  handmadeTitle: { ...typeTokens.h3, flex: 1 },
+  handmadeBody: { ...typeTokens.caption, color: colors.onSurface, lineHeight: 19 },
+  handmadeCheckRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
+  handmadeCheckText: { ...typeTokens.caption, color: colors.onSurface, flex: 1, lineHeight: 19, fontWeight: "700" },
+  label: { ...typeTokens.caption, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.xs },
+  hint: { ...typeTokens.caption, lineHeight: 17, marginBottom: spacing.sm },
+  categoryCard: {
+    padding: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+    marginBottom: spacing.sm,
+  },
   removeCategory: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: spacing.xs, paddingTop: spacing.sm },
-  removeCategoryText: { color: colors.error, fontSize: 13, fontWeight: "700" },
-  addCategory: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, paddingVertical: spacing.md, marginBottom: spacing.md },
-  addCategoryText: { color: colors.brand, fontSize: 14, fontWeight: "800" },
+  removeCategoryText: { ...typeTokens.caption, color: colors.error, fontWeight: "700" },
+  addCategory: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderStyle: "dashed",
+    borderRadius: radius.card,
+    backgroundColor: colors.card,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+  },
+  addCategoryText: { ...typeTokens.body, color: colors.brand, fontWeight: "800" },
   terms: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
 });

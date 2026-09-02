@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, spacing } from "@/src/theme";
+import { colors, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { NestLogo } from "@/src/components/NestLogo";
@@ -147,9 +147,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   wrap: { padding: spacing.lg, paddingBottom: spacing["2xl"] },
   top: { flexDirection: "row", justifyContent: "flex-start" },
-  title: { fontSize: 24, fontWeight: "800", color: colors.onSurface, marginBottom: 6 },
-  body: { fontSize: 14, color: colors.onSurfaceMuted, marginBottom: spacing.lg, lineHeight: 20 },
+  title: { ...typeTokens.display, fontSize: 24, marginBottom: 6 },
+  body: { ...typeTokens.bodyLg, color: colors.onSurfaceMuted, marginBottom: spacing.lg, lineHeight: 20 },
   emailBold: { color: colors.onSurface, fontWeight: "700" },
-  hint: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: -spacing.xs, marginBottom: spacing.sm },
-  err: { color: colors.error, marginBottom: spacing.sm },
+  hint: { ...typeTokens.caption, marginTop: -spacing.xs, marginBottom: spacing.sm },
+  err: { ...typeTokens.caption, color: colors.error, marginBottom: spacing.sm },
 });
