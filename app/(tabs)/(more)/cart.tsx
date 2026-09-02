@@ -18,7 +18,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { initStripe, useStripe, PaymentSheetError } from "@stripe/stripe-react-native";
+import { useStripe, PaymentSheetError } from "@stripe/stripe-react-native";
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useCart } from "@/src/context/CartContext";
@@ -26,7 +26,7 @@ import { useFavorites } from "@/src/context/FavoritesContext";
 import { toProduct } from "@/src/api/adapters";
 import type { Product } from "@/src/types";
 import { useAuth } from "@/src/context/AuthContext";
-import { useStripeKey, STRIPE_MERCHANT_ID, STRIPE_URL_SCHEME } from "@/src/context/StripePayment";
+import { useStripeKey } from "@/src/context/StripePayment";
 import { EmptyState } from "@/src/components/EmptyState";
 // v1.0.97 — picker sheet moved to its own component; cart just wires it up.
 import { AddressPickerModal } from "@/src/components/AddressPickerModal";
@@ -70,6 +70,15 @@ export default function Cart() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { setPublishableKey } = useStripeKey();
   const [paying, setPaying] = React.useState(false);
+  // v1.0.223 — the paying spinner used to be an unlabeled ActivityIndicator
+  // for the entire ~1.5s window between tap and PaymentSheet appearing.
+  // Staging the label as "Starting checkout…" → "Opening payment…" gives
+  // the buyer a signal that something is happening and reduces double-taps.
+  const [payStage, setPayStage] = React.useState<"idle" | "starting" | "opening" | "verifying">("idle");
+  // v1.0.223 — payment errors used to fade out in a toast the buyer often
+  // missed (screen was in Apple Pay, etc). Store the error so we can show
+  // a persistent dialog with a Retry button.
+  const [payError, setPayError] = React.useState<{ title: string; message: string; canRetry: boolean } | null>(null);
 
   // Shipping address + live-rate state. Hooks live above the early returns so
   // the order stays stable regardless of cart/auth state.
@@ -442,9 +451,65 @@ export default function Cart() {
   else shippingRowValue = "—";
   if (address && ratesError) shippingRowLabel = "Shipping & Handling (estimated)";
 
+  // v1.0.223 — Poll the buyer's own order until it flips from "pending"
+  // to a paid state. Stripe's webhook is the source of truth and usually
+  // lands within 1–3 seconds, but before this we cleared the cart and
+  // dropped the buyer on /orders where a pending order looks like a
+  // ghost. Now we hold a "Confirming payment…" screen until we see the
+  // paid state, and only then navigate.
+  const waitForOrderPaid = async (orderId: number, timeoutMs = 12000): Promise<"paid" | "pending" | "error"> => {
+    const start = Date.now();
+    let delay = 750;
+    while (Date.now() - start < timeoutMs) {
+      try {
+        const o = await nest.getBuyerOrder(orderId);
+        const s = String((o as { status?: unknown }).status ?? "").toLowerCase();
+        // Any non-pending, non-failed status means Stripe settled server-side.
+        if (s && s !== "pending" && s !== "pending-payment" && s !== "failed") return "paid";
+      } catch {
+        // Transient — keep polling.
+      }
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(delay + 250, 1500);
+    }
+    return "pending";
+  };
+
+  // v1.0.223 — Given the diff between local totals and what create-intent
+  // returned, spell out exactly what changed. "Your final total changed" is
+  // useless if the buyer can't tell whether shipping went up, tax was added,
+  // or a coupon expired.
+  const describeReviewChange = (opts: {
+    fallbackRate: boolean;
+    shippingDelta: number | null;
+    taxDelta: number | null;
+    totalDelta: number;
+    couponAppliedDelta: number | null;
+  }): string => {
+    const parts: string[] = [];
+    if (opts.fallbackRate) parts.push("the shipping rate you picked is no longer available");
+    if (opts.shippingDelta != null && Math.abs(opts.shippingDelta) >= 0.01 && !opts.fallbackRate) {
+      parts.push(opts.shippingDelta > 0 ? `shipping went up $${opts.shippingDelta.toFixed(2)}` : `shipping dropped $${Math.abs(opts.shippingDelta).toFixed(2)}`);
+    }
+    if (opts.taxDelta != null && Math.abs(opts.taxDelta) >= 0.01) {
+      parts.push(opts.taxDelta > 0 ? `tax added $${opts.taxDelta.toFixed(2)}` : `tax dropped $${Math.abs(opts.taxDelta).toFixed(2)}`);
+    }
+    if (opts.couponAppliedDelta != null && Math.abs(opts.couponAppliedDelta) >= 0.01) {
+      parts.push(opts.couponAppliedDelta > 0 ? `a coupon reduced the total by $${opts.couponAppliedDelta.toFixed(2)}` : `a coupon no longer applies`);
+    }
+    if (parts.length === 0) {
+      // Nothing itemized — fall back to the raw delta.
+      parts.push(opts.totalDelta > 0 ? `total went up $${opts.totalDelta.toFixed(2)}` : `total dropped $${Math.abs(opts.totalDelta).toFixed(2)}`);
+    }
+    const head = parts.join(", ");
+    return `${head.charAt(0).toUpperCase()}${head.slice(1)}. Tap Confirm to pay the new total.`;
+  };
+
   const onCheckout = async () => {
     if (paying || !cart || cart.items.length === 0) return;
     setPaying(true);
+    setPayStage("starting");
+    setPayError(null);
     try {
       const items = cart.items.map((it) => ({
         product_id: Number(it.product_id),
@@ -456,12 +521,16 @@ export default function Cart() {
       // 1. Create the order + PaymentIntent (and Stripe Customer + ephemeral key).
       //    Pass the destination + picked rate id; the server recomputes the real
       //    cost and only trusts the id (never a client-supplied amount).
+      // v1.0.223 — Idempotency key now covers coupons too so adding/removing a
+      //           code mints a fresh token instead of reusing the pending order
+      //           with a mismatched coupon list.
+      const couponsSig = appliedCoupons.length ? appliedCoupons.slice().sort().join(",") : "";
       const intent = await nest.createPaymentIntent({
         items,
         shipping_address: address ?? undefined,
         shipping_method_id: selectedRateId ?? undefined,
         quote_token: quoteToken ?? undefined,
-        checkout_token: checkoutTokenFor(`${itemsSig}|${addressSig}`),
+        checkout_token: checkoutTokenFor(`${itemsSig}|${addressSig}|${couponsSig}`),
         // v1.0.92 — the server re-validates the code and only applies a
         // discount if it's still redeemable, so a stale code is a no-op.
         // v1.0.209 (P0 #3) — send the full list of applied codes; server
@@ -470,7 +539,7 @@ export default function Cart() {
       });
 
       if (!intent.client_secret || !intent.publishable_key) {
-        toast.error("Checkout is temporarily unavailable. Please try again.");
+        setPayError({ title: "Checkout unavailable", message: "We couldn't start checkout right now. Please try again in a moment.", canRetry: true });
         return;
       }
 
@@ -484,12 +553,15 @@ export default function Cart() {
       if (subtotalDiffers) {
         refreshPrices();
         setFinalReview(null);
-        toast.show("Prices changed. Review the new total and tap Checkout again.", "info");
+        const delta = (serverSubtotal ?? 0) - cart.subtotal;
+        const dir = delta > 0 ? "went up" : "dropped";
+        toast.show(`Item prices ${dir} by $${Math.abs(delta).toFixed(2)}. Review the new total and tap Checkout again.`, "info");
         return;
       }
 
       const serverShipping = typeof intent.shipping_total === "number" ? intent.shipping_total : null;
       const serverTax = typeof intent.tax_total === "number" ? intent.tax_total : 0;
+      const serverDiscount = typeof intent.discount_total === "number" ? intent.discount_total : null;
       const shippingDiffers = serverShipping != null && shippingAmount != null && Math.abs(serverShipping - shippingAmount) >= 0.01;
       const alreadyReviewed = finalReview?.orderId === intent.order_id
         && Math.abs(finalReview.total - intent.amount) < 0.01
@@ -500,18 +572,30 @@ export default function Cart() {
         if (serverShipping != null) setShippingOverride(serverShipping);
         if (intent.shipping_method_id) setSelectedRateId(intent.shipping_method_id);
         setFinalReview({ orderId: intent.order_id, tax: serverTax, total: intent.amount, shipping: serverShipping });
-        toast.show("Your final shipping, tax, or total changed. Review the final amount and tap Checkout again.", "info");
+        // v1.0.223 — Named rate + itemized deltas replace the vague generic toast.
+        // If the picked rate was gone, name the fallback rate the server chose.
+        if (intent.shipping_selection_changed && intent.shipping_label) {
+          const price = serverShipping != null ? `$${serverShipping.toFixed(2)}` : "a different price";
+          toast.show(`The rate you picked isn't available anymore. We switched to ${intent.shipping_label} at ${price}. Tap Confirm to pay the new total.`, "info");
+        } else {
+          const message = describeReviewChange({
+            fallbackRate: !!intent.shipping_selection_changed,
+            shippingDelta: shippingDiffers && shippingAmount != null && serverShipping != null ? serverShipping - shippingAmount : null,
+            taxDelta: displayTax != null ? serverTax - displayTax : (serverTax > 0 ? serverTax : null),
+            totalDelta: intent.amount - displayTotal,
+            couponAppliedDelta: serverDiscount != null ? serverDiscount - couponDiscount : null,
+          });
+          toast.show(message, "info");
+        }
         return;
       }
 
-      // 2. Make sure the native SDK is initialized with the live publishable key
-      //    (the key is only known after create-intent, so initialize it here).
+      // 2. Build the PaymentSheet. StripeProvider handles the publishable key
+      //    globally now (v1.0.223 removed the redundant per-tap initStripe).
+      //    We still call setPublishableKey so a future cart mount can prewarm
+      //    the provider with the same key.
       setPublishableKey(intent.publishable_key);
-      await initStripe({
-        publishableKey: intent.publishable_key,
-        merchantIdentifier: STRIPE_MERCHANT_ID,
-        urlScheme: STRIPE_URL_SCHEME,
-      });
+      setPayStage("opening");
 
       // 3. Build the PaymentSheet (saved cards + Apple Pay / Google Pay wallets).
       const { error: initError } = await initPaymentSheet({
@@ -528,7 +612,7 @@ export default function Cart() {
         },
       });
       if (initError) {
-        toast.error(initError.message || "Could not start checkout.");
+        setPayError({ title: "Couldn't open payment", message: initError.message || "We couldn't open the payment sheet. Check your connection and try again.", canRetry: true });
         return;
       }
 
@@ -537,7 +621,18 @@ export default function Cart() {
       if (sheetError) {
         // User dismissing the sheet is not an error — stop quietly.
         if (sheetError.code === PaymentSheetError.Canceled) return;
-        toast.error(sheetError.message || "Payment could not be completed.");
+        // v1.0.223 — Card declined → give the buyer a next step instead of
+        // just naming the failure. Failed payments now open a persistent
+        // dialog with Retry so buyers can't miss the error on Apple Pay dismiss.
+        const rawCode = String(sheetError.code || "");
+        const isDeclined = /decline|Failed/i.test(rawCode) || /declined/i.test(sheetError.message || "");
+        setPayError({
+          title: isDeclined ? "Card declined" : "Payment didn't go through",
+          message: isDeclined
+            ? `${sheetError.message || "Your card was declined."} Try a different card, or tap Retry to open payment again.`
+            : (sheetError.message || "Payment could not be completed. Tap Retry to try again."),
+          canRetry: true,
+        });
         return;
       }
 
@@ -548,11 +643,20 @@ export default function Cart() {
         // Ignore — the Stripe webhook settles the order server-side regardless.
       }
 
-      // This attempt is spent: the next checkout must open a new order.
+      // v1.0.223 — Poll the order until Stripe's webhook flips it to paid,
+      // then clear the cart and route the buyer to their new order. This
+      // replaces the old fire-and-forget navigation that left buyers on an
+      // /orders screen where their new order didn't exist yet.
+      setPayStage("verifying");
+      const settled = await waitForOrderPaid(intent.order_id);
       startNewCheckoutAttempt();
       await clear();
-      toast.success("Payment received! Your order is confirmed and the seller has been notified.");
-      pushFromTab(router, "/orders");
+      if (settled === "paid") {
+        toast.success("Payment received. Your order is confirmed and the seller has been notified.");
+      } else {
+        toast.show("Payment received. Your order is being finalized — we'll notify you when it's confirmed.", "info");
+      }
+      pushFromTab(router, `/orders/${intent.order_id}`);
     } catch (e) {
       // v1.0.160 — Plugin v3.13.32 gates checkout on the buyer having an
       // email + phone on file AND a complete shipping address (first_name,
@@ -590,9 +694,10 @@ export default function Cart() {
         return;
       }
       const message = e instanceof ApiError ? e.friendly : "Could not complete checkout. Please try again.";
-      toast.error(message);
+      setPayError({ title: "Checkout error", message, canRetry: true });
     } finally {
       setPaying(false);
+      setPayStage("idle");
     }
   };
 
@@ -972,7 +1077,24 @@ export default function Cart() {
           </TouchableOpacity>
         ) : null}
 
-        <Text style={styles.secure}>🔒 Checkout uses secure payments on {SITE.replace(/^https?:\/\//, "")}.</Text>
+        {/* v1.0.223 — Wallet hint. Native "Apple Pay" / "Google Pay" express
+            buttons live inside the PaymentSheet; this row tells buyers so they
+            don't have to guess before tapping Checkout. */}
+        <View style={styles.walletHint}>
+          <View style={styles.walletHintIcons}>
+            {Platform.OS === "ios" ? (
+              <View style={styles.walletBadge}><Ionicons name="logo-apple" size={11} color="#FFFFFF" /><Text style={styles.walletBadgeText}> Pay</Text></View>
+            ) : (
+              <View style={[styles.walletBadge, styles.walletBadgeG]}><Ionicons name="logo-google" size={11} color={colors.onSurface} /><Text style={[styles.walletBadgeText, styles.walletBadgeGText]}> Pay</Text></View>
+            )}
+            <View style={styles.walletBadgeCard}><Ionicons name="card" size={12} color={colors.onSurface} /><Text style={[styles.walletBadgeText, styles.walletBadgeGText]}> Card</Text></View>
+          </View>
+          <Text style={styles.walletHintText}>
+            {Platform.OS === "ios" ? "Apple Pay, card, and saved cards" : "Google Pay, card, and saved cards"} at checkout.
+          </Text>
+        </View>
+
+        <Text style={styles.secure}>🔒 Checkout uses secure payments on {SITE.replace(/^https?:\/\//, "")}. Your card is saved for faster checkout next time.</Text>
       </ScrollView>
 
       {/* No insets.bottom: the tab bar sits below this bar and already clears
@@ -1003,7 +1125,15 @@ export default function Cart() {
           accessibilityLabel={canCheckout ? "Checkout" : "Complete your shipping details to check out"}
          accessibilityRole="button">
           {paying ? (
-            <ActivityIndicator color={colors.onBrand} />
+            // v1.0.223 — Staged label: "Starting checkout…" → "Opening payment…"
+            // → "Confirming payment…". Buyers stopped double-tapping because
+            // they can see what step we're on.
+            <>
+              <ActivityIndicator color={colors.onBrand} />
+              <Text style={styles.checkoutText}>
+                {payStage === "verifying" ? "Confirming payment…" : payStage === "opening" ? "Opening payment…" : "Starting checkout…"}
+              </Text>
+            </>
           ) : (
             <>
               {/* v1.0.222 — during the finalReview step, the button explicitly
@@ -1017,6 +1147,53 @@ export default function Cart() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* v1.0.223 — Persistent payment error dialog. Toasts fade out in ~3s
+          and buyers on iOS lose them behind the dismissing Apple Pay sheet.
+          A modal with a labeled Retry button gives payment failures the
+          weight they deserve. */}
+      <Modal visible={payError !== null} transparent animationType="fade" onRequestClose={() => setPayError(null)}>
+        <View style={styles.errorBackdrop}>
+          <View style={styles.errorCard}>
+            <View style={styles.errorIcon}>
+              <Ionicons name="alert-circle" size={26} color={colors.error} />
+            </View>
+            <Text style={styles.errorTitle}>{payError?.title ?? "Something went wrong"}</Text>
+            <Text style={styles.errorBody}>{payError?.message ?? ""}</Text>
+            <View style={styles.errorButtons}>
+              <TouchableOpacity
+                style={styles.errorBtnSecondary}
+                onPress={() => setPayError(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Text style={styles.errorBtnSecondaryText}>Close</Text>
+              </TouchableOpacity>
+              {payError?.canRetry ? (
+                <TouchableOpacity
+                  style={styles.errorBtnPrimary}
+                  onPress={() => {
+                    setPayError(null);
+                    haptics.press();
+                    onCheckout();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry payment"
+                >
+                  <Text style={styles.errorBtnPrimaryText}>Retry</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* v1.0.223 — During "verifying", block cart interactions so the buyer
+          can't accidentally edit an item or address while the webhook is
+          settling their new order. */}
+      {paying ? (
+        <View pointerEvents="auto" style={styles.payingOverlay} accessibilityLiveRegion="polite" accessibilityLabel={payStage === "verifying" ? "Confirming your payment" : "Processing checkout"} />
+      ) : null}
 
       {/* v1.0.94 (Build #17a) — saved-address picker */}
       <AddressPickerModal
@@ -1336,4 +1513,28 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted, marginBottom: 4 },
   fieldInput: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 15, color: colors.onSurface },
   modalSave: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: colors.brand, borderRadius: radius.pill, minHeight: 52, marginTop: spacing.sm },
+  // v1.0.223 — Payment error dialog + verifying overlay.
+  errorBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl },
+  errorCard: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", width: "100%", maxWidth: 360, ...shadows.card },
+  errorIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FBE7E7", alignItems: "center", justifyContent: "center", marginBottom: spacing.md },
+  errorTitle: { fontSize: 17, fontWeight: "800", color: colors.onSurface, textAlign: "center", marginBottom: spacing.sm },
+  errorBody: { fontSize: 14, color: colors.onSurfaceMuted, textAlign: "center", lineHeight: 20, marginBottom: spacing.lg },
+  errorButtons: { flexDirection: "row", gap: spacing.sm, alignSelf: "stretch" },
+  errorBtnSecondary: { flex: 1, minHeight: 46, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" },
+  errorBtnSecondaryText: { color: colors.onSurface, fontWeight: "700", fontSize: 15 },
+  errorBtnPrimary: { flex: 1, minHeight: 46, borderRadius: radius.pill, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
+  errorBtnPrimaryText: { color: colors.onBrand, fontWeight: "800", fontSize: 15 },
+  // Absolute overlay that intercepts taps on the cart while paying. Visually
+  // transparent because the button already carries the stage label; the
+  // point is to stop accidental edits mid-checkout, not to darken the screen.
+  payingOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "transparent" },
+  // v1.0.223 — Wallet hint row above the secure-checkout notice.
+  walletHint: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, marginHorizontal: spacing.lg, marginTop: spacing.md },
+  walletHintIcons: { flexDirection: "row", gap: 6 },
+  walletBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, backgroundColor: "#000", flexDirection: "row", alignItems: "center" },
+  walletBadgeG: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: colors.border },
+  walletBadgeCard: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary },
+  walletBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
+  walletBadgeGText: { color: colors.onSurface },
+  walletHintText: { fontSize: 12, color: colors.onSurfaceMuted, textAlign: "center" },
 });
