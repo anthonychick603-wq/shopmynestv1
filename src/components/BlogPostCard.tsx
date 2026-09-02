@@ -5,7 +5,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { BlogPostMenu } from "@/src/components/BlogPostMenu";
 import { Ionicons } from "@expo/vector-icons";
 
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { stripHtml } from "@/src/utils/html";
 import { shareBlogPost } from "@/src/utils/share";
 import type { BlogPost } from "@/src/types";
@@ -167,26 +167,30 @@ export function BlogPostCard({
   );
 }
 
+// v1.0.226 — Blog card refinement. White surface + hairline border,
+// no shadow. Type tightens to shared tokens. Image radius uses field
+// radius so it visually nests inside the card corners.
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    ...shadows.card,
   },
   head: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.md },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceTertiary },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
-  author: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
-  date: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 1 },
+  author: { ...typeTokens.body, fontWeight: "800" },
+  date: { ...typeTokens.caption, marginTop: 1 },
   statusPill: { backgroundColor: colors.yellow, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 3 },
-  statusText: { fontSize: 10, fontWeight: "800", color: colors.onBrand, letterSpacing: 0.5 },
-  caption: { fontSize: 14, color: colors.onSurface, lineHeight: 20 },
-  seeMore: { fontSize: 13, color: colors.brand, fontWeight: "700", marginTop: 6 },
-  image: { width: "100%", height: 220, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, marginTop: spacing.md },
-  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+  statusText: { ...typeTokens.micro, color: colors.onBrand },
+  caption: { ...typeTokens.body, color: colors.onSurface, lineHeight: 20 },
+  seeMore: { ...typeTokens.caption, color: colors.brand, fontWeight: "700", marginTop: 6 },
+  image: { width: "100%", height: 220, borderRadius: radius.field, backgroundColor: colors.surfaceTertiary, marginTop: spacing.md },
+  metaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   metaGroup: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   metaChip: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { fontSize: 12, color: colors.onSurfaceMuted, fontWeight: "700" },
+  metaText: { ...typeTokens.caption, fontWeight: "700" },
 });

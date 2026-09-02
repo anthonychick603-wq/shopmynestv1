@@ -9,7 +9,7 @@ import { formatDistanceToNow } from "date-fns";
 import { nest, ApiError } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
 import { toNotification } from "@/src/api/adapters";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { NotificationItem } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { NestLogo } from "@/src/components/NestLogo";
@@ -344,23 +344,42 @@ export default function Alerts() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
+  // v1.0.226 — Notifications inbox refinement. Rows become white cards
+  // with a hairline border and no shadow; unread rows are indicated by
+  // a subtle left rail + the brand dot rather than colored surfaces so
+  // the list reads like a Gmail/Linear inbox, not a stack of buttons.
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.lg },
   backBtn: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginRight: spacing.sm },
-  markRead: { color: colors.brand, fontWeight: "700" },
-  // v1.0.191 — Clear-all pill uses a muted/destructive color so it does
-  // not compete with "Mark all read" and reads as the more drastic option.
-  clearAll: { color: colors.error, fontWeight: "700" },
+  markRead: { ...typeTokens.caption, color: colors.brand, fontWeight: "700" },
+  clearAll: { ...typeTokens.caption, color: colors.error, fontWeight: "700" },
   dismissBtn: { width: 28, height: 28, alignItems: "center", justifyContent: "center", marginLeft: spacing.xs, borderRadius: radius.pill },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  // v1.0.190 — Row is now a single Touchable (whole-row tap = mark
-  // read + navigate). Removed the separate Open pill; a chevron on
-  // the right hints at tappability when a route exists.
-  row: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, marginBottom: spacing.md, gap: spacing.md, ...shadows.card },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
   rowText: { flex: 1, minWidth: 0 },
   rowUnread: { borderLeftWidth: 3, borderLeftColor: colors.brand },
-  rowIcon: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
-  rowTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
-  rowBodyText: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
-  rowTime: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 6 },
+  rowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowTitle: { ...typeTokens.body, fontWeight: "800" },
+  rowBodyText: { ...typeTokens.caption, marginTop: 2 },
+  rowTime: { ...typeTokens.micro, textTransform: "none", letterSpacing: 0, marginTop: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand, marginTop: 6, marginLeft: spacing.xs },
 });
