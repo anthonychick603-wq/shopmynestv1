@@ -6,7 +6,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
 import { toBlogPost, toProduct, feedRowToProduct } from "@/src/api/adapters";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { BlogPost, Product } from "@/src/types";
 import { BlogPostCard } from "@/src/components/BlogPostCard";
 import { ProductCard } from "@/src/components/ProductCard";
@@ -521,27 +521,58 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
-  iconBtn: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center", ...shadows.card },
-  composeCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.card },
-  composeTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
-  composeBody: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
-  becomeSellerCard: { padding: spacing.lg, backgroundColor: colors.surfaceTertiary, borderRadius: radius.lg, flexDirection: "row", alignItems: "center", marginBottom: spacing.lg },
-  becomeSellerTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
-  becomeSellerBody: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
-  homeFeedSection: { marginBottom: spacing.lg },
-  homeFeedHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  homeFeedTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
-  homeFeedSeeAll: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted },
+  // v1.0.225 — Home refinement. Header icon buttons drop shadows;
+  // compose card and become-seller card become white with hairline
+  // borders; section titles use h3 scale so they sit clearly above the
+  // rails. Abandoned-cart banner keeps its warm accent but gains
+  // structure.
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  composeCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  composeTitle: { ...typeTokens.h3 },
+  composeBody: { ...typeTokens.caption, marginTop: 2 },
+  becomeSellerCard: {
+    padding: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.lg,
+  },
+  becomeSellerTitle: { ...typeTokens.h3 },
+  becomeSellerBody: { ...typeTokens.caption, marginTop: 2 },
+  homeFeedSection: { marginBottom: spacing.xl },
+  homeFeedHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.md },
+  homeFeedTitle: { ...typeTokens.h2 },
+  homeFeedSeeAll: { ...typeTokens.caption, fontWeight: "700", color: colors.brand },
   homeFeedRow: { gap: spacing.md, paddingRight: spacing.md },
   homeFeedItem: { width: 200 },
   abandonedBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceTertiary,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     marginBottom: spacing.lg,
     paddingRight: spacing.sm,
-    ...shadows.card,
   },
   abandonedBannerBody: {
     flex: 1,
@@ -558,7 +589,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  abandonedBannerTitle: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
-  abandonedBannerSub: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  abandonedBannerTitle: { ...typeTokens.body, fontWeight: "700" },
+  abandonedBannerSub: { ...typeTokens.caption, marginTop: 2 },
   abandonedBannerDismiss: { padding: spacing.sm },
 });

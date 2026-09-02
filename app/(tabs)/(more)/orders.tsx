@@ -7,7 +7,7 @@ import { format } from "date-fns";
 
 import { nest, type NestSellerOrderRaw } from "@/src/api/nest";
 import { toOrder } from "@/src/api/adapters";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { Order } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
@@ -210,19 +210,50 @@ function Segment({ label, active, onPress, testID }: { label: string; active: bo
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  // v1.0.225 — Orders refinement. Segmented control gets hairline
+  // borders, order cards go white-on-cream, type hierarchy tightens.
+  top: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  topTitle: { ...typeTokens.h2, flex: 1, textAlign: "center" },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+  },
   segRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  seg: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center" },
-  segActive: { backgroundColor: colors.brand },
-  segLabel: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted },
+  seg: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  segLabel: { ...typeTokens.caption, fontWeight: "700" },
   segLabelActive: { color: colors.onBrand },
-  card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadows.card },
-  orderId: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
-  date: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: 2 },
-  thumb: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: colors.surface, backgroundColor: colors.surfaceTertiary },
-  buyerName: { fontSize: 14, fontWeight: "700", color: colors.onSurface },
-  itemCount: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: 2 },
-  total: { fontSize: 16, fontWeight: "800", color: colors.onSurface, marginRight: spacing.sm },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  orderId: { ...typeTokens.h3 },
+  date: { ...typeTokens.caption, marginTop: 2 },
+  thumb: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: colors.card, backgroundColor: colors.surfaceTertiary },
+  buyerName: { ...typeTokens.body, fontWeight: "600" },
+  itemCount: { ...typeTokens.caption, marginTop: 2 },
+  total: { ...typeTokens.h3, marginRight: spacing.sm },
 });
