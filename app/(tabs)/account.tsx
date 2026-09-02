@@ -195,7 +195,7 @@ export default function Account() {
           <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refunds/`)} testID="acc-refund" />
           <Row icon="cube-outline" label="Shipping policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/shipping/`)} testID="acc-shipping" />
           <Row icon="briefcase-outline" label="Seller terms" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/seller-terms/`)} testID="acc-seller-terms" />
-          <Row icon="trash-outline" label="Delete my account" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/data-deletion/`)} testID="acc-data-deletion" />
+          <Row icon="trash-outline" label="Delete my account" onPress={() => { haptics.tap(); router.push("/(tabs)/(more)/me/delete-account"); }} testID="acc-data-deletion" />
         </Section>
 
         <View style={{ padding: spacing.lg }}>

@@ -2,7 +2,7 @@
   "expo": {
     "name": "My Nest",
     "slug": "the-nest-marketplace",
-    "version": "1.0.210",
+    "version": "1.0.211",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -27,7 +27,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.shopmynest",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 177,
+      "versionCode": 178,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"

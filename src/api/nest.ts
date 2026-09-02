@@ -285,6 +285,25 @@ export const nest = {
       auth: false,
     }),
   logout: () => request<{ ok: boolean }>("marketplace", "/auth/logout", { method: "POST" }),
+  // v1.0.211 (P0 #5) — self-serve account deletion with a 14-day grace
+  // window. requestAccountDeletion schedules the purge; the server logs
+  // the user out immediately (all tokens revoked). getAccountStatus
+  // reads the pending schedule while the user is still authenticated.
+  // cancelAccountDeletion undoes the request (no undo token needed when
+  // called with a live session; email links pass one).
+  requestAccountDeletion: (confirm: string) =>
+    request<{ success: boolean; pending: boolean; requested_at?: number; scheduled_for?: number; grace_days?: number; undo_available?: boolean }>(
+      "marketplace",
+      "/me/account",
+      { method: "DELETE", body: { confirm } },
+    ),
+  getAccountDeletionStatus: () =>
+    request<{ pending: boolean; requested_at?: number; scheduled_for?: number; grace_days?: number; undo_available?: boolean }>(
+      "marketplace",
+      "/me/account/status",
+    ),
+  cancelAccountDeletion: () =>
+    request<{ success: boolean; pending: boolean; cancelled: boolean }>("marketplace", "/me/account/undo", { method: "POST" }),
   // v1.0.133 — native password reset. Three steps:
   // 1. request a 6-digit code by email; response is oblivious to whether
   //    the account exists to avoid enumeration leakage.
