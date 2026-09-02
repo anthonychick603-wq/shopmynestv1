@@ -373,6 +373,41 @@ export default function Blog() {
                   </TouchableOpacity>
                 </View>
               ) : null}
+              {/* v1.0.208 (P0 #2) — recently-viewed rail moved to the top
+                  of Home (right under the abandoned-cart banner, which
+                  is a stronger CTA when present). Gated to ≥3 items so
+                  first-time / low-history sessions don't show a thin
+                  rail. Long-press a card to drop it from the MRU. */}
+              {recentlyViewed.length >= 3 ? (
+                <View style={styles.homeFeedSection}>
+                  <View style={styles.homeFeedHeader}>
+                    <Text style={styles.homeFeedTitle}>Keep browsing</Text>
+                    <TouchableOpacity accessibilityLabel="See all recently viewed products" accessibilityRole="button" onPress={() => { haptics.tap(); pushFromTab(router, "/me/recently-viewed"); }} testID="home-recent-see-all">
+                      <Text style={styles.homeFeedSeeAll}>See all</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.homeFeedRow}
+                    testID="home-recent-scroller"
+                   keyboardShouldPersistTaps="handled">
+                    {recentlyViewed.map((item) => (
+                      <View key={item.id} style={styles.homeFeedItem}>
+                        <ProductCard
+                          product={item}
+                          layout="full"
+                          onAddToCart={() => onAdd(item)}
+                          onToggleFavorite={() => onFav(item)}
+                          onLongPress={() => onRemoveRecentlyViewed(item)}
+                          isFavorite={isFavorite(item.id)}
+                          testID={`home-recent-card-${item.id}`}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
               {forYouItems.length > 0 ? (
                 <View style={styles.homeFeedSection}>
                   <View style={styles.homeFeedHeader}>
@@ -401,36 +436,6 @@ export default function Blog() {
                           onToggleFavorite={() => onFav(item)}
                           isFavorite={isFavorite(item.id)}
                           testID={`home-foryou-card-${item.id}`}
-                        />
-                      </View>
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : null}
-              {recentlyViewed.length > 0 ? (
-                <View style={styles.homeFeedSection}>
-                  <View style={styles.homeFeedHeader}>
-                    <Text style={styles.homeFeedTitle}>Keep browsing</Text>
-                    <TouchableOpacity accessibilityLabel="See all recently viewed products" accessibilityRole="button" onPress={() => { haptics.tap(); pushFromTab(router, "/me/recently-viewed"); }} testID="home-recent-see-all">
-                      <Text style={styles.homeFeedSeeAll}>See all</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.homeFeedRow}
-                    testID="home-recent-scroller"
-                   keyboardShouldPersistTaps="handled">
-                    {recentlyViewed.map((item) => (
-                      <View key={item.id} style={styles.homeFeedItem}>
-                        <ProductCard
-                          product={item}
-                          layout="full"
-                          onAddToCart={() => onAdd(item)}
-                          onToggleFavorite={() => onFav(item)}
-                          onLongPress={() => onRemoveRecentlyViewed(item)}
-                          isFavorite={isFavorite(item.id)}
-                          testID={`home-recent-card-${item.id}`}
                         />
                       </View>
                     ))}

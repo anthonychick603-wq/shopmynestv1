@@ -1,5 +1,17 @@
 ShopMyNest Mobile validation report
-Generated: 2026-09-02 UTC (v1.0.207, versionCode 174)
+Generated: 2026-09-02 UTC (v1.0.208, versionCode 175)
+
+v1.0.208 (versionCode 175) — P0 #2: Recently-viewed rail at top of Home
+  - app/(tabs)/index.tsx — the "Keep browsing" rail (recently-viewed
+    products) now renders at the TOP of the Home feed, right under
+    the abandoned-cart banner (when present) and above "Picked for
+    you" and "Fresh from the Nest". Endpoint + long-press-to-remove
+    behavior unchanged.
+  - Gated to >= 3 items so a first-time buyer with 0-2 views doesn't
+    see a thin, near-empty rail. Buyers hit the full list via "See
+    all" as before.
+  - No new API, no plugin change. Server /me/recently-viewed already
+    returns up to 20 items sorted MRU.
 
 v1.0.207 (versionCode 174) — P0 #1: Pinch-to-zoom on product photos
   - src/components/ZoomableImage.tsx (new) — inline pinch/pan for the
