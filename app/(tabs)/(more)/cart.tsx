@@ -1045,8 +1045,20 @@ function AddressFormModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    // v1.0.220 — Modal on Android sits outside the normal window; RN's
+    // KeyboardAvoidingView can't measure the keyboard height correctly
+    // unless the Modal is statusBarTranslucent AND we give KAV the right
+    // `behavior`. On Android "height" shrinks the sheet so the focused
+    // field stays above the keyboard; on iOS "padding" is the canonical
+    // choice. Previously behavior={undefined} on Android meant the sheet
+    // never moved and State/Postcode/Country/Phone rows sat under the
+    // keyboard (see 2026-09-02 report).
+    <Modal visible={visible} animationType="slide" transparent statusBarTranslucent onRequestClose={onCancel}>
+      <KeyboardAvoidingView
+        style={styles.modalBackdrop}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "android" ? 0 : 0}
+      >
         <View style={[styles.modalSheet, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Shipping address</Text>
