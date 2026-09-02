@@ -23,7 +23,7 @@ import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
 import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 import { parseServerDate } from "@/src/utils/datetime";
 
@@ -251,18 +251,22 @@ function RefundRow({
   );
 }
 
+// v1.0.229 — Admin Refunds refinement. Type tokens applied throughout;
+// note textarea uses field radius on a white surface with hairlineStrong.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  title: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
-  sub: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
-  link: { fontSize: 13, fontWeight: "800", color: colors.brand },
+  title: { ...typeTokens.h2, fontSize: 16 },
+  sub: { ...typeTokens.caption, marginTop: 2 },
+  link: { ...typeTokens.caption, fontWeight: "800", color: colors.brand },
   amountRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.md, gap: spacing.md },
-  amount: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
-  body: { fontSize: 13, color: colors.onSurfaceMuted, lineHeight: 19, marginTop: spacing.sm, textTransform: "capitalize" },
+  amount: { ...typeTokens.display, fontSize: 20 },
+  body: { ...typeTokens.caption, color: colors.onSurfaceMuted, lineHeight: 19, marginTop: spacing.sm, textTransform: "capitalize" },
   input: {
-    backgroundColor: colors.surfaceTertiary,
-    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radius.field,
     padding: spacing.md,
     minHeight: 64,
     color: colors.onSurface,

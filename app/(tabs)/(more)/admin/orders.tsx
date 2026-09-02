@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
 import { nest, ApiError, type AdminOrder } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { pushDetail, safeBack } from "@/src/utils/nav";
@@ -177,28 +177,54 @@ function Top({ onBack }: { onBack: () => void }) {
   );
 }
 
+// v1.0.229 — Admin Orders refinement. Order cards white on cream with
+// hairline; status pills preserve their category color fills. Tabs are
+// hairline pills that flip to brand.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  topTitle: { ...typeTokens.h1, fontSize: 18 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
 
   tabs: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
-  tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
-  tabActive: { backgroundColor: colors.brand },
-  tabLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted },
+  tab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  tabActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  tabLabel: { ...typeTokens.micro, fontWeight: "700", color: colors.onSurfaceMuted },
   tabLabelActive: { color: colors.onBrand },
 
-  totalLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted, marginBottom: spacing.sm, letterSpacing: 0.3, textTransform: "uppercase" },
+  totalLabel: { ...typeTokens.micro, fontWeight: "700", color: colors.onSurfaceMuted, marginBottom: spacing.sm, letterSpacing: 0.3, textTransform: "uppercase" },
 
-  card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.sm, ...shadows.card },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
-  orderNumber: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
+  orderNumber: { ...typeTokens.body, fontWeight: "800", fontSize: 15 },
   statusPill: { paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radius.pill },
-  statusText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" },
-  buyer: { fontSize: 13, color: colors.onSurface, marginBottom: spacing.sm },
+  statusText: { ...typeTokens.micro, fontWeight: "800", letterSpacing: 0.5, textTransform: "uppercase" },
+  buyer: { ...typeTokens.caption, color: colors.onSurface, marginBottom: spacing.sm },
   cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  meta: { fontSize: 12, color: colors.onSurfaceMuted },
-  total: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
+  meta: { ...typeTokens.caption },
+  total: { ...typeTokens.price, fontSize: 15 },
 });

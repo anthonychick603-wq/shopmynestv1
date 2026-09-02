@@ -24,7 +24,7 @@ import { InfiniteList } from "@/src/components/admin/InfiniteList";
 import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 
 const STATUS_CHIPS: readonly FilterChip<AdminProductStatus>[] = [
@@ -300,20 +300,22 @@ export default function ProductsScreen() {
   );
 }
 
+// v1.0.229 — Admin Products refinement. Featured toggle, thumb, and
+// bulk action bar migrate to token surfaces; typography on shared tokens.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   headerWrap: { marginBottom: spacing.sm },
   subHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: spacing.lg, marginTop: spacing.xs },
-  totalHint: { fontSize: 12, color: colors.onSurfaceMuted },
+  totalHint: { ...typeTokens.caption },
   selectToggle: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 4, paddingHorizontal: spacing.sm },
-  selectToggleText: { fontSize: 12, fontWeight: "700", color: colors.brand },
+  selectToggleText: { ...typeTokens.caption, fontWeight: "700", color: colors.brand },
   featuredToggle: {
     width: 36, height: 36, borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.card,
     alignItems: "center", justifyContent: "center",
-    ...shadows.card,
+    borderWidth: 1, borderColor: colors.hairline,
   },
-  featuredToggleOn: { backgroundColor: colors.brand },
+  featuredToggleOn: { backgroundColor: colors.brand, borderColor: colors.brand },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   checkbox: {
     width: 22, height: 22, borderRadius: radius.sm,
@@ -321,21 +323,20 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   checkboxOn: { backgroundColor: colors.brand },
-  thumb: { width: 54, height: 54, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
+  thumb: { width: 54, height: 54, borderRadius: radius.field, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline },
   thumbFallback: { alignItems: "center", justifyContent: "center" },
   titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
-  title: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.onSurface, lineHeight: 18 },
+  title: { flex: 1, ...typeTokens.body, fontWeight: "700", lineHeight: 18 },
   meta: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xs, flexWrap: "wrap" },
-  metaText: { fontSize: 12, color: colors.onSurfaceMuted, fontWeight: "600" },
-  seller: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2 },
+  metaText: { ...typeTokens.caption, fontWeight: "600" },
+  seller: { ...typeTokens.micro, marginTop: 2 },
   bulkBar: {
     position: "absolute", left: spacing.md, right: spacing.md, bottom: spacing.md,
-    backgroundColor: colors.onSurface, borderRadius: radius.lg,
+    backgroundColor: colors.onSurface, borderRadius: radius.card,
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    ...shadows.card,
   },
-  bulkCount: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+  bulkCount: { ...typeTokens.body, color: "#FFFFFF", fontWeight: "700" },
   bulkBtn: { backgroundColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
-  bulkBtnText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
+  bulkBtnText: { ...typeTokens.caption, color: "#FFFFFF", fontWeight: "800" },
 });

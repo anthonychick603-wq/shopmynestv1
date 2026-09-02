@@ -28,7 +28,7 @@ import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
 import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
 
 type PayoutStatus = "all" | AdminPayout["status"];
@@ -280,17 +280,21 @@ function PayoutRow({
   );
 }
 
+// v1.0.229 — Admin Payouts refinement. Type tokens applied; note input
+// and provider-wait strip move to white cards with hairline borders.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   headerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
-  title: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
+  title: { ...typeTokens.h2, fontSize: 16 },
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: 4, flexWrap: "wrap" },
-  metaText: { fontSize: 12, color: colors.onSurfaceMuted },
-  amount: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  destination: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: spacing.sm },
+  metaText: { ...typeTokens.caption },
+  amount: { ...typeTokens.display, fontSize: 18 },
+  destination: { ...typeTokens.caption, marginTop: spacing.sm },
   input: {
-    backgroundColor: colors.surfaceTertiary,
-    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radius.field,
     paddingHorizontal: spacing.md,
     minHeight: 44,
     color: colors.onSurface,
@@ -303,9 +307,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
     padding: spacing.md,
-    backgroundColor: colors.surfaceTertiary,
-    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.card,
   },
-  providerWaitText: { flex: 1, fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 17 },
+  providerWaitText: { flex: 1, ...typeTokens.caption, lineHeight: 17 },
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
 });

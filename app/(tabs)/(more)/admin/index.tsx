@@ -10,7 +10,7 @@ import { useRouter, type Href } from "expo-router";
 
 import { nest, ApiError, type AdminStats, type AdminAnalytics } from "@/src/api/nest";
 import { MiniBarChart } from "@/src/components/admin/MiniBarChart";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack, pushFromTab } from "@/src/utils/nav";
@@ -408,35 +408,66 @@ function Row({ icon, label, sub, onPress, testID }: { icon: React.ComponentProps
   );
 }
 
+// v1.0.229 — Admin dashboard refinement. Revenue hero, KPI tiles, and
+// nav rows migrate to white cards on cream with hairline structure.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  topTitle: { ...typeTokens.h1, fontSize: 18 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
 
-  revenueCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, ...shadows.card },
+  revenueCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   revenueHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: spacing.sm },
-  revenueLabel: { fontSize: 12, color: colors.onSurfaceMuted, fontWeight: "600" },
-  revenueValue: { fontSize: 22, fontWeight: "800", color: colors.onSurface, marginTop: 2 },
+  revenueLabel: { ...typeTokens.caption, fontWeight: "600" },
+  revenueValue: { ...typeTokens.display, fontSize: 22, marginTop: 2 },
   revenueMetaCol: { alignItems: "flex-end" },
-  revenueMeta: { fontSize: 11, color: colors.onSurfaceMuted, fontWeight: "600" },
+  revenueMeta: { ...typeTokens.micro, fontWeight: "600" },
   revenueFooter: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: spacing.xs, marginTop: spacing.sm },
-  revenueFooterText: { fontSize: 11, color: colors.brand, fontWeight: "700" },
+  revenueFooterText: { ...typeTokens.micro, color: colors.brand, fontWeight: "700" },
 
   tileRow: { flexDirection: "row", gap: spacing.md, marginBottom: spacing.md },
-  tile: { flex: 1, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.lg, ...shadows.card },
+  tile: {
+    flex: 1,
+    backgroundColor: colors.card,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   tileFull: { flex: 1 },
   tileIcon: { width: 34, height: 34, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
-  tileValue: { fontSize: 22, fontWeight: "800", color: colors.onSurface },
-  tileLabel: { fontSize: 12, fontWeight: "600", color: colors.onSurfaceMuted, marginTop: 2 },
+  tileValue: { ...typeTokens.display, fontSize: 22 },
+  tileLabel: { ...typeTokens.caption, fontWeight: "600", marginTop: 2 },
 
-  sectionTitle: { fontSize: 12, fontWeight: "800", color: colors.onSurfaceMuted, marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 0.5, textTransform: "uppercase" },
-  card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, overflow: "hidden", ...shadows.card },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  rowIcon: { width: 36, height: 36, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
-  rowLabel: { fontSize: 15, fontWeight: "700", color: colors.onSurface },
-  rowSub: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  sectionTitle: { ...typeTokens.micro, fontWeight: "800", color: colors.onSurfaceMuted, marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 0.5, textTransform: "uppercase" },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  rowIcon: { width: 36, height: 36, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.hairline },
+  rowLabel: { ...typeTokens.body, fontWeight: "700", fontSize: 15 },
+  rowSub: { ...typeTokens.caption, marginTop: 2 },
 
-  refreshedAt: { textAlign: "center", fontSize: 11, color: colors.onSurfaceMuted, marginTop: spacing.lg },
+  refreshedAt: { ...typeTokens.micro, textAlign: "center", marginTop: spacing.lg },
 });

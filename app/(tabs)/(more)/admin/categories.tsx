@@ -30,7 +30,7 @@ import { toast } from "@/src/components/Toast";
 import { AdminHeader } from "@/src/components/admin/AdminHeader";
 import { AdminCard } from "@/src/components/admin/AdminCard";
 import { EmptyState } from "@/src/components/EmptyState";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 
 type ItemWithMeta = AdminCategory & { depth: number; childCount: number };
@@ -537,11 +537,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
     height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+    borderRadius: radius.field,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
   searchIcon: { marginRight: spacing.sm },
-  searchInput: { flex: 1, color: colors.onSurface, fontSize: 14, paddingVertical: 0 },
+  searchInput: { flex: 1, ...typeTokens.body, paddingVertical: 0 },
   list: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
   card: { padding: 0 },
   row: {
@@ -552,7 +554,7 @@ const styles = StyleSheet.create({
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.hairline,
   },
   chevron: {
     width: 20,
@@ -561,10 +563,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: spacing.sm,
   },
-  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.divider },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.hairlineStrong },
   rowBody: { flex: 1, marginRight: spacing.sm },
-  name: { fontSize: 15, fontWeight: "600", color: colors.onSurface },
-  sub: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  name: { ...typeTokens.body, fontWeight: "600", fontSize: 15 },
+  sub: { ...typeTokens.caption, marginTop: 2 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
   muted: { color: colors.onSurfaceMuted },
   retry: { marginTop: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
@@ -580,22 +582,25 @@ const styles = StyleSheet.create({
   composer: {
     width: "100%",
     maxWidth: 420,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
     padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
-  composerTitle: { fontSize: 18, fontWeight: "700", color: colors.onSurface, marginBottom: spacing.md },
-  label: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: spacing.sm, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.4 },
+  composerTitle: { ...typeTokens.h1, fontSize: 18, marginBottom: spacing.md },
+  label: { ...typeTokens.micro, marginTop: spacing.sm, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.4 },
   input: {
     height: 44,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderRadius: radius.field,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
     paddingHorizontal: spacing.md,
     color: colors.onSurface,
     justifyContent: "center",
+    backgroundColor: colors.surface,
   },
-  inputText: { color: colors.onSurface, fontSize: 14 },
+  inputText: { ...typeTokens.body, color: colors.onSurface },
   composerActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -605,13 +610,13 @@ const styles = StyleSheet.create({
   btn: {
     paddingVertical: 10,
     paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
+    borderRadius: radius.field,
     alignItems: "center",
     justifyContent: "center",
   },
   btnPrimary: { backgroundColor: colors.brand },
-  btnPrimaryText: { color: "#fff", fontWeight: "600" },
+  btnPrimaryText: { ...typeTokens.body, color: colors.onBrand, fontWeight: "600" },
   btnGhost: { backgroundColor: "transparent" },
-  btnGhostText: { color: colors.onSurface, fontWeight: "500" },
+  btnGhostText: { ...typeTokens.body, fontWeight: "500" },
   btnDisabled: { opacity: 0.6 },
 });

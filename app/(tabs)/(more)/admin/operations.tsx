@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, ApiError, type AdminOperationsSummary } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { useAuth } from "@/src/context/AuthContext";
@@ -103,24 +103,63 @@ function QueueRow({ icon, title, metric, onPress, urgent = false }: { icon: Reac
   return <TouchableOpacity style={styles.row} onPress={() => { haptics.tap(); onPress(); }} accessibilityRole="button"><View style={styles.rowIcon}><Ionicons name={icon} size={18} color={urgent ? colors.error : colors.brand} /></View><View style={{ flex: 1 }}><Text style={styles.rowTitle}>{title}</Text><Text style={styles.rowSub}>{metric.count} waiting{age}</Text></View><Ionicons name="chevron-forward" size={17} color={colors.onSurfaceMuted} /></TouchableOpacity>;
 }
 
+// v1.0.229 — Admin Operations refinement. Metric tiles, action rows,
+// and coverage card become white on cream with hairline borders; type
+// migrated to shared tokens.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  intro: { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 19, marginBottom: spacing.md },
-  warning: { color: colors.error, fontSize: 12, marginBottom: spacing.md },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  topTitle: { ...typeTokens.h1, fontSize: 18 },
+  intro: { ...typeTokens.caption, lineHeight: 19, marginBottom: spacing.md },
+  warning: { ...typeTokens.micro, color: colors.error, marginBottom: spacing.md },
   metrics: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
-  metric: { flex: 1, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, alignItems: "center", ...shadows.card },
-  metricValue: { color: colors.onSurface, fontSize: 24, fontWeight: "800" },
-  metricLabel: { color: colors.onSurfaceMuted, fontSize: 10, textAlign: "center", marginTop: 2 },
-  sectionTitle: { color: colors.onSurface, fontSize: 16, fontWeight: "800", marginTop: spacing.xl, marginBottom: spacing.sm },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.card },
-  rowIcon: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
-  rowTitle: { color: colors.onSurface, fontSize: 14, fontWeight: "800" },
-  rowSub: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: 2 },
-  coverageCard: { flexDirection: "row", gap: spacing.md, padding: spacing.md, marginTop: spacing.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md },
-  coverageTitle: { color: colors.onSurface, fontSize: 13, fontWeight: "800" },
-  coverageText: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  metric: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  metricValue: { ...typeTokens.display, fontSize: 24 },
+  metricLabel: { ...typeTokens.micro, color: colors.onSurfaceMuted, textAlign: "center", marginTop: 2 },
+  sectionTitle: { ...typeTokens.h3, marginTop: spacing.xl, marginBottom: spacing.sm },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  rowIcon: { width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.hairline },
+  rowTitle: { ...typeTokens.body, fontWeight: "800" },
+  rowSub: { ...typeTokens.caption, marginTop: 2 },
+  coverageCard: {
+    flexDirection: "row",
+    gap: spacing.md,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+  },
+  coverageTitle: { ...typeTokens.caption, fontWeight: "800", color: colors.onSurface },
+  coverageText: { ...typeTokens.caption, lineHeight: 17, marginTop: 2 },
 });

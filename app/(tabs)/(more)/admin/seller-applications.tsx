@@ -9,7 +9,7 @@ import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
 
@@ -64,4 +64,46 @@ export default function SellerApplicationsAdmin() {
   </ScrollView></SafeAreaView>;
 }
 function Top({ onBack }: { onBack: () => void }) { return <View style={styles.top}><TouchableOpacity onPress={() => { haptics.tap(); onBack(); }} style={styles.topBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity><Text style={styles.topTitle}>Seller applications</Text><View style={{ width: 40 }} /></View>; }
-const styles=StyleSheet.create({safe:{flex:1,backgroundColor:colors.surface},center:{flex:1,alignItems:"center",justifyContent:"center"},top:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",padding:spacing.md},topBtn:{width:40,height:40,alignItems:"center",justifyContent:"center",borderRadius:radius.pill,backgroundColor:colors.surfaceSecondary,...shadows.card},topTitle:{fontSize:17,fontWeight:"800",color:colors.onSurface},card:{backgroundColor:colors.surfaceSecondary,borderRadius:radius.lg,padding:spacing.lg,marginBottom:spacing.md,...shadows.card},title:{fontSize:17,fontWeight:"800",color:colors.onSurface},sub:{fontSize:12,color:colors.onSurfaceMuted,marginTop:2},body:{fontSize:14,color:colors.onSurface,lineHeight:20,marginTop:spacing.md},meta:{fontSize:12,color:colors.onSurfaceMuted,marginTop:spacing.sm},input:{backgroundColor:colors.surfaceTertiary,borderRadius:radius.md,padding:spacing.md,minHeight:70,color:colors.onSurface,textAlignVertical:"top",marginTop:spacing.md},actions:{flexDirection:"row",gap:spacing.sm,marginTop:spacing.md}});
+// v1.0.229 — Admin: Seller applications refinement. Cards + top pill
+// button move to white on cream with hairline borders; textarea uses
+// field radius on a white surface.
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.surface },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  topTitle: { ...typeTokens.h2, fontSize: 17 },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  title: { ...typeTokens.h2, fontSize: 17 },
+  sub: { ...typeTokens.caption, marginTop: 2 },
+  body: { ...typeTokens.body, lineHeight: 20, marginTop: spacing.md },
+  meta: { ...typeTokens.caption, marginTop: spacing.sm },
+  input: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radius.field,
+    padding: spacing.md,
+    minHeight: 70,
+    color: colors.onSurface,
+    textAlignVertical: "top",
+    marginTop: spacing.md,
+  },
+  actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+});

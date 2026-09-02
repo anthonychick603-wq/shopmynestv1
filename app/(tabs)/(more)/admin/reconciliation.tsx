@@ -27,7 +27,7 @@ import { AdminCard } from "@/src/components/admin/AdminCard";
 import { AdminListSkeleton } from "@/src/components/admin/AdminSkeleton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useLoadOnce } from "@/src/hooks/use-load-once";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 import { parseServerDate } from "@/src/utils/datetime";
 import { haptics } from "@/src/utils/haptics";
@@ -207,6 +207,9 @@ export default function ReconciliationScreen() {
   );
 }
 
+// v1.0.229 — Admin Reconciliation refinement. Window tabs, KPI tiles,
+// hint strip, and issue chips move to white cards on cream with hairline
+// structure and typography tokens.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   windowRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
@@ -214,49 +217,55 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.sm,
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.card,
     alignItems: "center",
-    ...shadows.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
-  windowBtnActive: { backgroundColor: colors.brand },
-  windowText: { fontSize: 13, fontWeight: "700", color: colors.onSurface },
-  windowTextActive: { color: "#FFFFFF" },
-  sectionTitle: { fontSize: 13, fontWeight: "800", color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5, marginTop: spacing.lg, marginBottom: spacing.sm },
+  windowBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  windowText: { ...typeTokens.caption, fontWeight: "700", color: colors.onSurface },
+  windowTextActive: { color: colors.onBrand },
+  sectionTitle: { ...typeTokens.micro, fontWeight: "800", color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5, marginTop: spacing.lg, marginBottom: spacing.sm },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.sm },
   tile: {
     flexBasis: "48%",
     flexGrow: 1,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
     padding: spacing.md,
     minHeight: 90,
-    ...shadows.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
   tileHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  tileCount: { fontSize: 22, fontWeight: "800", color: colors.onSurface },
-  tileLabel: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: spacing.xs, lineHeight: 16 },
+  tileCount: { ...typeTokens.display, fontSize: 22 },
+  tileLabel: { ...typeTokens.caption, marginTop: spacing.xs, lineHeight: 16 },
   hint: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
     padding: spacing.md,
     marginBottom: spacing.md,
-    backgroundColor: colors.surfaceTertiary,
-    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.card,
   },
-  hintText: { flex: 1, fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 17 },
+  hintText: { flex: 1, ...typeTokens.caption, lineHeight: 17 },
   rowTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  rowTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
-  rowSub: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2, textTransform: "capitalize" },
+  rowTitle: { ...typeTokens.body, fontWeight: "800", fontSize: 15 },
+  rowSub: { ...typeTokens.caption, marginTop: 2, textTransform: "capitalize" },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginTop: spacing.md },
   chip: {
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceTertiary,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
-  chipText: { fontSize: 11, fontWeight: "700", color: colors.onSurface, textTransform: "capitalize" },
+  chipText: { ...typeTokens.micro, fontWeight: "700", color: colors.onSurface, textTransform: "capitalize" },
   issues: { marginTop: spacing.sm, gap: 2 },
-  issueLine: { fontSize: 12, color: colors.onSurfaceMuted, lineHeight: 17 },
-  footerAt: { textAlign: "center", fontSize: 11, color: colors.onSurfaceMuted, marginTop: spacing.xl },
+  issueLine: { ...typeTokens.caption, lineHeight: 17 },
+  footerAt: { ...typeTokens.micro, textAlign: "center", marginTop: spacing.xl },
 });

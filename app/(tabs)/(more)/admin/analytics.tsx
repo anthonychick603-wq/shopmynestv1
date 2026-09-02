@@ -25,7 +25,7 @@ import { AdminCard } from "@/src/components/admin/AdminCard";
 import { AdminListSkeleton } from "@/src/components/admin/AdminSkeleton";
 import { MiniBarChart } from "@/src/components/admin/MiniBarChart";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
@@ -226,29 +226,54 @@ function RateChip({ label, value, tone }: { label: string; value: string; tone: 
   );
 }
 
+// v1.0.229 — Admin Analytics refinement. Window tabs, KPI tiles,
+// ranked-lists card, and rate chips move to white cards on cream with
+// hairline borders and typography tokens.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   windowRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
-  windowBtn: { flex: 1, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", ...shadows.card },
-  windowBtnActive: { backgroundColor: colors.brand },
-  windowText: { fontSize: 13, fontWeight: "700", color: colors.onSurface },
-  windowTextActive: { color: "#FFFFFF" },
+  windowBtn: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  windowBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  windowText: { ...typeTokens.caption, fontWeight: "700", color: colors.onSurface },
+  windowTextActive: { color: colors.onBrand },
   kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
-  kpiTile: { flexBasis: "48%", flexGrow: 1, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderRadius: radius.lg, ...shadows.card },
+  kpiTile: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    backgroundColor: colors.card,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   kpiIcon: { width: 30, height: 30, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
-  kpiValue: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
-  kpiLabel: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
-  chartTitle: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.sm },
+  kpiValue: { ...typeTokens.display, fontSize: 20 },
+  kpiLabel: { ...typeTokens.caption, marginTop: 2 },
+  chartTitle: { ...typeTokens.caption, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.sm },
   rateRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md, flexWrap: "wrap" },
-  rateChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md, minWidth: 90 },
-  rateChipValue: { fontSize: 15, fontWeight: "800" },
-  rateChipLabel: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2 },
-  sectionTitle: { fontSize: 13, fontWeight: "800", color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5, marginTop: spacing.lg, marginBottom: spacing.sm },
-  card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, overflow: "hidden", ...shadows.card },
-  rankRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  rank: { fontSize: 12, fontWeight: "800", color: colors.onSurfaceMuted, width: 28 },
-  rankName: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.onSurface },
-  rankValue: { fontSize: 13, fontWeight: "800", color: colors.brand },
-  emptyRow: { fontSize: 12, color: colors.onSurfaceMuted, textAlign: "center" },
-  footer: { textAlign: "center", fontSize: 11, color: colors.onSurfaceMuted, marginTop: spacing.xl },
+  rateChip: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.chip, minWidth: 90 },
+  rateChipValue: { ...typeTokens.body, fontWeight: "800", fontSize: 15 },
+  rateChipLabel: { ...typeTokens.micro, marginTop: 2 },
+  sectionTitle: { ...typeTokens.micro, fontWeight: "800", color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5, marginTop: spacing.lg, marginBottom: spacing.sm },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  rankRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  rank: { ...typeTokens.micro, fontWeight: "800", width: 28 },
+  rankName: { flex: 1, ...typeTokens.body, fontWeight: "700" },
+  rankValue: { ...typeTokens.caption, fontWeight: "800", color: colors.brand },
+  emptyRow: { ...typeTokens.caption, textAlign: "center" },
+  footer: { ...typeTokens.micro, textAlign: "center", marginTop: spacing.xl },
 });

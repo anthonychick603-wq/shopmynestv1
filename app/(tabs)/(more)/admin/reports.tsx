@@ -9,7 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, ApiError, type AdminReport } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
@@ -209,34 +209,67 @@ function ReportRow({ report, status, acting, onResolve, onDismiss }: { report: A
   );
 }
 
+// v1.0.229 — Admin Reports refinement. Report cards, tabs, and action
+// row migrate to white on cream with hairline structure; success action
+// keeps its brand fill.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  topTitle: { ...typeTokens.h1, fontSize: 18 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
 
   tabs: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
-  tab: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary },
-  tabActive: { backgroundColor: colors.brand },
-  tabText: { fontSize: 11, fontWeight: "800", color: colors.onSurface, letterSpacing: 0.5 },
+  tab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  tabActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  tabText: { ...typeTokens.micro, fontWeight: "800", color: colors.onSurface, letterSpacing: 0.5 },
   tabTextActive: { color: colors.onBrand },
 
-  card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md, ...shadows.card },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: spacing.sm },
-  kindBadge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
-  kindBadgeText: { fontSize: 10, fontWeight: "800", color: colors.onSurface, letterSpacing: 0.5 },
-  createdAt: { fontSize: 12, color: colors.onSurfaceMuted },
-  reason: { fontSize: 14, fontWeight: "700", color: colors.onSurface, marginBottom: 4 },
-  subjectBody: { fontSize: 13, color: colors.onSurfaceMuted, marginBottom: spacing.sm },
-  reporter: { fontSize: 12, color: colors.onSurfaceMuted, marginBottom: spacing.sm },
+  kindBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  kindBadgeText: { ...typeTokens.micro, fontWeight: "800", color: colors.onSurface, letterSpacing: 0.5 },
+  createdAt: { ...typeTokens.caption },
+  reason: { ...typeTokens.body, fontWeight: "700", marginBottom: 4 },
+  subjectBody: { ...typeTokens.caption, color: colors.onSurfaceMuted, marginBottom: spacing.sm },
+  reporter: { ...typeTokens.caption, marginBottom: spacing.sm },
 
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
   action: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: spacing.md, borderRadius: radius.pill },
   resolve: { backgroundColor: colors.success },
-  resolveText: { fontWeight: "800", fontSize: 14, color: colors.onBrand },
-  dismiss: { backgroundColor: colors.surfaceTertiary, borderWidth: 1, borderColor: colors.border },
-  dismissText: { fontWeight: "800", fontSize: 14, color: colors.onSurface },
+  resolveText: { ...typeTokens.body, fontWeight: "800", color: colors.onBrand },
+  dismiss: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairlineStrong },
+  dismissText: { ...typeTokens.body, fontWeight: "800", color: colors.onSurface },
 
-  resolvedMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: spacing.sm, fontStyle: "italic" },
+  resolvedMeta: { ...typeTokens.caption, marginTop: spacing.sm, fontStyle: "italic" },
 });

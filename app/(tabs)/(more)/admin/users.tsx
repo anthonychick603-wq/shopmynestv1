@@ -28,7 +28,7 @@ import { InfiniteList } from "@/src/components/admin/InfiniteList";
 import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
 import { haptics } from "@/src/utils/haptics";
 
@@ -272,18 +272,20 @@ function joinedLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
+// v1.0.229 — Admin Users refinement. Type tokens applied; avatar
+// fallback uses cream on a hairline‑bounded circle.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   headerWrap: { marginBottom: spacing.sm },
-  totalHint: { fontSize: 12, color: colors.onSurfaceMuted, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
+  totalHint: { ...typeTokens.caption, paddingHorizontal: spacing.lg, marginTop: spacing.xs },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md },
-  avatar: { width: 42, height: 42, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
+  avatar: { width: 42, height: 42, borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, flexWrap: "wrap" },
-  name: { fontSize: 15, fontWeight: "800", color: colors.onSurface, maxWidth: "80%" },
-  email: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  name: { ...typeTokens.body, fontWeight: "800", fontSize: 15, maxWidth: "80%" },
+  email: { ...typeTokens.caption, marginTop: 2 },
   meta: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: spacing.xs, flexWrap: "wrap" },
-  metaText: { fontSize: 11, color: colors.onSurfaceMuted },
-  metaDot: { fontSize: 11, color: colors.onSurfaceMuted, marginHorizontal: 2 },
-  banReason: { fontSize: 12, color: colors.warning, marginTop: spacing.xs, fontStyle: "italic" },
+  metaText: { ...typeTokens.micro },
+  metaDot: { ...typeTokens.micro, marginHorizontal: 2 },
+  banReason: { ...typeTokens.caption, color: colors.warning, marginTop: spacing.xs, fontStyle: "italic" },
 });
