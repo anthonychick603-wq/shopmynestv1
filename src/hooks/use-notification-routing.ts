@@ -151,6 +151,15 @@ export function routeForPush(data: PushData): string | null {
     case "favorites_digest":
       return objectId ? `/seller/product-form?id=${objectId}` : "/seller/listings";
 
+    // v1.0.218 (P0 #12) — abandoned-cart nudge. The plugin sweeps every
+    // hour and sends this push for carts left untouched for ≥2 hours; a
+    // separate 24-hour email is queued if the buyer still hasn't
+    // checked out. Tapping lands the buyer on their cart so they can
+    // finish the purchase in one motion. No object id — the app already
+    // knows whose cart it is from the auth token.
+    case "cart_reminder":
+      return "/cart";
+
     // Anything else routes to the in-app alerts list so nothing is dead-ended.
     default:
       return "/alerts";
