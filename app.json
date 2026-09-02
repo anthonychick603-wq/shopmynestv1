@@ -2,7 +2,7 @@
   "expo": {
     "name": "My Nest",
     "slug": "the-nest-marketplace",
-    "version": "1.0.212",
+    "version": "1.0.213",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -27,7 +27,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "package": "com.shopmynest",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 179,
+      "versionCode": 180,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES"
@@ -117,6 +117,13 @@
         {
           "merchantIdentifier": "merchant.com.shopmynest.app",
           "enableGooglePay": true
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": false
         }
       ]
     ],

@@ -20,6 +20,7 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { ZoomableImage } from "@/src/components/ZoomableImage";
 import { ZoomableImageViewer } from "@/src/components/ZoomableImageViewer";
+import { InlineVideoHero, FullscreenVideoModal, isVideoSupported } from "@/src/components/InlineVideoHero";
 import { pushDetail, safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
@@ -44,6 +45,9 @@ export default function ProductDetail() {
   // v1.0.207 — full-screen zoomable photo viewer. Tapping the hero
   // opens the viewer at the currently selected image.
   const [viewerOpen, setViewerOpen] = useState(false);
+  // v1.0.213 (P0 #7) — fullscreen video modal state. Inline hero autoplays
+  // muted; this flips true when the buyer taps the hero or the expand chip.
+  const [videoFullscreenOpen, setVideoFullscreenOpen] = useState(false);
   const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -214,34 +218,63 @@ export default function ProductDetail() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
        keyboardShouldPersistTaps="handled">
-        {/* v1.0.204 — hero image + optional video badge. When the seller
-            uploaded an intro video (video_url present) we surface a play
-            badge in the corner so buyers know there's a clip. Inline
-            playback lands in a follow-up (needs expo-video). */}
+        {/* v1.0.213 (P0 #7) — hero region. If the seller uploaded a product
+            video and expo-video is available, the video occupies a virtual
+            slot 0 (thumbnails still show all images alongside a video tile
+            at the front). Autoplays muted + looping; tapping the hero or
+            expand chip opens the fullscreen player with sound. When the
+            hero is on an image slot we keep the existing pinch-zoom flow. */}
         <View style={styles.heroWrap}>
-          {/* v1.0.207 — inline pinch-zoom hero. Pinch to peek, double-tap
-              to zoom to 2.5x, tap once to open the full-screen viewer. */}
-          <ZoomableImage
-            uri={product.images[imageIdx]}
-            style={styles.hero}
-            resizeMode="cover"
-            fallbackIcon="pricetag-outline"
-            onSingleTap={() => { haptics.tap(); setViewerOpen(true); }}
-          />
-          {product.video_url ? (
+          {product.video_url && imageIdx === 0 && isVideoSupported() ? (
+            <InlineVideoHero
+              uri={product.video_url}
+              style={styles.hero}
+              onOpenFullscreen={() => setVideoFullscreenOpen(true)}
+            />
+          ) : (
+            <ZoomableImage
+              uri={product.images[product.video_url ? Math.max(0, imageIdx - 1) : imageIdx]}
+              style={styles.hero}
+              resizeMode="cover"
+              fallbackIcon="pricetag-outline"
+              onSingleTap={() => { haptics.tap(); setViewerOpen(true); }}
+            />
+          )}
+          {product.video_url && !isVideoSupported() ? (
+            // Legacy fallback badge when expo-video isn't present in the
+            // build — keeps the buyer aware there's a clip.
             <View style={styles.heroVideoBadge} accessibilityLabel="Product has a video">
               <Ionicons name="play-circle" size={22} color={colors.onBrand} />
               <Text style={styles.heroVideoBadgeText}>Video</Text>
             </View>
           ) : null}
         </View>
-        {product.images.length > 1 ? (
+        {(product.images.length > 1 || (product.video_url && isVideoSupported())) ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRow} keyboardShouldPersistTaps="handled">
-            {product.images.map((img, i) => (
-              <TouchableOpacity key={i} onPress={() => { haptics.tap(); setImageIdx(i); }} style={[styles.thumb, imageIdx === i && styles.thumbActive]} accessibilityLabel={`Show image ${i + 1}`} accessibilityRole="button">
-                <AppImage source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" fallbackIcon="pricetag-outline" />
+            {product.video_url && isVideoSupported() ? (
+              <TouchableOpacity
+                key="video-thumb"
+                onPress={() => { haptics.tap(); setImageIdx(0); }}
+                style={[styles.thumb, imageIdx === 0 && styles.thumbActive]}
+                accessibilityLabel="Show product video"
+                accessibilityRole="button"
+                testID="pdp-video-thumb"
+              >
+                <View style={styles.videoThumbInner}>
+                  <Ionicons name="play" size={22} color={colors.onBrand} />
+                </View>
               </TouchableOpacity>
-            ))}
+            ) : null}
+            {product.images.map((img, i) => {
+              // When a video occupies slot 0, image i corresponds to display
+              // slot i + 1. Otherwise slots line up with the image array.
+              const slot = product.video_url && isVideoSupported() ? i + 1 : i;
+              return (
+                <TouchableOpacity key={i} onPress={() => { haptics.tap(); setImageIdx(slot); }} style={[styles.thumb, imageIdx === slot && styles.thumbActive]} accessibilityLabel={`Show image ${i + 1}`} accessibilityRole="button">
+                  <AppImage source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" fallbackIcon="pricetag-outline" />
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         ) : null}
 
@@ -451,9 +484,18 @@ export default function ProductDetail() {
       <ZoomableImageViewer
         visible={viewerOpen}
         images={product.images}
-        initialIndex={imageIdx}
+        initialIndex={product.video_url && isVideoSupported() ? Math.max(0, imageIdx - 1) : imageIdx}
         onClose={() => setViewerOpen(false)}
       />
+      {/* v1.0.213 (P0 #7) — fullscreen video player, opened from the
+          inline hero. Unmuted, native controls, tap X to close. */}
+      {product.video_url && isVideoSupported() ? (
+        <FullscreenVideoModal
+          uri={product.video_url}
+          visible={videoFullscreenOpen}
+          onClose={() => setVideoFullscreenOpen(false)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -475,6 +517,9 @@ const styles = StyleSheet.create({
   thumb: { width: 64, height: 64, borderRadius: radius.md, overflow: "hidden", borderWidth: 2, borderColor: "transparent" },
   thumbActive: { borderColor: colors.brand },
   thumbImg: { width: "100%", height: "100%" },
+  // v1.0.213 (P0 #7) — video-slot thumbnail. Solid brand color w/ play
+  // glyph so it's clearly distinguishable from the image tiles.
+  videoThumbInner: { flex: 1, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 22, fontWeight: "800", color: colors.onSurface },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", marginTop: spacing.sm },
   ratingStars: { color: colors.brand, fontSize: 16 },
