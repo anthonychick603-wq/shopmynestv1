@@ -21,6 +21,9 @@ import { AppImage } from "@/src/components/AppImage";
 import { ZoomableImage } from "@/src/components/ZoomableImage";
 import { ZoomableImageViewer } from "@/src/components/ZoomableImageViewer";
 import { InlineVideoHero, FullscreenVideoModal, isVideoSupported } from "@/src/components/InlineVideoHero";
+import { useStripe } from "@stripe/stripe-react-native";
+import { useStripeKey } from "@/src/context/StripePayment";
+import { runExpressCheckout } from "@/src/utils/expressCheckout";
 import { pushDetail, safeBack } from "@/src/utils/nav";
 import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
@@ -35,6 +38,12 @@ export default function ProductDetail() {
   const router = useRouter();
   const { user } = useAuth();
   const { addProduct } = useCart();
+  // v1.0.214 (P0 #8) — express checkout wires straight into the same
+  // native Stripe PaymentSheet the cart uses. We only need the two sheet
+  // methods + the publishable-key setter; the util does the rest.
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { setPublishableKey } = useStripeKey();
+  const [expressPaying, setExpressPaying] = useState(false);
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const { enabled: restockAlertsEnabled, isWatching, addWatch, removeWatch } = useRestockAlerts();
 
@@ -153,6 +162,52 @@ export default function ProductDetail() {
     });
     haptics.success();
     toast.success("We'll alert you when it's available again.");
+  };
+
+  // v1.0.214 (P0 #8) — express checkout: fires PaymentSheet for just this
+  // product using the buyer's default saved address. Skips the cart. If
+  // the buyer has no saved address we bounce them to the cart flow, where
+  // the address form is already wired up.
+  const doExpressCheckout = async () => {
+    haptics.press();
+    if (!user) return router.push("/(auth)/login");
+    if (!product) return;
+    if (expressPaying) return;
+    if (isVariable) {
+      if (!allPicked) { toast.error("Pick an option for each attribute."); return; }
+      if (!matchedVariation) { toast.error("That combination isn't available."); return; }
+      if (!variationAvailable) { toast.error("This combination is out of stock."); return; }
+    }
+    setExpressPaying(true);
+    try {
+      const items = [{
+        product_id: Number(product.id),
+        quantity: qty,
+        // ProductVariationDetail uses `id` for the variation post id; the
+        // checkout endpoint expects it under `variation_id`.
+        ...(matchedVariation?.id ? { variation_id: Number(matchedVariation.id) } : {}),
+      }];
+      const result = await runExpressCheckout({
+        items,
+        buyerEmail: user.email ?? undefined,
+        stripe: { initPaymentSheet, presentPaymentSheet, setPublishableKey },
+      });
+      if (result.kind === "success") {
+        toast.success("Payment received! Your order is confirmed.");
+        router.push("/orders");
+      } else if (result.kind === "missing_address") {
+        toast.show("Add a shipping address to check out. Take me to the cart to add one.", "info");
+        // Land the buyer in cart with this item so they don't lose their
+        // place, and can finish through the normal flow.
+        addProduct(product, qty, matchedVariation);
+        router.push("/cart");
+      } else if (result.kind === "error") {
+        toast.error(result.message);
+      }
+      // "cancelled" — user dismissed the sheet, stay quiet.
+    } finally {
+      setExpressPaying(false);
+    }
   };
 
   const doAdd = async (buyNow = false) => {
@@ -453,6 +508,29 @@ export default function ProductDetail() {
           </TouchableOpacity>
         ) : (
           <View style={styles.purchaseActions}>
+            {/* v1.0.214 (P0 #8) — express checkout: one-tap PaymentSheet
+                with wallets (Apple/Google Pay) + saved cards. Uses the
+                buyer's default saved address; bounces to cart if there
+                isn't one yet. Hidden for own listings and out-of-stock. */}
+            {!isOwnListing && product.in_stock && variationAvailable && allPicked ? (
+              <TouchableOpacity
+                onPress={doExpressCheckout}
+                disabled={expressPaying || adding}
+                style={[styles.actionExpress, (expressPaying || adding) && styles.actionDisabled]}
+                testID="product-express-checkout"
+                accessibilityRole="button"
+                accessibilityLabel="Express checkout with saved wallet"
+              >
+                {expressPaying ? (
+                  <ActivityIndicator color={colors.onBrand} />
+                ) : (
+                  <>
+                    <Ionicons name="flash" size={18} color={colors.onBrand} />
+                    <Text style={styles.actionExpressText}>Express checkout</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : null}
             <View style={styles.purchaseRow}>
               <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-add-cart" accessibilityRole="button">
                 <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
@@ -554,6 +632,10 @@ const styles = StyleSheet.create({
   bottomBar: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.surfaceSecondary, padding: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   purchaseActions: { width: "100%" },
   purchaseRow: { flexDirection: "row", gap: spacing.sm },
+  // v1.0.214 (P0 #8) — express-checkout pill. Sits above the Add-to-cart
+  // / Buy-now row so it reads as the fast path without displacing them.
+  actionExpress: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.pill, marginBottom: spacing.sm },
+  actionExpressText: { color: colors.onBrand, fontWeight: "800", fontSize: 15 },
   actionSecondary: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.surfaceTertiary, borderRadius: radius.pill, minHeight: 52 },
   actionSecondaryText: { color: colors.onSurface, fontWeight: "700" },
   actionPrimary: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand, borderRadius: radius.pill, minHeight: 52 },

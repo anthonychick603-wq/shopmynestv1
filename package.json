@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "main": "expo-router/entry",
-  "version": "1.0.213",
+  "version": "1.0.214",
   "scripts": {
     "preinstall": "node ./scripts/cmd-guard.js --preinstall",
     "start": "expo start",
