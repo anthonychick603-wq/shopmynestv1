@@ -154,6 +154,8 @@ export default function Account() {
           <Row icon="home-outline" label="Address book" onPress={() => pushFromTab(router, "/me/addresses")} testID="acc-addresses" />
           {/* v1.0.94 (Build #17b) — push notification preferences center. */}
           <Row icon="notifications-outline" label="Notifications" onPress={() => pushFromTab(router, "/settings/notifications")} testID="acc-notifications" />
+          {/* v1.0.216 (P0 #10) — biometric app-lock privacy shield. */}
+          <Row icon="lock-closed-outline" label="App lock" onPress={() => pushFromTab(router, "/settings/app-lock")} testID="acc-app-lock" />
           <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} testID="acc-disputes" />
         </Section>
 

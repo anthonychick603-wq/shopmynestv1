@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "main": "expo-router/entry",
-  "version": "1.0.215",
+  "version": "1.0.216",
   "scripts": {
     "preinstall": "node ./scripts/cmd-guard.js --preinstall",
     "start": "expo start",
@@ -34,6 +34,7 @@
     "expo-image-picker": "~17.0.11",
     "expo-linear-gradient": "15.0.8",
     "expo-linking": "8.0.12",
+    "expo-local-authentication": "17.0.7",
     "expo-notifications": "~0.32.17",
     "expo-router": "6.0.24",
     "expo-secure-store": "15.0.8",

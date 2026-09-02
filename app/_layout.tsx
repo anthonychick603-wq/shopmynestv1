@@ -9,7 +9,9 @@ import { useHardwareBack } from "@/src/hooks/use-hardware-back";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { useNotificationRouting } from "@/src/hooks/use-notification-routing";
 import { loadRuntimeTheme } from "@/src/theme/runtime";
-import { AuthProvider } from "@/src/context/AuthContext";
+import { AppLockProvider, useAppLock } from "@/src/context/AppLockContext";
+import { AppLockScreen } from "@/src/components/AppLockScreen";
+import { AuthProvider, useAuth } from "@/src/context/AuthContext";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
 import { AlertsProvider } from "@/src/context/AlertsContext";
@@ -63,6 +65,7 @@ export default function RootLayout() {
       <ErrorBoundary>
       <NetworkProvider>
       <AuthProvider>
+        <AppLockProvider>
         <CartProvider>
           <FavoritesProvider>
             {/* v1.0.116 — AlertsProvider sits below Auth (so it can see
@@ -87,12 +90,19 @@ export default function RootLayout() {
               <NotificationTapRouter />
               <DeepLinkRouter />
               <HardwareBackRouter />
+              {/* v1.0.216 (P0 #10) — biometric app-lock overlay. Sits
+                  above every screen (including the (auth) modal) so a
+                  cold launch with the shield on never leaks buyer data.
+                  Wires the sign-out escape hatch through the AppLock
+                  context so a broken biometric enrollment isn't fatal. */}
+              <AppLockOverlay />
             </View>
             </StripePaymentProvider>
             </RestockAlertsProvider>
             </AlertsProvider>
           </FavoritesProvider>
         </CartProvider>
+        </AppLockProvider>
       </AuthProvider>
       </NetworkProvider>
       </ErrorBoundary>
@@ -118,6 +128,18 @@ function HardwareBackRouter() {
   // tab when there isn't, and stays out of the way on tab roots.
   useHardwareBack();
   return null;
+}
+
+function AppLockOverlay() {
+  // v1.0.216 — sits under the AuthProvider so it can wire sign-out into
+  // the AppLock context without a circular import between the two.
+  const { locked, registerSignOutHandler } = useAppLock();
+  const { logout } = useAuth();
+  useEffect(() => {
+    registerSignOutHandler(() => { void logout(); });
+  }, [registerSignOutHandler, logout]);
+  if (!locked) return null;
+  return <AppLockScreen />;
 }
 
 const styles = StyleSheet.create({
