@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { Alert, ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { formatDistanceToNow } from "date-fns";
 import { ApiError, nest, type NestCustomRequestDetailRaw, type NestCustomRequestMessageRaw, type NestCustomRequestStatus } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
@@ -57,6 +57,20 @@ export default function CustomRequestDetail() {
   useFocusEffect(useCallback(() => {
     void load();
   }, [load]));
+
+  // v1.0.220 — hide bottom Tabs bar while a custom-request thread is
+  // focused so the composer input isn't drawn behind the tab bar. Same
+  // pattern as messages/[userId].tsx.
+  const navigation = useNavigation();
+  useFocusEffect(
+    useCallback(() => {
+      const parent = navigation.getParent()?.getParent?.();
+      parent?.setOptions?.({ tabBarStyle: { display: "none" } });
+      return () => {
+        parent?.setOptions?.({ tabBarStyle: undefined });
+      };
+    }, [navigation])
+  );
 
   const isBuyer = !!request && String(request.buyer_id) === user?.id;
   const isTerminal = request ? terminalStatus(request.status) : true;

@@ -17,7 +17,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Image as ExpoImage } from "expo-image";
 
 import { nest, friendlyMessage, type NestMessagePhoto, type NestMessageRaw } from "@/src/api/nest";
@@ -213,6 +214,25 @@ export default function MessageThread() {
   // an unmounted conversation.
   const cancelRef = useRef({ cancelled: false });
   useEffect(() => () => { cancelRef.current.cancelled = true; }, []);
+
+  // v1.0.220 — hide the bottom Tabs bar while the message thread is
+  // focused so the composer sits directly above the OS gesture bar. With
+  // the tabs visible the composer was drawn *behind* the tab bar and the
+  // Send button was half-hidden. Restore on blur so peer tabs get the
+  // bar back. Setting tabBarStyle back to undefined lets React Navigation
+  // fall through to the screenOptions defined in (tabs)/_layout.tsx, which
+  // is what we want — no need to re-specify colors or height here.
+  const navigation = useNavigation();
+  useFocusEffect(
+    useCallback(() => {
+      // Stack (more) -> Tabs
+      const parent = navigation.getParent()?.getParent?.();
+      parent?.setOptions?.({ tabBarStyle: { display: "none" } });
+      return () => {
+        parent?.setOptions?.({ tabBarStyle: undefined });
+      };
+    }, [navigation])
+  );
 
   const load = useCallback(async () => {
     if (!user || !otherId) return;
