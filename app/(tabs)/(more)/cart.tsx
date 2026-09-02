@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -94,6 +97,23 @@ export default function Cart() {
   // Final money returned by create-intent after WooCommerce calculates tax.
   // PaymentSheet is not opened until the buyer has seen these values once.
   const [finalReview, setFinalReview] = React.useState<{ orderId: number; tax: number; total: number; shipping: number | null } | null>(null);
+
+  // v1.0.222 — flash the total row when the server returns a different
+  // amount than the buyer saw, so the two-tap review is visible instead of
+  // silently swapping the label. Runs on every finalReview transition to a
+  // non-null value.
+  const totalFlash = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (!finalReview) return;
+    Animated.sequence([
+      Animated.timing(totalFlash, { toValue: 1, duration: 200, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+      Animated.timing(totalFlash, { toValue: 0, duration: 900, easing: Easing.in(Easing.quad), useNativeDriver: false }),
+    ]).start();
+  }, [finalReview, totalFlash]);
+  const totalFlashBg = totalFlash.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(255, 214, 128, 0)", "rgba(255, 214, 128, 0.55)"],
+  });
   // v1.0.92 — coupon input. The typed value only becomes an applied code once
   // the buyer taps Apply, so an accidental keystroke does not requote the cart.
   // v1.0.209 (P0 #3) — widened to a list so buyers can stack codes; per-code
@@ -700,18 +720,38 @@ export default function Cart() {
                       <Ionicons name="bag-add-outline" size={14} color={colors.onBrand} />
                       <Text style={styles.sflMoveText}>Move to cart</Text>
                     </TouchableOpacity>
+                    {/* v1.0.222 — the Saved-for-later section is backed by
+                        the favorites list, so tapping "Remove" here also
+                        unfavorites the product. The old button said
+                        "Remove", which read like "remove from cart" — the
+                        buyer's actual expectation. Now we ask before
+                        deleting the favorite. */}
                     <TouchableOpacity
                       onPress={() => {
-                        haptics.warning();
-                        favorites.toggle(sp.id).catch(() => { /* silent */ });
+                        haptics.tap();
+                        Alert.alert(
+                          "Remove from favorites?",
+                          `${sp.title} will be removed from your Saved for later and your Favorites.`,
+                          [
+                            { text: "Keep", style: "cancel" },
+                            {
+                              text: "Remove",
+                              style: "destructive",
+                              onPress: () => {
+                                haptics.warning();
+                                favorites.toggle(sp.id).catch(() => { /* silent */ });
+                              },
+                            },
+                          ],
+                        );
                       }}
                       testID={`cart-sfl-remove-${sp.id}`}
                       style={styles.sflRemoveBtn}
-                      accessibilityLabel={`Remove ${sp.title} from saved for later`}
+                      accessibilityLabel={`Remove ${sp.title} from favorites`}
                       accessibilityRole="button"
                       hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     >
-                      <Text style={styles.sflRemoveText}>Remove</Text>
+                      <Text style={styles.sflRemoveText}>Unfavorite</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -759,7 +799,10 @@ export default function Cart() {
                 <Text style={styles.rateFallback} testID="cart-rates-fallback">
                   We couldn't fetch live rates right now. An estimated cost is shown below; the final shipping amount is confirmed securely at payment.
                 </Text>
-                {debugReason ? (
+                {/* v1.0.222 — dev-only. This surfaced raw plugin reason
+                    strings ("no_address", "no_shipping_profile") to
+                    production buyers. Keep visible in dev for debugging. */}
+                {__DEV__ && debugReason ? (
                   <Text style={styles.rateDebug} testID="cart-rates-debug">
                     Debug: {debugReason}
                   </Text>
@@ -892,7 +935,17 @@ export default function Cart() {
           <SummaryRow label={shippingRowLabel} value={couponFreeShipping ? "Free" : shippingRowValue} />
           <SummaryRow label="Tax" value={displayTax == null ? "Calculated at checkout" : `$${displayTax.toFixed(2)}`} />
           <View style={styles.divider} />
-          <SummaryRow label={finalReview ? "Final total" : "Estimated total"} value={`$${displayTotal.toFixed(2)}`} bold />
+          {/* v1.0.222 — flash the total row on transition to finalReview so
+              the two-tap review is *visible*, and swap the label to a clearer
+              "Final total to confirm" instead of the previous silent
+              "Estimated total" → "Final total" flip. */}
+          <Animated.View style={{ backgroundColor: totalFlashBg, borderRadius: radius.sm, paddingHorizontal: spacing.xs, marginHorizontal: -spacing.xs }}>
+            <SummaryRow
+              label={finalReview ? "Final total to confirm" : "Estimated total"}
+              value={`$${displayTotal.toFixed(2)}`}
+              bold
+            />
+          </Animated.View>
         </View>
 
         {/* v1.0.160 — Proactive block: mirror plugin v3.13.32 rules so the
@@ -953,7 +1006,12 @@ export default function Cart() {
             <ActivityIndicator color={colors.onBrand} />
           ) : (
             <>
-              <Text style={styles.checkoutText}>Checkout</Text>
+              {/* v1.0.222 — during the finalReview step, the button explicitly
+                  says the price the buyer is about to be charged. This turns the
+                  invisible "tap again" step into a clear consent moment. */}
+              <Text style={styles.checkoutText}>
+                {finalReview ? `Confirm $${displayTotal.toFixed(2)}` : "Checkout"}
+              </Text>
               <Ionicons name="arrow-forward" size={18} color={colors.onBrand} />
             </>
           )}
@@ -996,7 +1054,13 @@ function AddressFormModal({
   onSave: (a: NestWpAddress) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const [fullName, setFullName] = React.useState("");
+  // v1.0.222 — was a single "Full name" split at the first space, so
+  // "Anne Marie Smith" became first="Anne" / last="Marie Smith", and
+  // buyers with a single-word legal name (mononyms) failed the "canSave"
+  // gate. Structured fields fix both: no ambiguity, plus autofill hooks
+  // for name-given / name-family on both iOS and Android.
+  const [firstName, setFirstName] = React.useState("");
+  const [lastName, setLastName] = React.useState("");
   const [line1, setLine1] = React.useState("");
   const [line2, setLine2] = React.useState("");
   const [city, setCity] = React.useState("");
@@ -1013,7 +1077,8 @@ function AddressFormModal({
   // Re-seed the fields each time the sheet opens (new/edit).
   React.useEffect(() => {
     if (!visible) return;
-    setFullName([initial?.first_name, initial?.last_name].filter(Boolean).join(" "));
+    setFirstName(initial?.first_name ?? "");
+    setLastName(initial?.last_name ?? "");
     setLine1(initial?.address_1 ?? "");
     setLine2(initial?.address_2 ?? "");
     setCity(initial?.city ?? "");
@@ -1024,16 +1089,15 @@ function AddressFormModal({
   }, [visible, initial]);
 
   const phoneDigits = phone.replace(/\D+/g, "");
-  const canSave = fullName.trim() && line1.trim() && city.trim() && state.trim() && postcode.trim() && country.trim() && phoneDigits.length >= 10;
+  // v1.0.222 — first name is required (Shippo won't accept a blank
+  // recipient); last name is optional so mononyms pass.
+  const canSave = firstName.trim() && line1.trim() && city.trim() && state.trim() && postcode.trim() && country.trim() && phoneDigits.length >= 10;
 
   const submit = () => {
     if (!canSave) return;
-    const parts = fullName.trim().split(/\s+/);
-    const first_name = parts[0] ?? "";
-    const last_name = parts.slice(1).join(" ");
     onSave({
-      first_name,
-      last_name,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
       address_1: line1.trim(),
       address_2: line2.trim() || undefined,
       city: city.trim(),
@@ -1065,7 +1129,33 @@ function AddressFormModal({
             <TouchableOpacity onPress={onCancel} testID="address-form-cancel" accessibilityRole="button" accessibilityLabel="Close" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="close" size={24} color={colors.onSurface} /></TouchableOpacity>
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: spacing.lg }}>
-            <Field label="Full name" value={fullName} onChangeText={setFullName} testID="address-full-name" autoCapitalize="words" />
+            {/* v1.0.222 — structured name fields with iOS/Android autofill
+                hooks. autoComplete + textContentType are the RN keys the
+                platform password managers/keyboards look for. */}
+            <View style={{ flexDirection: "row", gap: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label="First name"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  testID="address-first-name"
+                  autoCapitalize="words"
+                  autoComplete="name-given"
+                  textContentType="givenName"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Field
+                  label="Last name (optional)"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  testID="address-last-name"
+                  autoCapitalize="words"
+                  autoComplete="name-family"
+                  textContentType="familyName"
+                />
+              </View>
+            </View>
             <Field label="Address line 1" value={line1} onChangeText={setLine1} testID="address-line1" />
             <Field label="Address line 2 (optional)" value={line2} onChangeText={setLine2} testID="address-line2" />
             <Field label="City" value={city} onChangeText={setCity} testID="address-city" />

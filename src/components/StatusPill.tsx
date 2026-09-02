@@ -1,35 +1,32 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { colors, radius, spacing } from "@/src/theme";
+import { radius, spacing } from "@/src/theme";
+import { statusColors, statusLabel, type Role } from "@/src/utils/orderStatus";
 
-// v1.0.71 — extracted from the seller dashboard (v1.0.70). Any list that
-// shows an order/dispute/status label should use this component instead of
-// rendering the raw uppercase string. Buyer-facing screens now share the
-// same color language as the seller dashboard: green complete/paid,
-// blue shipped/in-transit, orange pending/processing, red cancelled/refunded.
-export function statusColors(status: string): { bg: string; fg: string } {
-  const s = status.toLowerCase();
-  if (s.includes("cancel") || s.includes("refund") || s.includes("fail")) {
-    return { bg: "#F8D7DA", fg: "#8B2E36" };
-  }
-  if (s.includes("ship") || s.includes("transit")) {
-    return { bg: "#E7EEF7", fg: "#2F5AA3" };
-  }
-  if (s.includes("complete") || s.includes("delivered") || s.includes("paid")) {
-    return { bg: "#DFF3E3", fg: "#2A6B3A" };
-  }
-  if (s.includes("pending") || s.includes("hold") || s.includes("processing")) {
-    return { bg: "#FFEED9", fg: "#8A4B10" };
-  }
-  return { bg: colors.surfaceTertiary, fg: colors.onSurface };
-}
+// v1.0.222 — pill now renders Title-Case labels via statusLabel() instead
+// of shouting the raw enum token. "AWAITING_PAYMENT" → "Payment pending"
+// for buyers, "Awaiting payment" for sellers. See src/utils/orderStatus.ts
+// for the canonical map.
+//
+// Back-compat: `statusColors` is re-exported from the util so screens that
+// import it from this file keep working.
 
-export function StatusPill({ status, style }: { status: string; style?: object }) {
+export { statusColors };
+
+export function StatusPill({
+  status,
+  role = "buyer",
+  style,
+}: {
+  status: string;
+  role?: Role;
+  style?: object;
+}) {
   const c = statusColors(status);
   return (
     <View style={[styles.pill, { backgroundColor: c.bg }, style]}>
-      <Text style={[styles.text, { color: c.fg }]}>{status.toUpperCase()}</Text>
+      <Text style={[styles.text, { color: c.fg }]}>{statusLabel(status, role)}</Text>
     </View>
   );
 }
@@ -41,5 +38,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: radius.pill,
   },
-  text: { fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
+  // v1.0.222 — no longer all caps; label is Title Case already.
+  text: { fontSize: 11, fontWeight: "700", letterSpacing: 0.2 },
 });

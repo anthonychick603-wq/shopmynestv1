@@ -26,6 +26,7 @@ import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { OrderDetailSkeleton } from "@/src/components/OrderDetailSkeleton";
 import { parseServerDate } from "@/src/utils/datetime";
+import { statusLabel } from "@/src/utils/orderStatus";
 
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -265,10 +266,16 @@ export default function OrderDetail() {
           <View style={styles.divider} />
           <Line k="Total" v={`$${order.total.toFixed(2)}`} bold />
         </View>
-        {refund ? (
+        {/* v1.0.222 — always mount the refund card for the buyer. If the
+            server omitted the `refund` block (legacy plugin, non-fatal
+            partial response), synthesize a client-side "none" block so the
+            card can still surface a first-time "Request refund" CTA and
+            the buyer isn't left with no path. Eligibility is unknown
+            client-side, so we let the server enforce it on submit. */}
+        {iAmBuyer ? (
           <RefundStatusCard
             orderId={order.id}
-            refund={refund}
+            refund={refund ?? synthesizeEmptyRefund(order)}
             onChange={setRefund}
             activeCaseId={orderDispute?.id ?? null}
           />
@@ -287,6 +294,13 @@ export default function OrderDetail() {
             <Ionicons name="shield-checkmark" size={20} color={colors.brand} />
             <Text style={styles.protectTitle}>Resolution center</Text>
           </View>
+          {/* v1.0.222 — the previous copy contradicted the refund card:
+              when the refund card said "You can't request a refund on
+              this order" for a `none` state with blockers, this section
+              still offered "Open buyer-protection case". Now the resolution
+              card only shows an action when it is *the* action for that
+              state; otherwise it's a passive info card that defers to the
+              refund card above. */}
           <Text style={styles.protectText}>
             {orderDispute
               ? "A buyer-protection case is already open for this order. Keep updates and escalation in that case so there is one source of truth."
@@ -297,19 +311,29 @@ export default function OrderDetail() {
               : refund?.state === "denied"
               ? "Your refund request was denied. You can escalate the same order issue to buyer protection for review."
               : refund?.eligibility?.can_request
-              ? "Start with the refund request above. If it cannot be resolved through that process, buyer protection becomes the escalation path."
-              : "If the normal refund path is unavailable for this issue, you can open one buyer-protection case for the order."}
+              ? "Start with the refund request above. Buyer protection is the escalation path if that doesn't resolve it."
+              : refund && !refund.eligibility?.can_request
+              ? "See the refund card above for what's available on this order. Buyer protection is only for cases the refund path can't resolve."
+              : "If a refund cannot resolve your issue, you can open one buyer-protection case for the order."}
           </Text>
           <View style={styles.protectBtns}>
             {orderDispute ? (
               <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/${orderDispute.id}`)} testID="order-view-active-dispute" accessibilityRole="button">
                 <Text style={styles.protectPrimaryText}>View active case</Text>
               </TouchableOpacity>
-            ) : refund && ["requested", "approved", "processing", "completed"].includes(refund.state) ? null : refund?.eligibility?.can_request && refund.state !== "denied" ? null : (
+            ) : refund?.state === "denied" ? (
+              // Only surface the escalation CTA after a denial — that's the
+              // one case where buyer protection is unambiguously the path.
               <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/new?order=${order.id}`)} testID="order-open-dispute" accessibilityRole="button">
-                <Text style={styles.protectPrimaryText}>{refund?.state === "denied" ? "Escalate to buyer protection" : "Open buyer-protection case"}</Text>
+                <Text style={styles.protectPrimaryText}>Escalate to buyer protection</Text>
               </TouchableOpacity>
-            )}
+            ) : !refund ? (
+              // No refund block was returned at all — legacy or partial
+              // order. Give the buyer the single escalation button.
+              <TouchableOpacity style={styles.protectPrimary} onPress={() => router.push(`/disputes/new?order=${order.id}`)} testID="order-open-dispute" accessibilityRole="button">
+                <Text style={styles.protectPrimaryText}>Open buyer-protection case</Text>
+              </TouchableOpacity>
+            ) : null}
             <TouchableOpacity style={styles.protectGhost} onPress={() => router.push("/disputes")} testID="order-view-disputes" accessibilityRole="button">
               <Text style={styles.protectGhostText}>My cases</Text>
             </TouchableOpacity>
@@ -406,8 +430,11 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
   const [tracking, setTracking] = useState(data.tracking_number || "");
   const [busy, setBusy] = useState(false);
 
-  const save = async () => {
-    haptics.press();
+  // v1.0.222 — the actual write to the server. `save` is the tap handler;
+  // it routes cancels through a confirm dialog first because cancellation
+  // is destructive (buyer is charged, seller has to refund) and used to
+  // fire on a single tap of a chip labeled "Cancelled".
+  const doSave = async () => {
     if (status === "shipped" && !tracking.trim()) {
       toast.error("Add a tracking number before marking a manual shipment as shipped, or buy a ShopMyNest label below.");
       return;
@@ -427,13 +454,34 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
     }
   };
 
+  const save = () => {
+    haptics.press();
+    if (status === "cancelled" && data.seller_status !== "cancelled") {
+      Alert.alert(
+        "Cancel this order?",
+        "The buyer will be refunded and this order will be marked cancelled. This can't be undone from here.",
+        [
+          { text: "Keep order", style: "cancel", onPress: () => setStatus(data.seller_status || "processing") },
+          { text: "Cancel order", style: "destructive", onPress: () => { void doSave(); } },
+        ],
+      );
+      return;
+    }
+    void doSave();
+  };
+
   return (
     <View style={styles.card}>
       <View style={styles.protectRow}>
         <Ionicons name="cube-outline" size={20} color={colors.brand} />
         <Text style={styles.protectTitle}>Fulfill this order</Text>
       </View>
-      <Text style={styles.sellerNet}>Your net: ${(data.seller_net ?? data.net_before_shipping).toFixed(2)}</Text>
+      {/* v1.0.222 — removed the duplicate "Your net" line here. The
+          same number is displayed by the payout breakdown card below
+          (with the full deduction detail), so this second, less-detailed
+          copy was contradicting itself when the breakdown re-derived it
+          from platform_fee + stripe_fee. Kept the breakdown as the single
+          source of truth. */}
       <Text style={styles.fieldLabel}>Status</Text>
       <View style={styles.statusRow}>
         {allowedSellerStatuses(data.seller_status).map((value) => {
@@ -451,14 +499,32 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
       <Button title="Save fulfillment" onPress={save} loading={busy} testID="order-fulfill-save" />
 
       <View style={styles.labelDivider} />
-      <ShippingLabelSection orderId={orderId} platformKeepsShipping={data.platform_keeps_shipping === true} />
+      {/* v1.0.222 — pass a purchase callback so the buy-label flow can
+          update the fulfillment card's tracking field immediately, and
+          the parent's seller-order data. Fixes the race where the seller
+          bought a label, tapped Save, and the save call failed with
+          "add a tracking number" because state hadn't caught up. */}
+      <ShippingLabelSection
+        orderId={orderId}
+        platformKeepsShipping={data.platform_keeps_shipping === true}
+        onLabelPurchased={(l) => {
+          if (l?.tracking_number) {
+            setTracking(l.tracking_number);
+            // Propagate the tracking upward so the parent's snapshot of
+            // the seller order matches the server. The label-buy endpoint
+            // stamps _tnm_tracking_<seller_id> server-side; we mirror that
+            // in the local shape so a subsequent Save doesn't wipe it.
+            onUpdated({ ...data, tracking_number: l.tracking_number });
+          }
+        }}
+      />
     </View>
   );
 }
 
 // Buy a real Shippo label and print/share the PDF. Additive to the manual
 // tracking fields above — either path fulfils the order.
-function ShippingLabelSection({ orderId, platformKeepsShipping }: { orderId: string; platformKeepsShipping: boolean }) {
+function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased }: { orderId: string; platformKeepsShipping: boolean; onLabelPurchased?: (label: NestShippingLabel | null) => void }) {
   const [label, setLabel] = useState<NestShippingLabel | null>(null);
   const [checking, setChecking] = useState(true);
   const [rates, setRates] = useState<NestLabelRate[] | null>(null);
@@ -520,6 +586,9 @@ function ShippingLabelSection({ orderId, platformKeepsShipping }: { orderId: str
       const res = await nest.buyShippingLabel(orderId, rate);
       applyLabel(res.label);
       setRates(null);
+      // v1.0.222 — notify parent so the tracking field and seller-order
+      // data reflect the new label BEFORE the seller taps Save fulfillment.
+      if (onLabelPurchased) onLabelPurchased(res.label ?? null);
       if (res.label?.label_url) toast.success("Shipping label purchased");
       else toast.success("Label requested — it will be ready shortly");
     } catch (e) {
@@ -573,8 +642,12 @@ function ShippingLabelSection({ orderId, platformKeepsShipping }: { orderId: str
               {label.tracking_number ? ` — ${label.tracking_number}` : ""}
             </Text>
           </View>
-          {label.status && label.status !== "success" ? (
-            <Text style={styles.labelPending}>Label is {label.status}. Pull to refresh once it's ready.</Text>
+          {/* v1.0.222 — Shippo returns raw status strings like
+              "QUEUED" / "PROCESSING" / "ERROR" / "REFUNDED" (and lowercase
+              variants). Show the seller a human sentence instead of the
+              raw token. */}
+          {label.status && String(label.status).toLowerCase() !== "success" ? (
+            <Text style={styles.labelPending}>{humanLabelStatus(label.status)}</Text>
           ) : null}
           {label.label_url ? (
             <Button title="Print / Share label" onPress={share} loading={sharing} testID="order-label-share" />
@@ -706,6 +779,12 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
             <Text key={i} style={styles.addr}>{line}</Text>
           ))}
         </View>
+        {/* v1.0.222 — seller-side refund strip. The plugin (v3.13.76+)
+            returns a `refund` summary on the seller-order payload so the
+            seller can see when the buyer has an active or completed
+            refund request without having to guess from the top-level
+            order status. Renders only when the plugin sends a block. */}
+        <SellerRefundStrip refund={data.refund} />
         <View style={styles.card}>
           <Text style={styles.cardLabel}>Your earnings</Text>
           <Line k="Item subtotal" v={`$${Number(data.gross ?? 0).toFixed(2)}`} />
@@ -743,6 +822,61 @@ function SellerOrderScreen({ data, onUpdated }: { data: NestSellerOrderRaw; onUp
 // CONVERSATION chip on both ends. Rendered only when the seller order
 // carries a real buyer id (customer_id or customer.id) — guest checkouts and
 // legacy rows without a buyer uid are silently skipped.
+// v1.0.222 — seller-facing refund status strip. Reads the seller-safe
+// summary the plugin (v3.13.76+) attaches to the seller-order payload.
+// Colors match the buyer's RefundStatusCard buckets so the two sides
+// speak the same visual language.
+function SellerRefundStrip({ refund }: { refund?: import("@/src/api/nest").NestSellerRefundSummary | null }) {
+  if (!refund) return null;
+  const state = refund.state;
+  // Bucket colors mirror the buyer refund card. Kept inline (rather than
+  // importing statusPalette) so the strip stays a small, self-contained
+  // seller UI element.
+  const tone =
+    state === "denied"
+      ? { bg: "#FCE7E7", fg: "#8A1A1A" }
+      : state === "completed"
+      ? { bg: "#E4F0DB", fg: "#245B12" }
+      : state === "requested" || state === "approved" || state === "processing"
+      ? { bg: "#FFF3D2", fg: "#8A5A00" }
+      : { bg: "#EFEDE7", fg: "#5A5852" };
+  const requestedTxt = refund.requested_amount > 0 ? ` · Requested $${refund.requested_amount.toFixed(2)}` : "";
+  const refundedTxt = refund.refunded_amount > 0 ? ` · Refunded $${refund.refunded_amount.toFixed(2)}` : "";
+  const requestKind =
+    refund.request_type === "cancellation" ? "Cancellation"
+    : refund.request_type === "return" ? "Return"
+    : refund.request_type === "in_transit" ? "In-transit refund"
+    : "";
+  return (
+    <View style={[styles.card, { backgroundColor: tone.bg }]}>
+      <View style={styles.protectRow}>
+        <Ionicons name="cash-outline" size={20} color={tone.fg} />
+        <Text style={[styles.protectTitle, { color: tone.fg }]}>Refund: {refund.label}</Text>
+      </View>
+      <Text style={{ fontSize: 13, color: tone.fg, marginTop: 6 }}>
+        {requestKind ? `${requestKind}${requestedTxt}${refundedTxt}` : `${refund.label}${requestedTxt}${refundedTxt}`.trim()}
+      </Text>
+      {state === "requested" ? (
+        <Text style={{ fontSize: 12, color: tone.fg, marginTop: 6 }}>
+          The buyer is waiting on ShopMyNest to review this. You don't need to act.
+        </Text>
+      ) : state === "approved" || state === "processing" ? (
+        <Text style={{ fontSize: 12, color: tone.fg, marginTop: 6 }}>
+          ShopMyNest is processing this refund. The amount is reversed from your net for this order.
+        </Text>
+      ) : state === "completed" ? (
+        <Text style={{ fontSize: 12, color: tone.fg, marginTop: 6 }}>
+          The buyer has been refunded. No further action is required.
+        </Text>
+      ) : state === "denied" ? (
+        <Text style={{ fontSize: 12, color: tone.fg, marginTop: 6 }}>
+          The buyer's refund request was denied by ShopMyNest.
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function OrderBuyerMessageCard({ data }: { data: NestSellerOrderRaw }) {
   const router = useRouter();
   const buyerId = data.customer_id ?? data.customer?.id;
@@ -800,26 +934,61 @@ function OrderBuyerMessageCard({ data }: { data: NestSellerOrderRaw }) {
   );
 }
 
-function buyerStatusLabel(order: Order): string {
-  // v1.0.51 - map internal status to human copy the buyer expects on the
-  // order screen. "processing" is deliberately shown as "Preparing" because
-  // customers don't read "processing" as "the seller is picking + packing".
-  switch (order.status) {
-    case "awaiting_payment":
-      return "Payment pending";
+// v1.0.222 — translate Shippo raw label.status tokens to a friendly
+// sentence. Falls back to a generic message for unrecognized tokens.
+function humanLabelStatus(raw: string): string {
+  const t = String(raw || "").toLowerCase();
+  switch (t) {
+    case "queued":
+      return "Label is queued with the carrier. Pull to refresh once it's ready.";
     case "processing":
-      return order.shipping_status === "partial" ? "Partially shipped" : "Preparing";
-    case "shipped":
-      return "Shipped";
-    case "delivered":
-      return "Delivered";
-    case "failed":
-      return "Payment failed";
-    case "cancelled":
-      return "Cancelled";
+      return "Label is being generated. Pull to refresh once it's ready.";
+    case "error":
+      return "The carrier couldn't generate this label. Try buying it again below.";
+    case "refunded":
+      return "Label was voided and refunded. Buy a new label to ship.";
+    case "pending":
+      return "Label is pending. Pull to refresh once it's ready.";
     default:
-      return String(order.status).replace("_", " ");
+      return "Label is not ready yet. Pull to refresh in a moment.";
   }
+}
+
+// v1.0.222 — fallback refund payload for orders where the plugin didn't
+// include one. Lets RefundStatusCard mount so the buyer at least has the
+// "Request refund" affordance. Eligibility is unknown, so we optimistically
+// mark can_request=true and let the server return the real blockers when
+// the buyer taps Submit.
+function synthesizeEmptyRefund(order: Order): import("@/src/api/nest").NestRefundStatus {
+  return {
+    order_id: Number(order.id),
+    currency: "USD",
+    order_total: order.total,
+    state: "none",
+    label: "No refund activity",
+    requested_amount: 0,
+    refunded_amount: 0,
+    reason: "",
+    details: "",
+    denial_note: "",
+    request_type: "",
+    timeline: [],
+    eligibility: { can_request: true, blockers: [], policy_days: 14, request_type: "" },
+  };
+}
+
+function buyerStatusLabel(order: Order): string {
+  // v1.0.222 — routes through the shared statusLabel helper so the pill,
+  // the tracker, and this hint always emit the same words. The one
+  // buyer-specific nuance is Partially Shipped, which depends on
+  // shipping_status rather than order.status.
+  if (order.status === "shipped" && order.shipping_status === "partial") {
+    return statusLabel("partial", "buyer");
+  }
+  if (order.status === "processing" && order.shipping_status === "partial") {
+    return statusLabel("partial", "buyer");
+  }
+  return statusLabel(order.status, "buyer");
 }
 
 const styles = StyleSheet.create({

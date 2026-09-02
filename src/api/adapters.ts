@@ -259,6 +259,10 @@ export function toOrder(o: NestOrderRaw): Order {
 function deriveBuyerStatus(o: NestOrderRaw): Order["status"] {
   if (o.status === "failed") return "failed";
   if (o.status === "cancelled") return "cancelled";
+  // v1.0.222 — refunded is a distinct terminal state; without this branch
+  // it fell through to "processing" and the tracker labeled the order
+  // "Preparing" while the pill still said `PROCESSING`.
+  if (o.status === "refunded") return "refunded";
   if (o.status === "completed") return "delivered";
   const ship = o.shipping_status || deriveShippingStatus(o);
   if (ship === "shipped") return "shipped";

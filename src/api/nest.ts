@@ -2134,7 +2134,20 @@ export type NestSellerOrderRaw = {
   stripe_fee?: number;
   seller_net?: number;
   platform_keeps_shipping?: boolean;
+  // v1.0.222 (plugin v3.13.76) — seller-safe refund summary. Optional so
+  // older plugin builds that don't send it still parse cleanly. The mobile
+  // seller order screen renders a status strip when this is present.
+  refund?: NestSellerRefundSummary | null;
   currency: string;
+};
+
+export type NestSellerRefundSummary = {
+  state: NestRefundState;
+  label: string;
+  requested_amount: number;
+  refunded_amount: number;
+  request_type: "cancellation" | "return" | "in_transit" | "";
+  timeline: NestRefundTimelineEntry[];
 };
 
 export type NestBalances = {

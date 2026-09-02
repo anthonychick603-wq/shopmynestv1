@@ -11,6 +11,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { colors, radius, spacing } from "@/src/theme";
 import type { Order } from "@/src/types";
 import { parseServerDate } from "@/src/utils/datetime";
+import { statusLabel } from "@/src/utils/orderStatus";
 
 type Step = {
   key: "placed" | "paid" | "preparing" | "shipped" | "delivered";
@@ -100,9 +101,9 @@ export function OrderStatusTimeline({ order }: { order: Order }) {
       {isTerminated ? (
         <View style={styles.terminated} testID="order-timeline-terminated">
           <Ionicons name="alert-circle-outline" size={14} color={colors.error} />
-          <Text style={styles.terminatedText}>
-            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-          </Text>
+          {/* v1.0.222 — route through statusLabel so "refunded" renders as
+              "Refunded" (not the raw enum) and copy matches the pill / hint. */}
+          <Text style={styles.terminatedText}>{statusLabel(order.status, "buyer")}</Text>
         </View>
       ) : null}
     </View>
@@ -152,5 +153,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignSelf: "center",
   },
-  terminatedText: { fontSize: 12, fontWeight: "700", color: colors.error, textTransform: "capitalize" },
+  // v1.0.222 — statusLabel already returns Title Case, no need to force it here.
+  terminatedText: { fontSize: 12, fontWeight: "700", color: colors.error },
 });

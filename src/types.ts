@@ -166,7 +166,7 @@ export type Order = {
   coupon_code?: string | null;
   tax: number;
   total: number;
-  status: "awaiting_payment" | "paid" | "processing" | "shipped" | "delivered" | "failed" | "cancelled";
+  status: "awaiting_payment" | "paid" | "processing" | "shipped" | "delivered" | "failed" | "cancelled" | "refunded";
   // v1.0.51 - per-seller tracking rows (the old single-object shape lost
   // visibility on multi-seller orders). See buyer order screen for how
   // this is grouped with the items belonging to each seller.
