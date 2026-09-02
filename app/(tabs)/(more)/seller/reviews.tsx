@@ -8,7 +8,7 @@ import { ApiError, nest, type ProductReview } from "@/src/api/nest";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
@@ -80,11 +80,71 @@ function ResponseModal({ item, onClose, onSaved }: { item: ProductReview; onClos
   return <Modal transparent animationType="fade" visible onRequestClose={onClose}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.sheetTop}><Text style={styles.sheetTitle}>Respond to review</Text><TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={22} color={colors.onSurface} /></TouchableOpacity></View><TextInput style={styles.input} value={response} onChangeText={(value) => setResponse(value.slice(0, 2000))} multiline maxLength={2000} placeholder="Write a helpful response…" placeholderTextColor={colors.onSurfaceMuted} /><Text style={styles.counter}>{response.length}/2000</Text><Button title="Post response" onPress={submit} loading={saving} disabled={!response.trim() || saving} /></View></View></Modal>;
 }
 
+// v1.0.228 — Seller reviews inbox refinement. Review cards are white on
+// cream with hairline borders (no shadow); seller responses read as
+// nested surfaces with a brand left rail; "Load more" is a hairline pill.
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface }, center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md }, title: { color: colors.onSurface, fontSize: 17, fontWeight: "800" }, topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  card: { padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, marginBottom: spacing.md }, product: { color: colors.onSurface, fontWeight: "800", fontSize: 15 }, buyer: { color: colors.onSurfaceMuted, fontSize: 13, marginTop: 4 }, stars: { color: colors.brand }, review: { color: colors.onSurface, lineHeight: 21, marginTop: spacing.sm },
-  respond: { alignSelf: "flex-start", marginTop: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.brand }, respondText: { color: colors.onBrand, fontWeight: "800", fontSize: 13 }, response: { marginTop: spacing.md, paddingLeft: spacing.sm, borderLeftWidth: 3, borderLeftColor: colors.brand }, responseTitle: { color: colors.onSurfaceMuted, fontWeight: "700", fontSize: 12 }, responseText: { color: colors.onSurface, lineHeight: 20, marginTop: 3 },
-  more: { alignSelf: "center", paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill }, moreText: { color: colors.brand, fontWeight: "700" },
-  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" }, sheet: { padding: spacing.lg, paddingBottom: spacing.xl, backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg }, sheetTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md }, sheetTitle: { color: colors.onSurface, fontWeight: "800", fontSize: 17 }, input: { minHeight: 120, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, textAlignVertical: "top", color: colors.onSurface }, counter: { alignSelf: "flex-end", color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.xs, marginBottom: spacing.md },
+  safe: { flex: 1, backgroundColor: colors.surface },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
+  title: { ...typeTokens.h2, fontSize: 17 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  card: {
+    padding: spacing.md,
+    borderRadius: radius.card,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    marginBottom: spacing.md,
+  },
+  product: { ...typeTokens.body, fontWeight: "800", fontSize: 15 },
+  buyer: { ...typeTokens.caption, marginTop: 4 },
+  stars: { color: colors.brand },
+  review: { ...typeTokens.body, lineHeight: 21, marginTop: spacing.sm },
+  respond: { alignSelf: "flex-start", marginTop: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.brand },
+  respondText: { ...typeTokens.caption, color: colors.onBrand, fontWeight: "800" },
+  response: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.brand,
+    backgroundColor: colors.surface,
+    borderRadius: radius.field,
+  },
+  responseTitle: { ...typeTokens.micro, color: colors.onSurfaceMuted, fontWeight: "700" },
+  responseText: { ...typeTokens.body, lineHeight: 20, marginTop: 3 },
+  more: {
+    alignSelf: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.pill,
+  },
+  moreText: { ...typeTokens.body, color: colors.brand, fontWeight: "700" },
+  backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: colors.overlay },
+  sheet: { padding: spacing.lg, paddingBottom: spacing.xl, backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+  sheetTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: spacing.md },
+  sheetTitle: { ...typeTokens.h2, fontSize: 17 },
+  input: {
+    minHeight: 120,
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    backgroundColor: colors.card,
+    borderRadius: radius.field,
+    padding: spacing.md,
+    textAlignVertical: "top",
+    color: colors.onSurface,
+  },
+  counter: { ...typeTokens.caption, alignSelf: "flex-end", marginTop: spacing.xs, marginBottom: spacing.md },
 });

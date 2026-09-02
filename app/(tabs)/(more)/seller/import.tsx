@@ -6,7 +6,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
 
 import { nest } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { toast } from "@/src/components/Toast";
@@ -244,36 +244,46 @@ export default function ImportScreen() {
   );
 }
 
+// v1.0.228 — Seller import (CSV/products) refinement. Cards white on
+// cream with hairline; warn/error strokes preserved on the left rail
+// so status is still legible; preview rows use hairline dividers.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 1, borderBottomColor: colors.hairline,
   },
-  title: { fontSize: 18, fontWeight: "600", color: colors.onSurface },
-  card: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.lg, ...shadows.card },
+  title: { ...typeTokens.h2, fontSize: 18 },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   warnCard: { borderLeftWidth: 4, borderLeftColor: "#E8A54B" },
   errorCard: { borderLeftWidth: 4, borderLeftColor: "#D94F4F" },
-  h2: { fontSize: 16, fontWeight: "700", color: colors.onSurface, marginBottom: spacing.sm },
-  p: { fontSize: 14, color: colors.onSurface, marginBottom: spacing.sm, lineHeight: 20 },
-  small: { fontSize: 13, color: colors.onSurfaceMuted, lineHeight: 18, marginTop: 2 },
-  warnTitle: { fontSize: 14, fontWeight: "700", color: "#8C5B10", marginTop: spacing.sm, marginBottom: 4 },
-  errorTitle: { fontSize: 14, fontWeight: "700", color: "#7A2323", marginBottom: 4 },
-  errorText: { color: "#7A2323", fontSize: 13, marginTop: spacing.md, textAlign: "center" },
+  h2: { ...typeTokens.h3, fontSize: 16, marginBottom: spacing.sm },
+  p: { ...typeTokens.body, marginBottom: spacing.sm, lineHeight: 20 },
+  small: { ...typeTokens.caption, lineHeight: 18, marginTop: 2 },
+  warnTitle: { ...typeTokens.body, fontWeight: "700", color: "#8C5B10", marginTop: spacing.sm, marginBottom: 4 },
+  errorTitle: { ...typeTokens.body, fontWeight: "700", color: "#7A2323", marginBottom: 4 },
+  errorText: { ...typeTokens.caption, color: "#7A2323", marginTop: spacing.md, textAlign: "center" },
   primaryBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     backgroundColor: colors.brand, borderRadius: radius.pill,
     paddingVertical: 14, paddingHorizontal: spacing.lg, gap: 8,
   },
-  primaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  primaryBtnText: { ...typeTokens.body, color: colors.onBrand, fontWeight: "700" },
   disabledBtn: { opacity: 0.4 },
   linkBtn: { alignSelf: "center", padding: spacing.md },
-  linkText: { color: colors.brand, fontSize: 14 },
+  linkText: { ...typeTokens.body, color: colors.brand },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: spacing.xl, gap: spacing.sm },
-  previewRow: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
-  previewName: { fontSize: 14, color: colors.onSurface, fontWeight: "500" },
-  previewMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
-  progressBar: { height: 8, backgroundColor: colors.border, borderRadius: 4, overflow: "hidden", marginVertical: spacing.md },
+  previewRow: { paddingVertical: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
+  previewName: { ...typeTokens.body, fontWeight: "500" },
+  previewMeta: { ...typeTokens.caption, marginTop: 2 },
+  progressBar: { height: 8, backgroundColor: colors.hairline, borderRadius: 4, overflow: "hidden", marginVertical: spacing.md },
   progressFill: { height: "100%", backgroundColor: colors.brand },
 });

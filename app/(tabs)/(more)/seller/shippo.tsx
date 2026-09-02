@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerShippingProfile } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
@@ -283,20 +283,30 @@ export default function SellerShipFromAddress() {
   );
 }
 
+// v1.0.228 — Seller Shippo (shipping-from address) refinement. Cards
+// become white on cream with hairline borders; hero + card titles
+// migrated to shared type tokens.
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
   headerBtn: { padding: spacing.xs, borderRadius: radius.pill },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", color: colors.onSurface, textAlign: "center" },
+  headerTitle: { ...typeTokens.h2, flex: 1, fontSize: 18, textAlign: "center" },
   container: { padding: spacing.lg, gap: spacing.lg },
   hero: { gap: spacing.sm },
-  heroTitle: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
-  heroBody: { fontSize: 14, color: colors.onSurfaceMuted, lineHeight: 20 },
-  card: { padding: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.lg, ...shadows.card, gap: spacing.sm },
-  cardTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
+  heroTitle: { ...typeTokens.h1 },
+  heroBody: { ...typeTokens.body, color: colors.onSurfaceMuted, lineHeight: 20 },
+  card: {
+    padding: spacing.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    gap: spacing.sm,
+  },
+  cardTitle: { ...typeTokens.h3 },
   row: { flexDirection: "row", gap: spacing.md },
-  dim: { color: colors.onSurfaceMuted, fontSize: 13 },
-  dimSmall: { color: colors.onSurfaceMuted, fontSize: 12 },
-  err: { color: colors.error, fontSize: 13, marginTop: spacing.sm },
-  hint: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.sm, textAlign: "center" },
+  dim: { ...typeTokens.caption },
+  dimSmall: { ...typeTokens.micro, color: colors.onSurfaceMuted },
+  err: { ...typeTokens.caption, color: colors.error, marginTop: spacing.sm },
+  hint: { ...typeTokens.caption, marginTop: spacing.sm, textAlign: "center" },
   footNote: { paddingHorizontal: spacing.sm },
 });

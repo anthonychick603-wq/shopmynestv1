@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerBank } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -261,28 +261,60 @@ function Top({ onBack }: { onBack: () => void }) {
   );
 }
 
+// v1.0.228 — Seller bank refinement. Saved account card keeps the brand
+// fill (this is a "proof" surface); info + error blocks become white on
+// cream with hairlines. Type migrated to shared tokens.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  topTitle: { ...typeTokens.h2, fontSize: 16 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
 
-  introTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "800", marginBottom: spacing.sm },
-  introBody:  { color: colors.onSurfaceMuted, fontSize: 13, lineHeight: 19, marginBottom: spacing.lg },
+  introTitle: { ...typeTokens.h1, marginBottom: spacing.sm },
+  introBody:  { ...typeTokens.caption, lineHeight: 19, marginBottom: spacing.lg },
 
-  savedCard: { backgroundColor: colors.brand, borderRadius: radius.lg, padding: spacing.xl, alignItems: "center", ...shadows.card },
+  savedCard: { backgroundColor: colors.brand, borderRadius: radius.card, padding: spacing.xl, alignItems: "center" },
   savedIconWrap: { marginBottom: spacing.sm },
-  savedTitle: { color: colors.onBrand, fontSize: 18, fontWeight: "800" },
-  savedSub:   { color: colors.onBrand, fontSize: 15, marginTop: 4, letterSpacing: 1 },
-  savedHolder:{ color: colors.onBrand, opacity: 0.9, fontSize: 13, marginTop: spacing.sm },
+  savedTitle: { ...typeTokens.h2, color: colors.onBrand, fontSize: 18 },
+  savedSub:   { ...typeTokens.body, color: colors.onBrand, fontSize: 15, marginTop: 4, letterSpacing: 1 },
+  savedHolder:{ ...typeTokens.caption, color: colors.onBrand, opacity: 0.9, marginTop: spacing.sm },
 
-  infoBox: { flexDirection: "row", alignItems: "flex-start", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.lg },
-  infoText: { color: colors.onSurfaceMuted, fontSize: 12, lineHeight: 17, flex: 1 },
+  infoBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+  infoText: { ...typeTokens.caption, lineHeight: 17, flex: 1 },
 
-  errorBox: { flexDirection: "row", alignItems: "center", gap: spacing.sm, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.md },
-  errorText: { color: colors.error, fontSize: 13, flex: 1 },
+  errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  errorText: { ...typeTokens.caption, color: colors.error, flex: 1 },
 
   cancelBtn: { alignItems: "center", paddingVertical: spacing.md, marginTop: spacing.sm },
-  cancelText: { color: colors.onSurfaceMuted, fontWeight: "700" },
+  cancelText: { ...typeTokens.body, color: colors.onSurfaceMuted, fontWeight: "700" },
 });

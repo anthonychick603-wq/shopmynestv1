@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestCoupon, type NestCouponDiscountType, type NestCouponWritePayload } from "@/src/api/nest";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
@@ -175,19 +175,37 @@ export default function CouponEditScreen() {
   );
 }
 
+// v1.0.228 — Coupon edit refinement. Inputs use field radius +
+// hairlineStrong on white; discount-type chips are hairline pills that
+// flip to brand when active.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  title: { flex: 1, fontSize: 18, fontWeight: "700", color: colors.onSurface, textAlign: "center" },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: spacing.sm, gap: spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.hairline },
+  title: { ...typeTokens.h2, flex: 1, fontSize: 18, textAlign: "center" },
   iconBtn: { padding: spacing.xs, borderRadius: radius.pill },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  label: { color: colors.onSurface, fontWeight: "600", marginTop: spacing.md, marginBottom: 6 },
-  hint: { color: colors.onSurfaceMuted, marginTop: 2 },
-  input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 10, color: colors.onSurface, backgroundColor: colors.surface },
+  label: { ...typeTokens.body, color: colors.onSurface, fontWeight: "600", marginTop: spacing.md, marginBottom: 6 },
+  hint: { ...typeTokens.caption, marginTop: 2 },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.hairlineStrong,
+    borderRadius: radius.field,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: colors.onSurface,
+    backgroundColor: colors.card,
+  },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+  },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  chipText: { color: colors.onSurface, fontWeight: "500" },
+  chipText: { ...typeTokens.body, fontWeight: "500" },
   chipTextActive: { color: colors.onBrand },
   switchRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.md, paddingVertical: spacing.sm },
 });

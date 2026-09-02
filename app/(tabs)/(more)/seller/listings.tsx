@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { Product } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
@@ -313,29 +313,69 @@ export default function SellerListings() {
   );
 }
 
+// v1.0.228 — Seller Listings refinement. List rows and top pill
+// buttons are white cards with hairline borders (no shadow); segments
+// become inactive hairline pills / active brand pills for a calmer feel.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md, gap: spacing.sm },
-  topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface, flex: 1 },
+  topTitle: { ...typeTokens.h2, fontSize: 16, flex: 1 },
   topRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   segRow: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  seg: { flex: 1, paddingVertical: spacing.sm, paddingHorizontal: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center", minHeight: 36 },
-  segActive: { backgroundColor: colors.brand },
-  segLabel: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted, textAlign: "center" },
+  seg: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 36,
+  },
+  segActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  segLabel: { ...typeTokens.caption, fontWeight: "700", textAlign: "center" },
   segLabelActive: { color: colors.onBrand },
-  addBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.md, height: 40, borderRadius: radius.pill, backgroundColor: colors.brand, ...shadows.card },
-  addBtnText: { color: colors.onBrand, fontWeight: "800", fontSize: 14 },
-  row: { flexDirection: "row", alignItems: "center", padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.card },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brand,
+  },
+  addBtnText: { ...typeTokens.body, color: colors.onBrand, fontWeight: "800" },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    marginBottom: spacing.sm,
+  },
   rowImg: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
-  rowTitle: { fontSize: 14, fontWeight: "700", color: colors.onSurface },
-  rowMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  rowTitle: { ...typeTokens.body, fontWeight: "700" },
+  rowMeta: { ...typeTokens.caption, marginTop: 2 },
   rowFavRow: { flexDirection: "row", alignItems: "center", marginTop: 4, gap: 4 },
-  rowFavText: { fontSize: 12, color: colors.brand, fontWeight: "600" },
+  rowFavText: { ...typeTokens.caption, color: colors.brand, fontWeight: "600" },
   rowDraftRow: { flexDirection: "row", alignItems: "flex-start", marginTop: 4, gap: 6 },
   rowDraftPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.warning, flexShrink: 0, marginTop: 1 },
-  rowDraftPillText: { fontSize: 11, fontWeight: "800", color: colors.onBrand },
-  rowDraftReason: { fontSize: 12, color: colors.onSurfaceMuted, flex: 1, lineHeight: 16 },
+  rowDraftPillText: { ...typeTokens.micro, fontWeight: "800", color: colors.onBrand },
+  rowDraftReason: { ...typeTokens.caption, flex: 1, lineHeight: 16 },
   rowAction: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.pill },
 });

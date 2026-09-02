@@ -26,7 +26,7 @@ import * as Sharing from "expo-sharing";
 
 import { nest, ApiError, type SellerAnalytics, type NestPayoutRaw } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
@@ -462,20 +462,42 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.lg },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
+  topTitle: { ...typeTokens.h1, fontSize: 18 },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
 
   tabs: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, alignSelf: "flex-start" },
-  tab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
-  tabActive: { backgroundColor: colors.brand },
-  tabLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted },
+  tab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  tabActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  tabLabel: { ...typeTokens.micro, fontWeight: "700", color: colors.onSurfaceMuted },
   tabLabelActive: { color: colors.onBrand },
 
-  sectionLabel: { fontSize: 11, fontWeight: "800", color: colors.onSurfaceMuted, letterSpacing: 0.6, textTransform: "uppercase", marginTop: spacing.md, marginBottom: spacing.sm },
+  sectionLabel: { ...typeTokens.micro, fontWeight: "800", color: colors.onSurfaceMuted, letterSpacing: 0.6, textTransform: "uppercase", marginTop: spacing.md, marginBottom: spacing.sm },
 
-  chartCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, ...shadows.card },
-  chartTotal: { fontSize: 28, fontWeight: "800", color: colors.onSurface },
-  chartHint: { fontSize: 12, color: colors.onSurfaceMuted, marginBottom: spacing.md },
+  chartCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  chartTotal: { ...typeTokens.display, fontSize: 28 },
+  chartHint: { ...typeTokens.caption, marginBottom: spacing.md },
   barsWrap: { height: 130 },
   bars: { flexDirection: "row", alignItems: "flex-end", height: 100, gap: 2 },
   barCol: { flex: 1, height: "100%", justifyContent: "flex-end" },
@@ -484,32 +506,58 @@ const styles = StyleSheet.create({
   barLabel: { fontSize: 9, color: colors.onSurfaceMuted },
 
   kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  kpi: { flexBasis: "48%", flexGrow: 1, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, ...shadows.card },
+  kpi: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   kpiIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brand + "22", alignItems: "center", justifyContent: "center", marginBottom: spacing.sm },
-  kpiValue: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
-  kpiLabel: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.3 },
+  kpiValue: { ...typeTokens.h1, fontSize: 20 },
+  kpiLabel: { ...typeTokens.micro, color: colors.onSurfaceMuted, marginTop: 2, textTransform: "uppercase", letterSpacing: 0.3 },
 
   emptyProducts: { padding: spacing.lg, alignItems: "center" },
-  emptyProductsText: { color: colors.onSurfaceMuted, fontSize: 13 },
-  productRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.sm, ...shadows.card },
-  rank: { width: 22, textAlign: "center", fontSize: 12, fontWeight: "800", color: colors.onSurfaceMuted },
+  emptyProductsText: { ...typeTokens.caption },
+  productRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  rank: { ...typeTokens.caption, width: 22, textAlign: "center", fontWeight: "800" },
   productImg: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
-  productName: { fontSize: 13, fontWeight: "700", color: colors.onSurface },
-  productMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  productName: { ...typeTokens.caption, fontWeight: "700", color: colors.onSurface },
+  productMeta: { ...typeTokens.caption, marginTop: 2 },
 
   // v1.0.93 (Build #15) — header row with the CSV export chip inline.
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   exportBtn: { flexDirection: "row", alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.brand + "1a", borderWidth: 1, borderColor: colors.brand + "33" },
-  exportBtnText: { fontSize: 12, fontWeight: "800", color: colors.brand },
+  exportBtnText: { ...typeTokens.micro, fontWeight: "800", color: colors.brand },
   compareRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
-  compareChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary },
-  compareValue: { fontSize: 12, fontWeight: "800" },
-  comparePct: { fontSize: 11, color: colors.onSurfaceMuted, fontWeight: "700" },
-  compareLabel: { fontSize: 11, color: colors.onSurfaceMuted, marginLeft: 2 },
+  compareChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  compareValue: { ...typeTokens.micro, fontWeight: "800" },
+  comparePct: { ...typeTokens.micro, color: colors.onSurfaceMuted, fontWeight: "700" },
+  compareLabel: { ...typeTokens.micro, color: colors.onSurfaceMuted, marginLeft: 2 },
 
-  // v1.0.137 — order-status row tiles. Row wraps at 2 columns on narrow
-  // widths (each tile flexBasis 48%) and lays out as 4 across on wider
-  // screens. Muted when count is zero so live rows visually pop.
+  // v1.0.137 — order-status row tiles.
   statusRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   statusTile: {
     flexBasis: "48%",
@@ -519,22 +567,29 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.card,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "transparent",
-    ...shadows.card,
+    borderColor: colors.hairline,
   },
-  statusCount: { fontSize: 18, fontWeight: "800", minWidth: 18 },
-  statusLabel: { fontSize: 12, fontWeight: "700", color: colors.onSurfaceMuted, flexShrink: 1 },
+  statusCount: { ...typeTokens.h2, fontSize: 18, minWidth: 18 },
+  statusLabel: { ...typeTokens.caption, fontWeight: "700", flexShrink: 1 },
 
-  // v1.0.138 — Recent payouts strip. "See all" chip mirrors the CSV
-  // export chip pattern already used elsewhere on this screen. Row layout
-  // is the same shape as the Top products row for visual consistency.
+  // v1.0.138 — Recent payouts strip.
   seeAllBtn: { flexDirection: "row", alignItems: "center", gap: 2, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  seeAllText: { fontSize: 12, fontWeight: "800", color: colors.brand },
-  payoutRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.sm, ...shadows.card },
+  seeAllText: { ...typeTokens.micro, fontWeight: "800", color: colors.brand },
+  payoutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
   payoutIcon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
-  payoutAmount: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
-  payoutMeta: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  payoutAmount: { ...typeTokens.body, fontWeight: "800", color: colors.onSurface },
+  payoutMeta: { ...typeTokens.caption, marginTop: 2 },
 });

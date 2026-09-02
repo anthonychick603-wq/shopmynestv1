@@ -17,7 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, ApiError, type NestCoupon } from "@/src/api/nest";
-import { colors, radius, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { Fab } from "@/src/components/Fab";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -188,6 +188,9 @@ export function CouponsListScreen({ scope }: Props) {
   );
 }
 
+// v1.0.228 — Shared coupons list refinement (used by seller + admin).
+// List cards become white on cream with hairline borders; code + meta
+// migrated to shared type tokens.
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   header: {
@@ -197,21 +200,21 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.hairline,
   },
-  title: { flex: 1, fontSize: 18, fontWeight: "700", color: colors.onSurface, textAlign: "center" },
+  title: { ...typeTokens.h2, flex: 1, fontSize: 18, textAlign: "center" },
   iconBtn: { padding: spacing.xs, borderRadius: radius.pill },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.hairline,
     marginBottom: spacing.sm,
   },
-  code: { fontSize: 16, fontWeight: "700", color: colors.onSurface },
-  meta: { color: colors.onSurfaceMuted, marginTop: 2 },
+  code: { ...typeTokens.h3, fontSize: 16 },
+  meta: { ...typeTokens.caption, marginTop: 2 },
 });
