@@ -251,10 +251,29 @@ export function onNetworkError(fn: NetworkErrorListener) {
 // ---------------------------------------------------------------------------
 export const nest = {
   // Auth
+  // v1.0.217 (P0 #11) — seller / admin accounts return a two-factor
+  // challenge from /auth/login instead of a token; regular buyers still
+  // get a token immediately. The caller must handle both shapes.
   login: (login: string, password: string) =>
-    request<{ token: string; user: NestUserRaw }>("marketplace", "/auth/login", {
+    request<NestLoginResponse>("marketplace", "/auth/login", {
       method: "POST",
       body: { login, password },
+      auth: false,
+    }),
+  // v1.0.217 (P0 #11) — verify the emailed 6-digit code and exchange
+  // the challenge for a real token + user record.
+  twoFactorVerify: (challenge_id: string, code: string) =>
+    request<{ token: string; user: NestUserRaw }>("marketplace", "/auth/2fa/verify", {
+      method: "POST",
+      body: { challenge_id, code },
+      auth: false,
+    }),
+  // v1.0.217 (P0 #11) — resend the same challenge's code. The server
+  // caps this at 3 resends per challenge and reports `resends_left`.
+  twoFactorResend: (challenge_id: string) =>
+    request<{ ok: boolean; resends_left: number }>("marketplace", "/auth/2fa/resend", {
+      method: "POST",
+      body: { challenge_id },
       auth: false,
     }),
   register: (payload: { email: string; username: string; password: string; display_name?: string; name?: string; first_name?: string; last_name?: string }) =>
@@ -1119,6 +1138,21 @@ export const SITE = SITE_URL;
 // ---------------------------------------------------------------------------
 // Response shapes (what WordPress actually returns)
 // ---------------------------------------------------------------------------
+// v1.0.217 (P0 #11) — /auth/login can hand back either an authenticated
+// token bundle (regular buyers) OR a two-factor challenge that requires
+// the caller to enter a 6-digit code emailed to the seller/admin.
+export type NestTwoFactorChallenge = {
+  two_factor_required: true;
+  challenge_id: string;
+  /** Partially obscured e.g. "a**@example.com" so we can show "we emailed you" without leaking the full address in transport logs. */
+  email_hint: string;
+  /** Seconds until the code expires. */
+  expires_in: number;
+};
+export type NestLoginResponse =
+  | { token: string; user: NestUserRaw; two_factor_required?: false }
+  | NestTwoFactorChallenge;
+
 export type NestUserRaw = {
   id: number;
   email: string;

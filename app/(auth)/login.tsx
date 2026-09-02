@@ -27,7 +27,22 @@ export default function Login() {
     setErr(null);
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      const res = await login(email.trim(), password);
+      // v1.0.217 (P0 #11) — seller / admin accounts get a 2FA challenge
+      // instead of a token; route into the verify screen with the
+      // challenge id + masked address hint so the buyer sees where the
+      // code went. Buyer accounts go straight to the tabs.
+      if (res.kind === "twoFactor") {
+        router.replace({
+          pathname: "/(auth)/two-factor",
+          params: {
+            challenge_id: res.challenge.challenge_id,
+            email_hint: res.challenge.email_hint,
+            expires_in: String(res.challenge.expires_in),
+          },
+        });
+        return;
+      }
       router.replace("/(tabs)");
     } catch (e) {
       setErr(e instanceof ApiError ? e.friendly : "Please try again");

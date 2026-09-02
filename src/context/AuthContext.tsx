@@ -7,12 +7,22 @@ import Constants from "expo-constants";
 import { nest, setAuthToken, ApiError } from "@/src/api/nest";
 import { toUser } from "@/src/api/adapters";
 import type { NestUser } from "@/src/types";
+import type { NestTwoFactorChallenge } from "@/src/api/nest";
 import { colors } from "@/src/theme";
+
+// v1.0.217 (P0 #11) — result of a seller/admin login attempt. `signedIn`
+// means the token was minted and the user is authenticated; `twoFactor`
+// means the caller must present the code screen and call twoFactorVerify.
+export type LoginResult =
+  | { kind: "signedIn" }
+  | { kind: "twoFactor"; challenge: NestTwoFactorChallenge };
 
 type AuthContextValue = {
   user: NestUser | null;
   loading: boolean;
-  login: (loginValue: string, password: string) => Promise<void>;
+  login: (loginValue: string, password: string) => Promise<LoginResult>;
+  twoFactorVerify: (challengeId: string, code: string) => Promise<void>;
+  twoFactorResend: (challengeId: string) => Promise<{ resendsLeft: number }>;
   // v1.0.120 — two-step signup. Step 1 emails a verification code +
   // magic link and returns a pending signup id. Step 2 completes the
   // signup by proving code ownership; only then does a real wp_users
@@ -111,9 +121,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       async login(loginValue, password) {
         const res = await nest.login(loginValue.trim(), password);
+        // v1.0.217 (P0 #11) — seller / admin path: server returns a
+        // challenge instead of a token. Surface it to the caller so the
+        // login screen can route to the 2FA code screen. No token is
+        // written and no user is set until the code is verified.
+        if ("two_factor_required" in res && res.two_factor_required) {
+          return { kind: "twoFactor", challenge: res };
+        }
         await setAuthToken(res.token);
         setUser(toUser(res.user));
         void registerPushToken();
+        return { kind: "signedIn" };
+      },
+      async twoFactorVerify(challengeId, code) {
+        const res = await nest.twoFactorVerify(challengeId, code);
+        await setAuthToken(res.token);
+        setUser(toUser(res.user));
+        void registerPushToken();
+      },
+      async twoFactorResend(challengeId) {
+        const res = await nest.twoFactorResend(challengeId);
+        return { resendsLeft: res.resends_left };
       },
       async signupStart({ name, email, username, password }) {
         const res = await nest.signupStart({ name, email, username, password });
