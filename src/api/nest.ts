@@ -334,6 +334,11 @@ export const nest = {
   // for their own drafts / OOS listings. Anonymous callers still see only
   // published, in-stock listings (server-side gate in class-tnm-rest.php).
   getProduct: (id: number | string) => request<NestProductRaw>("marketplace", `/products/${id}`),
+  // v1.0.210 (P0 #4) — similar products for the PDP rail. Server ranks
+  // by same-seller-and-category > same-category > same-seller > shared
+  // tag; returns at most `limit` products (12 by default, hard cap 24).
+  getSimilarProducts: (id: number | string, limit = 12) =>
+    request<{ items: NestProductRaw[]; total: number }>("marketplace", `/products/${id}/similar`, { query: { limit } }),
   getFeed: (query?: Record<string, unknown>) => request<NestPaginated<NestFeedItemRaw> & { mode: string }>("marketplace", "/feed", { query }),
   // Publishes a Nest social post (seller-only; 403 otherwise). Returns the created
   // post shaped identically to a feed post item.

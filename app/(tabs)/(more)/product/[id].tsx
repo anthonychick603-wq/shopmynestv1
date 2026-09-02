@@ -25,6 +25,7 @@ import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
 import { ProductDetailSkeleton } from "@/src/components/ProductDetailSkeleton";
 import { VariationPicker, findMatchingVariation } from "@/src/components/VariationPicker";
+import { ProductCard } from "@/src/components/ProductCard";
 import type { ProductVariationDetail } from "@/src/types";
 
 export default function ProductDetail() {
@@ -49,6 +50,10 @@ export default function ProductDetail() {
   // v1.0.91 — for variable products, the buyer must pick each attribute
   // (e.g. Size, Color) before the add-to-cart button becomes enabled.
   const [picked, setPicked] = useState<Record<string, string>>({});
+  // v1.0.210 (P0 #4) — similar-items rail. Loaded lazily once the main
+  // product is on screen so it doesn't block the first paint.
+  const [similar, setSimilar] = useState<Product[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
 
   const onFav = () => {
     // v1.0.71 — haptic on every top-bar action so the buyer
@@ -72,6 +77,24 @@ export default function ProductDetail() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // v1.0.210 (P0 #4) — fetch similar products after the main product is
+  // available. We fire this off separately from the main load so a slow
+  // similar query never delays PDP first paint. Silently ignore failures;
+  // the rail simply doesn't render.
+  useEffect(() => {
+    if (!product?.id) return;
+    let cancelled = false;
+    setSimilarLoading(true);
+    nest.getSimilarProducts(product.id, 12)
+      .then((r) => {
+        if (cancelled) return;
+        setSimilar((r.items || []).map((it) => toProduct(it)));
+      })
+      .catch(() => { if (!cancelled) setSimilar([]); })
+      .finally(() => { if (!cancelled) setSimilarLoading(false); });
+    return () => { cancelled = true; };
+  }, [product?.id]);
 
   // v1.0.94 (Build #18a) — track this view in the buyer's recently-viewed
   // list. Best-effort: silently ignore failures (guest users, offline).
@@ -338,6 +361,45 @@ export default function ProductDetail() {
             <Text style={styles.reportText}>Report this item</Text>
           </TouchableOpacity>
         </View>
+
+        {/* v1.0.210 (P0 #4) — similar items rail. Only render when we
+            actually have results; skeletons here would just be noise
+            because the rail is below the fold. */}
+        {similar.length > 0 ? (
+          <View style={styles.similarSection}>
+            <View style={styles.similarHeader}>
+              <Text style={styles.similarTitle}>You might also like</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.similarRow}
+              testID="product-similar-scroller"
+              keyboardShouldPersistTaps="handled"
+            >
+              {similar.map((item) => (
+                <View key={item.id} style={styles.similarItem}>
+                  <ProductCard
+                    product={item}
+                    layout="full"
+                    onAddToCart={() => {
+                      haptics.tap();
+                      if (!user) return router.push("/(auth)/login");
+                      addProduct(item, 1);
+                    }}
+                    onToggleFavorite={() => {
+                      haptics.tap();
+                      if (!user) return router.push("/(auth)/login");
+                      toggleFavorite(item.id);
+                    }}
+                    isFavorite={isFavorite(item.id)}
+                    testID={`product-similar-card-${item.id}`}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* No insets.bottom here: the tab bar sits below this screen and already
@@ -433,6 +495,13 @@ const styles = StyleSheet.create({
   qtyBtn: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceTertiary, alignItems: "center", justifyContent: "center" },
   qtyText: { fontSize: 17, fontWeight: "800", color: colors.onSurface, minWidth: 24, textAlign: "center" },
   description: { color: colors.onSurface, lineHeight: 22, fontSize: 14 },
+  // v1.0.210 (P0 #4) — similar items rail. Matches the Home
+  // "Keep browsing" rail so the whole app feels of a piece.
+  similarSection: { marginTop: spacing.md, paddingTop: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  similarHeader: { paddingHorizontal: spacing.lg, marginBottom: spacing.sm, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  similarTitle: { fontSize: 16, fontWeight: "700", color: colors.onSurface },
+  similarRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.md },
+  similarItem: { width: 160 },
   infoCard: { flexDirection: "row", alignItems: "center", gap: spacing.md, backgroundColor: colors.surfaceTertiary, borderRadius: radius.md, padding: spacing.md, marginTop: spacing.lg },
   infoText: { flex: 1, color: colors.onSurface, fontSize: 13 },
   reportBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.lg, alignSelf: "flex-start" },
