@@ -197,6 +197,10 @@ export default function Account() {
           <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refunds/`)} testID="acc-refund" />
           <Row icon="cube-outline" label="Shipping policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/shipping/`)} testID="acc-shipping" />
           <Row icon="briefcase-outline" label="Seller terms" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/seller-terms/`)} testID="acc-seller-terms" />
+          {/* v1.0.219 (P0 #13) — self-serve personal data export.
+              Paired with delete-account below to complete the data-
+              rights row required by Play/App Store policy. */}
+          <Row icon="cloud-download-outline" label="Download my data" onPress={() => { haptics.tap(); router.push("/(tabs)/(more)/me/data-export"); }} testID="acc-data-export" />
           <Row icon="trash-outline" label="Delete my account" onPress={() => { haptics.tap(); router.push("/(tabs)/(more)/me/delete-account"); }} testID="acc-data-deletion" />
         </Section>
 

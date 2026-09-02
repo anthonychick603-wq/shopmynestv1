@@ -323,6 +323,31 @@ export const nest = {
     ),
   cancelAccountDeletion: () =>
     request<{ success: boolean; pending: boolean; cancelled: boolean }>("marketplace", "/me/account/undo", { method: "POST" }),
+  // v1.0.219 (P0 #13) — personal data export. requestDataExport enqueues
+  // a background job and returns immediately with status='pending'; the
+  // server emails the finished ZIP link. getDataExportStatus polls for
+  // in-flight or ready state (the mobile UI mostly relies on the email,
+  // but showing "still building" prevents duplicate taps).
+  requestDataExport: () =>
+    request<{
+      success?: boolean;
+      pending?: boolean;
+      status: "none" | "pending" | "building" | "ready" | "failed";
+      requested_at?: number;
+      ready_at?: number;
+      expires_at?: number;
+      byte_size?: number;
+      message?: string;
+    }>("marketplace", "/me/export", { method: "POST", body: {} }),
+  getDataExportStatus: () =>
+    request<{
+      pending: boolean;
+      status: "none" | "pending" | "building" | "ready" | "failed";
+      requested_at?: number;
+      ready_at?: number;
+      expires_at?: number;
+      byte_size?: number;
+    }>("marketplace", "/me/export/status"),
   // v1.0.133 — native password reset. Three steps:
   // 1. request a 6-digit code by email; response is oblivious to whether
   //    the account exists to avoid enumeration leakage.
