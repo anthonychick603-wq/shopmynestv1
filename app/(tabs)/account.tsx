@@ -1,14 +1,14 @@
 import React, { useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as ImagePicker from "expo-image-picker";
 
 import { ApiError, nest, SITE } from "@/src/api/nest";
 import { toast } from "@/src/components/Toast";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
 
 import { Button } from "@/src/components/Button";
@@ -16,18 +16,28 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
+import { Card, Badge, ListRow, Screen } from "@/src/components/ui";
 import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
+// v1.0.224 — Account screen, refined.
+//
+// Prior version rendered a cream-on-cream profile card, tightly stacked
+// section titles that competed with the row titles, and a chevron-only
+// row treatment. The refinement pass introduces:
+//   • White card surfaces with hairline borders (Stripe language).
+//   • Uppercase micro section eyebrows so section labels visually recede
+//     and the row titles read as primary.
+//   • Profile card with a MAKER badge that no longer competes with body
+//     text — moved into the shared Badge primitive.
+//   • The list rows use the shared ListRow primitive so radius, icon
+//     wrap, chevron, and hit target line up with every other list in
+//     the app.
 export default function Account() {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, logout, refresh } = useAuth();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  // v1.0.53 — tap the avatar to change it. We pick from the OS photo
-  // library, upload to /account/photo/upload on the bridge, then
-  // refresh() the auth user so the new avatar renders everywhere.
   const changeAvatar = async () => {
     if (uploadingPhoto) return;
     try {
@@ -62,25 +72,30 @@ export default function Account() {
   if (!user) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <View style={styles.header}>
-          <NestLogo compact title="Account" />
-          {/* v1.0.149 — group the bell and cart so justifyContent
-              space-between sees two children (logo | actions), matching
-              every other tab. Otherwise the bell floats to the horizontal
-              middle of the screen. */}
-          <View style={styles.headerActions}>
-            <AlertsBellButton />
-            <CartHeaderButton />
-          </View>
-        </View>
-        <View style={{ padding: spacing.xl, alignItems: "center" }}>
-          <View style={styles.avatarLarge}>
-            <Ionicons name="person" size={40} color={colors.brand} />
+        <Header />
+        <View style={styles.signedOutWrap}>
+          <View style={styles.avatarWrap}>
+            <View style={styles.avatarLarge}>
+              <Ionicons name="person-outline" size={40} color={colors.brandDark} />
+            </View>
           </View>
           <Text style={styles.name}>Welcome to My Nest</Text>
-          <Text style={styles.email}>Sign in to save favorites, follow sellers, and check out faster.</Text>
-          <Button title="Sign in" onPress={() => pushFromTab(router, "/(auth)/login")} style={{ marginTop: spacing.lg, minWidth: 220 }} testID="account-signin" />
-          <Button title="Create account" variant="outline" onPress={() => pushFromTab(router, "/(auth)/register")} style={{ marginTop: spacing.sm, minWidth: 220 }} testID="account-register" />
+          <Text style={styles.tagline}>
+            Sign in to save favorites, follow sellers, and check out faster.
+          </Text>
+          <Button
+            title="Sign in"
+            onPress={() => pushFromTab(router, "/(auth)/login")}
+            style={{ marginTop: spacing.lg, minWidth: 220 }}
+            testID="account-signin"
+          />
+          <Button
+            title="Create account"
+            variant="outline"
+            onPress={() => pushFromTab(router, "/(auth)/register")}
+            style={{ marginTop: spacing.sm, minWidth: 220 }}
+            testID="account-register"
+          />
         </View>
       </SafeAreaView>
     );
@@ -91,29 +106,12 @@ export default function Account() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          {/* Unlisted admin-only entry point to blog moderation. The backend
-              remains the final authorization gate, and the client now mirrors it
-              with the explicit admin role instead of seller approval status. */}
-          <TouchableOpacity
-            activeOpacity={1}
-            delayLongPress={800}
-            onLongPress={() => (user.role === "admin" ? pushFromTab(router, "/blog/moderation") : undefined)}
-            testID="acc-blog-moderation"
-           accessibilityRole="button">
-            <NestLogo compact title="Account" />
-          </TouchableOpacity>
-          {/* v1.0.149 — grouped so the bell sits next to the cart, not
-              floating to the middle of the header. */}
-          <View style={styles.headerActions}>
-            <AlertsBellButton />
-            <CartHeaderButton />
-          </View>
-        </View>
-
-        <View style={styles.profile}>
-          {/* v1.0.53 - tap the avatar to change it. */}
+      <Header admin={user.role === "admin"} />
+      <Screen bottomInset={80}>
+        {/* Profile hero card — the app now has a real "who am I" moment
+            at the top of the account tab. Prior version was a big cream
+            circle on a cream page, which read as visual noise. */}
+        <Card variant="flat" padding="lg" style={styles.profileCard}>
           <TouchableOpacity
             onPress={changeAvatar}
             activeOpacity={0.85}
@@ -125,10 +123,14 @@ export default function Account() {
             accessibilityState={{ disabled: uploadingPhoto }}
           >
             {user.profile_photo ? (
-              <AppImage source={{ uri: user.profile_photo }} style={styles.avatarLarge} fallbackIcon="person-outline" />
+              <AppImage
+                source={{ uri: user.profile_photo }}
+                style={styles.avatarLarge}
+                fallbackIcon="person-outline"
+              />
             ) : (
               <View style={styles.avatarLarge}>
-                <Ionicons name="person" size={40} color={colors.brand} />
+                <Ionicons name="person-outline" size={40} color={colors.brandDark} />
               </View>
             )}
             <View style={styles.avatarEditBadge}>
@@ -141,70 +143,70 @@ export default function Account() {
           </TouchableOpacity>
           <Text style={styles.name}>{user.name}</Text>
           <Text style={styles.email}>{user.email}</Text>
-          {isSeller ? <View style={styles.sellerBadge}><Text style={styles.sellerBadgeText}>MAKER</Text></View> : null}
-        </View>
+          {isSeller ? (
+            <View style={{ marginTop: spacing.sm }}>
+              <Badge label="MAKER" tone="brand" micro />
+            </View>
+          ) : null}
+        </Card>
 
-        <Section title="Shopping">
-          <Row icon="bag-check-outline" label="Orders" onPress={() => pushFromTab(router, "/orders")} testID="acc-orders" />
-          <Row icon="hammer-outline" label="Custom requests" onPress={() => pushFromTab(router, "/custom-requests")} testID="acc-custom-requests" />
-          <Row icon="chatbubble-ellipses-outline" label="Messages" onPress={() => pushFromTab(router, "/messages")} testID="acc-messages" />
-          <Row icon="bookmark-outline" label="Favorites" onPress={() => pushFromTab(router, "/favorites")} testID="acc-favorites" />
-          <Row icon="notifications-circle-outline" label="Saved searches" onPress={() => pushFromTab(router, "/saved-searches")} testID="acc-saved-searches" />
-          <Row icon="heart-outline" label="Shops you follow" onPress={() => pushFromTab(router, "/following")} testID="acc-following" />
-          <Row icon="home-outline" label="Address book" onPress={() => pushFromTab(router, "/me/addresses")} testID="acc-addresses" />
-          {/* v1.0.94 (Build #17b) — push notification preferences center. */}
-          <Row icon="notifications-outline" label="Notifications" onPress={() => pushFromTab(router, "/settings/notifications")} testID="acc-notifications" />
-          {/* v1.0.216 (P0 #10) — biometric app-lock privacy shield. */}
-          <Row icon="lock-closed-outline" label="App lock" onPress={() => pushFromTab(router, "/settings/app-lock")} testID="acc-app-lock" />
-          <Row icon="shield-checkmark-outline" label="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} testID="acc-disputes" />
-        </Section>
+        <SectionEyebrow>Shopping</SectionEyebrow>
+        <Card variant="flat" padding="none">
+          <ListRow icon="bag-check-outline" title="Orders" onPress={() => pushFromTab(router, "/orders")} />
+          <ListRow icon="hammer-outline" title="Custom requests" onPress={() => pushFromTab(router, "/custom-requests")} />
+          <ListRow icon="chatbubble-ellipses-outline" title="Messages" onPress={() => pushFromTab(router, "/messages")} />
+          <ListRow icon="bookmark-outline" title="Favorites" onPress={() => pushFromTab(router, "/favorites")} />
+          <ListRow icon="notifications-circle-outline" title="Saved searches" onPress={() => pushFromTab(router, "/saved-searches")} />
+          <ListRow icon="heart-outline" title="Shops you follow" onPress={() => pushFromTab(router, "/following")} />
+          <ListRow icon="home-outline" title="Address book" onPress={() => pushFromTab(router, "/me/addresses")} />
+          <ListRow icon="notifications-outline" title="Notifications" onPress={() => pushFromTab(router, "/settings/notifications")} />
+          <ListRow icon="lock-closed-outline" title="App lock" onPress={() => pushFromTab(router, "/settings/app-lock")} />
+          <ListRow icon="shield-checkmark-outline" title="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} />
+        </Card>
 
-        <Section title="Selling">
+        <SectionEyebrow>Selling</SectionEyebrow>
+        <Card variant="flat" padding="none">
           {isSeller ? (
             <>
-              <Row icon="storefront-outline" label="My Nest" onPress={() => pushFromTab(router, "/seller/dashboard")} testID="acc-seller-dashboard" />
-              <Row icon="cube-outline" label="Add new product" onPress={() => pushFromTab(router, "/seller/product-form")} testID="acc-add-product" />
-              <Row icon="pricetag-outline" label="Coupons" onPress={() => pushFromTab(router, "/seller/coupons")} testID="acc-seller-coupons" />
-              <Row icon="cloud-upload-outline" label="Import products from CSV" onPress={() => pushFromTab(router, "/seller/import")} testID="acc-import-products" />
+              <ListRow icon="storefront-outline" title="My Nest" onPress={() => pushFromTab(router, "/seller/dashboard")} />
+              <ListRow icon="cube-outline" title="Add new product" onPress={() => pushFromTab(router, "/seller/product-form")} />
+              <ListRow icon="pricetag-outline" title="Coupons" onPress={() => pushFromTab(router, "/seller/coupons")} />
+              <ListRow icon="cloud-upload-outline" title="Import products from CSV" onPress={() => pushFromTab(router, "/seller/import")} />
             </>
           ) : user.seller_application_status === "pending" ? (
-            <Row icon="hourglass-outline" label="Application status: Pending" testID="acc-app-pending" />
+            <ListRow icon="hourglass-outline" title="Application status: Pending" hideChevron />
           ) : (
-            <Row icon="storefront-outline" label="Build your Nest" onPress={() => pushFromTab(router, "/seller/apply")} testID="acc-become-seller" />
+            <ListRow icon="storefront-outline" title="Build your Nest" onPress={() => pushFromTab(router, "/seller/apply")} />
           )}
-        </Section>
+        </Card>
 
         {isAdmin ? (
-          <Section title="Admin">
-            <Row icon="settings-outline" label="Admin controls" onPress={() => pushFromTab(router, "/admin")} testID="acc-admin" />
-            <Row icon="pricetag-outline" label="Site-wide coupons" onPress={() => pushFromTab(router, "/admin/coupons")} testID="acc-admin-coupons" />
-          </Section>
+          <>
+            <SectionEyebrow>Admin</SectionEyebrow>
+            <Card variant="flat" padding="none">
+              <ListRow icon="settings-outline" title="Admin controls" onPress={() => pushFromTab(router, "/admin")} />
+              <ListRow icon="pricetag-outline" title="Site-wide coupons" onPress={() => pushFromTab(router, "/admin/coupons")} />
+            </Card>
+          </>
         ) : null}
 
-        <Section title="Preferences">
-          <Row icon="notifications-outline" label="Notifications" onPress={() => router.push("/(tabs)/alerts")} testID="acc-notifs" />
-        </Section>
+        <SectionEyebrow>Preferences</SectionEyebrow>
+        <Card variant="flat" padding="none">
+          <ListRow icon="notifications-outline" title="Notifications" onPress={() => router.push("/(tabs)/alerts")} />
+        </Card>
 
-        <Section title="Legal">
-          {/* v1.0.100 — canonical slugs served by shopmynest-legal-pages.
-              Privacy uses the long slug /privacy-policy/ (matches WP core's
-              wp_page_for_privacy_policy option). The other three use short
-              slugs /terms/, /refunds/, /shipping/. Legal-pages v1.1.4 owns
-              those redirects; the unified marketplace plugin used to fight
-              them (see v3.7.94 flip and v3.7.122.2 loop fix). */}
-          <Row icon="shield-checkmark-outline" label="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy-policy/`)} testID="acc-privacy" />
-          <Row icon="document-text-outline" label="Terms of service" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms/`)} testID="acc-terms" />
-          <Row icon="refresh-outline" label="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refunds/`)} testID="acc-refund" />
-          <Row icon="cube-outline" label="Shipping policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/shipping/`)} testID="acc-shipping" />
-          <Row icon="briefcase-outline" label="Seller terms" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/seller-terms/`)} testID="acc-seller-terms" />
-          {/* v1.0.219 (P0 #13) — self-serve personal data export.
-              Paired with delete-account below to complete the data-
-              rights row required by Play/App Store policy. */}
-          <Row icon="cloud-download-outline" label="Download my data" onPress={() => { haptics.tap(); router.push("/(tabs)/(more)/me/data-export"); }} testID="acc-data-export" />
-          <Row icon="trash-outline" label="Delete my account" onPress={() => { haptics.tap(); router.push("/(tabs)/(more)/me/delete-account"); }} testID="acc-data-deletion" />
-        </Section>
+        <SectionEyebrow>Legal</SectionEyebrow>
+        <Card variant="flat" padding="none">
+          <ListRow icon="shield-checkmark-outline" title="Privacy policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/privacy-policy/`)} />
+          <ListRow icon="document-text-outline" title="Terms of service" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/terms/`)} />
+          <ListRow icon="refresh-outline" title="Refund policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/refunds/`)} />
+          <ListRow icon="cube-outline" title="Shipping policy" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/shipping/`)} />
+          <ListRow icon="briefcase-outline" title="Seller terms" onPress={() => WebBrowser.openBrowserAsync(`${SITE}/seller-terms/`)} />
+          <ListRow icon="cloud-download-outline" title="Download my data" onPress={() => { haptics.tap(); router.push("/(tabs)/(more)/me/data-export"); }} />
+          <ListRow icon="trash-outline" title="Delete my account" onPress={() => { haptics.tap(); router.push("/(tabs)/(more)/me/delete-account"); }} destructive />
+        </Card>
 
-        <View style={{ padding: spacing.lg }}>
+        <View style={{ marginTop: spacing.xl }}>
           <Button
             title="Log out"
             variant="outline"
@@ -216,65 +218,65 @@ export default function Account() {
             testID="acc-logout"
           />
         </View>
-      </ScrollView>
+      </Screen>
     </SafeAreaView>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Header({ admin }: { admin?: boolean }) {
+  const router = useRouter();
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionCard}>{children}</View>
+    <View style={styles.header}>
+      <TouchableOpacity
+        activeOpacity={1}
+        delayLongPress={800}
+        onLongPress={() => (admin ? pushFromTab(router, "/blog/moderation") : undefined)}
+        testID="acc-blog-moderation"
+        accessibilityRole="button"
+      >
+        <NestLogo compact title="Account" />
+      </TouchableOpacity>
+      <View style={styles.headerActions}>
+        <AlertsBellButton />
+        <CartHeaderButton />
+      </View>
     </View>
   );
 }
 
-function Row({
-  icon,
-  label,
-  onPress,
-  testID,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress?: () => void;
-  testID?: string;
-}) {
-  return (
-    <TouchableOpacity
-      style={styles.row}
-      onPress={() => { if (onPress) { haptics.tap(); onPress(); } }}
-      disabled={!onPress}
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <Ionicons name={icon} size={20} color={colors.brand} />
-      <Text style={styles.rowLabel}>{label}</Text>
-      {onPress ? <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceMuted} /> : null}
-    </TouchableOpacity>
-  );
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return <Text style={styles.sectionEyebrow}>{String(children).toUpperCase()}</Text>;
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
   headerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  profile: { alignItems: "center", padding: spacing.lg },
+  signedOutWrap: { padding: spacing.xl, alignItems: "center" },
+  profileCard: {
+    alignItems: "center",
+    marginBottom: spacing.md,
+  },
   avatarWrap: { position: "relative", marginBottom: spacing.md },
   avatarEditBadge: {
     position: "absolute",
-    right: 2,
-    bottom: spacing.md + 2,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    right: 0,
+    bottom: 4,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: colors.card,
   },
   avatarLarge: {
     width: 96,
@@ -283,14 +285,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceTertiary,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
-  name: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
-  email: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2, textAlign: "center" },
-  sellerBadge: { backgroundColor: colors.brand, borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 4, marginTop: spacing.sm },
-  sellerBadgeText: { color: colors.onBrand, fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
-  section: { paddingHorizontal: spacing.lg, marginTop: spacing.md },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: colors.onSurfaceMuted, marginBottom: spacing.sm, textTransform: "uppercase", letterSpacing: 0.5 },
-  sectionCard: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, overflow: "hidden", ...shadows.card },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.divider },
-  rowLabel: { flex: 1, fontSize: 15, color: colors.onSurface, fontWeight: "600" },
+  name: { ...typeTokens.h1, fontSize: 22, lineHeight: 28 },
+  tagline: {
+    ...typeTokens.body,
+    color: colors.onSurfaceMuted,
+    marginTop: spacing.xs,
+    textAlign: "center",
+    maxWidth: 320,
+  },
+  email: { ...typeTokens.body, color: colors.onSurfaceMuted, marginTop: 2, textAlign: "center" },
+  sectionEyebrow: {
+    ...typeTokens.micro,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+    marginLeft: spacing.sm,
+  },
 });

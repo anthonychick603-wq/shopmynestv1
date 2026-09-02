@@ -3,7 +3,7 @@ import { ImageStyle, StyleProp, StyleSheet, Text, TouchableOpacity, View } from 
 import { AppImage } from "@/src/components/AppImage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useSegments } from "expo-router";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
 import { shareProduct } from "@/src/utils/share";
 import { pushFromCard } from "@/src/utils/nav";
@@ -143,11 +143,18 @@ export function ProductCard({ product, layout = "full", onAddToCart, onToggleFav
 }
 
 const styles = StyleSheet.create({
+  // v1.0.224 — Refinement pass. Product card was the highest-impact
+  // change in the app: it appears in Discover, Home, seller listings,
+  // and search. Before: soft cream fill on cream page — the card outline
+  // was ambiguous. Now: white card with a hairline warm-gray border,
+  // no shadow, aligned with the Stripe / Linear / Poshmark visual
+  // language locked with the user this turn.
   card: {
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     overflow: "hidden",
-    ...shadows.card,
   },
   fullCard: { marginBottom: spacing.lg },
   gridCard: { flex: 1, marginBottom: spacing.lg },
@@ -163,23 +170,27 @@ const styles = StyleSheet.create({
   },
   favBtn: {
     position: "absolute",
-    top: spacing.md,
-    right: spacing.md,
+    top: spacing.sm,
+    right: spacing.sm,
     width: 34,
     height: 34,
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     alignItems: "center",
     justifyContent: "center",
   },
   shareBtn: {
     position: "absolute",
-    top: spacing.md + 40,
-    right: spacing.md,
+    top: spacing.sm + 40,
+    right: spacing.sm,
     width: 34,
     height: 34,
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -200,11 +211,9 @@ const styles = StyleSheet.create({
   },
   body: { padding: spacing.md },
   title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.onSurface,
+    ...typeTokens.body,
+    fontWeight: "600",
     marginBottom: spacing.xs,
-    lineHeight: 20,
   },
   sellerRow: { flexDirection: "row", alignItems: "center", marginBottom: spacing.sm },
   sellerAvatar: { width: 18, height: 18, borderRadius: 9, marginRight: 6 },
@@ -213,11 +222,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  sellerName: { fontSize: 12, color: colors.onSurfaceMuted, flex: 1 },
+  sellerName: { ...typeTokens.caption, flex: 1 },
   priceRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   priceInline: { flexDirection: "row", alignItems: "baseline" },
-  price: { fontSize: 17, fontWeight: "800", color: colors.onSurface },
-  priceOld: { fontSize: 12, color: colors.onSurfaceMuted, marginLeft: 6, textDecorationLine: "line-through" },
+  price: { ...typeTokens.price, fontSize: 18, lineHeight: 22 },
+  priceOld: { ...typeTokens.caption, marginLeft: 6, textDecorationLine: "line-through" },
   addBtn: {
     width: 34,
     height: 34,

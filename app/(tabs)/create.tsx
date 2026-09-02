@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, useRouter } from "expo-router";
 
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
 import { NestLogo } from "@/src/components/NestLogo";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -108,17 +108,18 @@ function Action({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: spacing.sm, paddingBottom: spacing.lg },
-  title: { fontSize: 24, fontWeight: "800", color: colors.onSurface, marginTop: spacing.md, marginBottom: spacing.xs },
-  subtitle: { fontSize: 14, color: colors.onSurfaceMuted, marginBottom: spacing.xl },
+  title: { ...typeTokens.display, marginTop: spacing.md, marginBottom: spacing.xs },
+  subtitle: { ...typeTokens.body, color: colors.onSurfaceMuted, marginBottom: spacing.xl },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     padding: spacing.lg,
     marginBottom: spacing.md,
     gap: spacing.md,
-    ...shadows.card,
   },
   cardIcon: {
     width: 44,
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  cardTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
-  cardBody: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
+  cardTitle: { ...typeTokens.h3 },
+  cardBody: { ...typeTokens.caption, marginTop: 2 },
   rejected: { color: colors.error, marginTop: spacing.md, fontSize: 13 },
 });

@@ -7,7 +7,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerReadiness } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, shadows, spacing, type as typeTokens } from "@/src/theme";
 import type { Product, SellerBadge as SellerBadgeType } from "@/src/types";
 
 // The dashboard's order list only needs an id, a status label, and a total.
@@ -560,35 +560,69 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.md },
   topActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  topTitle: { fontSize: 20, fontWeight: "800", color: colors.onSurface },
-  hello: { fontSize: 14, color: colors.onSurfaceMuted },
-  shopName: { fontSize: 24, fontWeight: "800", color: colors.onSurface, marginBottom: spacing.lg },
-  statsRow: { flexDirection: "row", gap: spacing.md, marginBottom: spacing.lg },
-  stat: { flex: 1, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.md, alignItems: "flex-start", ...shadows.card },
+  // v1.0.224 — Refinement pass. Prior dashboard had:
+  //   • Cream-on-cream stat cards (0 products / 0 orders / 0 earnings)
+  //     that visually vanished into the background.
+  //   • A mixed shadow / no-border language across every widget.
+  //   • h1-sized shop name competing with the top bar title.
+  // New treatment matches Stripe/Robinhood card language: white surface,
+  // hairline border, no shadow, real type jumps between label / value.
+  topTitle: { ...typeTokens.h1, fontSize: 20, lineHeight: 26 },
+  hello: { ...typeTokens.caption, marginTop: 2 },
+  shopName: { ...typeTokens.display, fontSize: 28, lineHeight: 34, marginBottom: spacing.lg },
+  statsRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.lg },
+  stat: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    padding: spacing.md,
+    alignItems: "flex-start",
+  },
   statIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
+    width: 30,
+    height: 30,
+    borderRadius: radius.chip,
     backgroundColor: colors.surfaceTertiary,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  statValue: { fontSize: 20, fontWeight: "800", color: colors.onSurface, marginTop: 2 },
-  statLabel: { fontSize: 11, color: colors.onSurfaceMuted, textTransform: "uppercase", letterSpacing: 0.5 },
-  statHint: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2 },
+  statValue: { ...typeTokens.h1, fontSize: 22, lineHeight: 26, marginTop: 2 },
+  statLabel: { ...typeTokens.micro },
+  statHint: { ...typeTokens.caption, fontSize: 11, marginTop: 2 },
   statHintWarn: { color: colors.error, fontWeight: "700" },
-  sectionHeader: { marginTop: spacing.lg, marginBottom: spacing.sm },
+  sectionHeader: { marginTop: spacing.xl, marginBottom: spacing.md },
   productsHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   oosLink: { flexDirection: "row", alignItems: "center", gap: 4 },
-  oosLinkText: { color: colors.error, fontWeight: "800", fontSize: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
-  hint: { color: colors.onSurfaceMuted, fontSize: 12, marginTop: spacing.sm },
-  empty: { color: colors.onSurfaceMuted, fontStyle: "italic", marginTop: spacing.sm },
-  orderRow: { flexDirection: "row", alignItems: "center", padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, marginBottom: spacing.sm, gap: spacing.md, ...shadows.card },
-  orderId: { fontSize: 14, fontWeight: "800", color: colors.onSurface, marginBottom: 4 },
-  orderTotal: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
-  prodRow: { flexDirection: "row", alignItems: "center", padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, marginBottom: spacing.sm, ...shadows.card },
+  oosLinkText: { color: colors.error, fontWeight: "700", fontSize: 12 },
+  sectionTitle: { ...typeTokens.h2 },
+  hint: { ...typeTokens.caption, marginTop: spacing.sm },
+  empty: { ...typeTokens.body, color: colors.onSurfaceMuted, marginTop: spacing.sm },
+  orderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    marginBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  orderId: { ...typeTokens.bodyLg, fontWeight: "700", marginBottom: 4 },
+  orderTotal: { ...typeTokens.bodyLg, fontWeight: "800" },
+  prodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    marginBottom: spacing.sm,
+  },
   prodImg: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
   oosPill: {
     position: "absolute",
@@ -613,7 +647,7 @@ const styles = StyleSheet.create({
   actionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
   actionTile: {
@@ -623,9 +657,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
     padding: spacing.md,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.md,
-    ...shadows.card,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
   actionIconWrap: {
     width: 32,

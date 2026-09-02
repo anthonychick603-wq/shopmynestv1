@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { nest, friendlyMessage, type NestConversationRaw } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { decodeEntities } from "@/src/utils/html";
@@ -146,19 +146,66 @@ export default function MessagesInbox() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md },
-  topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface, flex: 1, textAlign: "center" },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surfaceTertiary },
+  // v1.0.224 — Refinement pass. Inbox now uses Poshmark-style row rhythm:
+  //   • Larger avatar (52px) with hairline border so the shape reads as
+  //     an object even against a busy background image.
+  //   • Name in bodyLg (16/22 500–7) with a wider tracking budget.
+  //   • Preview text in caption tone — recedes on read messages, bumps
+  //     to primary + medium weight on unread.
+  //   • Unread pill instead of a floating dot — easier to read at a
+  //     glance and doesn't collide with the timestamp.
+  //   • Divider inset aligned with the avatar so it reads as a
+  //     structural rhythm, not a boxed row.
+  top: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  topTitle: { ...typeTokens.h2, flex: 1, textAlign: "center" },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.surfaceTertiary,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    overflow: "hidden",
+  },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
   rowBody: { flex: 1, minWidth: 0 },
-  rowHeader: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
-  name: { fontSize: 15, fontWeight: "700", color: colors.onSurface, flex: 1 },
+  rowHeader: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm, alignItems: "center" },
+  name: { ...typeTokens.bodyLg, fontWeight: "600", flex: 1 },
   nameUnread: { fontWeight: "800" },
-  date: { fontSize: 12, color: colors.onSurfaceMuted },
-  preview: { fontSize: 13, color: colors.onSurfaceMuted, marginTop: 2 },
+  date: { ...typeTokens.caption },
+  preview: { ...typeTokens.caption, marginTop: 2, color: colors.onSurfaceMuted },
   previewUnread: { color: colors.onSurface, fontWeight: "600" },
-  unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand },
-  sep: { height: 1, backgroundColor: colors.divider, marginLeft: spacing.lg + 48 + spacing.md },
+  unreadDot: {
+    minWidth: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.brand,
+    marginLeft: spacing.sm,
+  },
+  sep: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.hairline,
+    marginLeft: spacing.lg + 52 + spacing.md,
+  },
 });

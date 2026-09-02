@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import { nest, ApiError } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
@@ -121,11 +121,39 @@ function Top({ onBack }: { onBack: () => void }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: spacing.md },
-  topTitle: { fontSize: 18, fontWeight: "800", color: colors.onSurface },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
-  photo: { height: 180, borderRadius: radius.lg, backgroundColor: colors.surfaceTertiary, overflow: "hidden", marginTop: spacing.md, alignItems: "center", justifyContent: "center" },
+  // v1.0.224 — Refinement pass. Photo picker was previously a flat peach
+  // rectangle that looked broken. Now: white surface with a dashed
+  // hairline border reading as "upload zone" (Stripe/Notion pattern),
+  // matching type in caption tone, and generous 44pt hit target.
+  top: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  topTitle: { ...typeTokens.h2, flex: 1, textAlign: "center" },
+  topBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+  },
+  photo: {
+    height: 180,
+    borderRadius: radius.card,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderStyle: "dashed",
+    overflow: "hidden",
+    marginTop: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   photoImg: { width: "100%", height: "100%" },
   photoEmpty: { alignItems: "center", gap: spacing.sm },
-  photoText: { color: colors.onSurfaceMuted, fontWeight: "700" },
+  photoText: { ...typeTokens.body, color: colors.onSurfaceMuted, fontWeight: "600" },
 });

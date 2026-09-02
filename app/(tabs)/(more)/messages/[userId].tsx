@@ -665,9 +665,31 @@ const styles = StyleSheet.create({
   topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, ...shadows.card },
   topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface, textAlign: "center" },
   topSubtitle: { fontSize: 11, color: colors.onSurfaceMuted, textAlign: "center", marginTop: 2 },
-  bubble: { maxWidth: "82%", paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md, borderRadius: radius.md },
-  bubbleTheirs: { alignSelf: "flex-start", backgroundColor: colors.surfaceSecondary, borderWidth: 1, borderColor: colors.border, borderBottomLeftRadius: 4 },
-  bubbleMine: { alignSelf: "flex-end", backgroundColor: colors.brand, borderBottomRightRadius: 4 },
+  // v1.0.224 — Refinement pass. Chat thread bubbles used to be:
+  //   • Received bubble: cream fill (surfaceSecondary) on cream page —
+  //     essentially invisible, especially at bubble edges.
+  //   • Sent bubble: terracotta — correct, kept.
+  // Now: received bubbles are white with a hairline warm-gray border so
+  // they read as physical objects on the cream canvas; the corner radii
+  // match modern iMessage/Poshmark. Sent bubble unchanged for continuity.
+  bubble: {
+    maxWidth: "82%",
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: 18,
+  },
+  bubbleTheirs: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    borderBottomLeftRadius: 6,
+  },
+  bubbleMine: {
+    alignSelf: "flex-end",
+    backgroundColor: colors.brand,
+    borderBottomRightRadius: 6,
+  },
   bubbleText: { fontSize: 14.5, color: colors.onSurface, lineHeight: 20 },
   bubbleTextMine: { color: colors.onBrand },
   linkText: { textDecorationLine: "underline" },

@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { nest, ApiError, type NestSellerProfileMe } from "@/src/api/nest";
-import { colors, radius, shadows, spacing } from "@/src/theme";
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { Button } from "@/src/components/Button";
@@ -159,31 +159,38 @@ function Top({ onBack }: { onBack: () => void }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  // v1.0.224 — Refinement pass. The prior shop-settings cards were
+  // cream-with-shadow which made them fight the input fields (also
+  // cream). Fields were nearly invisible. New treatment:
+  //   • White card + hairline border. Sits cleanly on cream.
+  //   • Card title reads as h3 with tighter tracking.
+  //   • Hint copy uses caption tone.
+  //   • Inputs inherit the refined Input primitive (white + border +
+  //     focus ring), so they read as distinct interactive surfaces.
   top: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
-  topTitle: { fontSize: 16, fontWeight: "800", color: colors.onSurface },
+  topTitle: { ...typeTokens.h2, flex: 1, textAlign: "center" },
   topBtn: {
     width: 40,
     height: 40,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
-    ...shadows.card,
   },
   card: {
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    ...shadows.card,
   },
-  cardTitle: { fontSize: 15, fontWeight: "800", color: colors.onSurface, marginBottom: 4 },
-  cardHint: { fontSize: 13, color: colors.onSurfaceMuted, lineHeight: 19, marginBottom: spacing.md },
+  cardTitle: { ...typeTokens.h3, marginBottom: 2 },
+  cardHint: { ...typeTokens.caption, marginBottom: spacing.md },
 });
