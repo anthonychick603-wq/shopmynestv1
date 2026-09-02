@@ -43,6 +43,9 @@ export default function CouponEditScreen() {
   const [usageLimit, setUsageLimit] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [freeShipping, setFreeShipping] = useState(false);
+  // v1.0.209 (P0 #3) — opt-in stacking. Defaults off so an existing coupon
+  // that shipped before this build keeps single-use behavior.
+  const [stackable, setStackable] = useState(false);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -69,6 +72,7 @@ export default function CouponEditScreen() {
     setUsageLimit(c.usage_limit ? String(c.usage_limit) : "");
     setExpiresAt(c.expires_at || "");
     setFreeShipping(!!c.free_shipping);
+    setStackable(!!c.stackable);
   };
 
   const save = async () => {
@@ -87,6 +91,7 @@ export default function CouponEditScreen() {
         usage_limit: usageLimit ? Number(usageLimit) : undefined,
         expires_at: expiresAt || undefined,
         free_shipping: freeShipping,
+        stackable,
       };
       if (scopeMode === "admin") {
         if (isEdit && id) await nest.updateAdminCoupon(Number(id), payload);
@@ -152,6 +157,15 @@ export default function CouponEditScreen() {
               <Text style={styles.hint}>Buyers redeeming this coupon get shipping waived.</Text>
             </View>
             <Switch value={freeShipping} onValueChange={setFreeShipping} trackColor={{ true: colors.brand, false: colors.border }} />
+          </View>
+
+          {/* v1.0.209 (P0 #3) — stackable opt-in. */}
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Allow stacking</Text>
+              <Text style={styles.hint}>Buyers can combine this code with other stackable codes on one order.</Text>
+            </View>
+            <Switch value={stackable} onValueChange={setStackable} trackColor={{ true: colors.brand, false: colors.border }} />
           </View>
 
           <Button title={isEdit ? "Save changes" : "Create coupon"} onPress={() => { haptics.press(); save(); }} loading={saving} style={{ marginTop: spacing.lg }} />

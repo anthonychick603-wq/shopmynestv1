@@ -85,11 +85,24 @@ export default function Cart() {
   const [finalReview, setFinalReview] = React.useState<{ orderId: number; tax: number; total: number; shipping: number | null } | null>(null);
   // v1.0.92 — coupon input. The typed value only becomes an applied code once
   // the buyer taps Apply, so an accidental keystroke does not requote the cart.
+  // v1.0.209 (P0 #3) — widened to a list so buyers can stack codes; per-code
+  // state (discount, free-shipping, error) is echoed back by the server on
+  // every quote so the cart always shows the truth, not the client's guess.
   const [couponInput, setCouponInput] = React.useState("");
-  const [appliedCoupon, setAppliedCoupon] = React.useState<string | null>(null);
-  const [couponDiscount, setCouponDiscount] = React.useState<number>(0);
-  const [couponFreeShipping, setCouponFreeShipping] = React.useState(false);
+  const [appliedCoupons, setAppliedCoupons] = React.useState<string[]>([]);
+  const [couponRows, setCouponRows] = React.useState<
+    { code: string; discount: number; free_shipping: boolean; valid: boolean; reason: string }[]
+  >([]);
   const [couponError, setCouponError] = React.useState<string | null>(null);
+  const [findingBestCoupons, setFindingBestCoupons] = React.useState(false);
+  const couponDiscount = React.useMemo(
+    () => couponRows.reduce((sum, r) => sum + (r.valid ? r.discount : 0), 0),
+    [couponRows],
+  );
+  const couponFreeShipping = React.useMemo(
+    () => couponRows.some((r) => r.valid && r.free_shipping),
+    [couponRows],
+  );
 
   const itemsForApi = React.useMemo(
     () =>
@@ -109,7 +122,7 @@ export default function Cart() {
 
   React.useEffect(() => {
     setFinalReview(null);
-  }, [itemsSig, addressSig, appliedCoupon]);
+  }, [itemsSig, addressSig, appliedCoupons]);
 
   // v1.0.160 — Mirror the plugin v3.13.32 buyer_contact_incomplete rules so
   // the buyer sees what's missing BEFORE they tap Checkout. The server is still
@@ -192,28 +205,33 @@ export default function Cart() {
     setDebugReason(null);
     setShippingOverride(null);
     nest
-      .quoteCheckout(itemsForApi, address, appliedCoupon ?? undefined)
+      .quoteCheckout(itemsForApi, address, undefined, appliedCoupons.length ? appliedCoupons : undefined)
       .then((q) => {
         if (cancelled) return;
         setQuoteToken(q.quote_token ?? null);
         setQuotedShipping(typeof q.shipping === "number" ? q.shipping : null);
-        // Reflect the server's decision about the applied coupon (it may reject
-        // the code, e.g. minimum-not-met, expired, or a seller-scoped coupon
-        // against a cart with no matching items).
-        if (appliedCoupon && q.coupon) {
-          if (q.coupon.valid) {
-            setCouponDiscount(q.coupon.discount || 0);
-            setCouponFreeShipping(!!q.coupon.free_shipping);
-            setCouponError(null);
-          } else {
-            setCouponDiscount(0);
-            setCouponFreeShipping(false);
-            setCouponError(q.coupon.reason || "Coupon can't be applied.");
-          }
-        } else if (!appliedCoupon) {
-          setCouponDiscount(0);
-          setCouponFreeShipping(false);
+        // v1.0.209 (P0 #3) — fold the server's per-code verdict back into UI
+        // state. When no codes are applied, clear rows and the banner.
+        if (appliedCoupons.length === 0) {
+          setCouponRows([]);
           setCouponError(null);
+        } else if (q.coupons && q.coupons.length) {
+          const rows = q.coupons.map((c) => ({
+            code: c.code,
+            discount: c.valid ? c.discount || 0 : 0,
+            free_shipping: c.valid ? !!c.free_shipping : false,
+            valid: !!c.valid,
+            reason: c.reason || "",
+          }));
+          setCouponRows(rows);
+          // Show the first invalid reason as an inline error — valid codes just
+          // stay in the chip list; invalid ones surface with an explanation.
+          const firstBad = rows.find((r) => !r.valid);
+          setCouponError(firstBad ? firstBad.reason || "Coupon can't be applied." : null);
+        } else if (q.coupon) {
+          // Server on an older plugin build only returns single `coupon` field.
+          setCouponRows([{ code: q.coupon.code, discount: q.coupon.valid ? q.coupon.discount || 0 : 0, free_shipping: !!q.coupon.free_shipping, valid: !!q.coupon.valid, reason: q.coupon.reason || "" }]);
+          setCouponError(q.coupon.valid ? null : q.coupon.reason || "Coupon can't be applied.");
         }
         // The backend sends `debug_reason` whenever it fell back to the flat
         // estimate (live rates unavailable / incomplete address), in which case
@@ -246,7 +264,7 @@ export default function Cart() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- itemsSig captures item changes
-  }, [user, address, itemsSig, appliedCoupon]);
+  }, [user, address, itemsSig, appliedCoupons]);
 
   const saveAddress = async (a: NestWpAddress) => {
     setAddress(a);
@@ -378,7 +396,9 @@ export default function Cart() {
         checkout_token: checkoutTokenFor(`${itemsSig}|${addressSig}`),
         // v1.0.92 — the server re-validates the code and only applies a
         // discount if it's still redeemable, so a stale code is a no-op.
-        ...(appliedCoupon ? { coupon_code: appliedCoupon } : {}),
+        // v1.0.209 (P0 #3) — send the full list of applied codes; server
+        // still accepts legacy coupon_code as the fallback.
+        ...(appliedCoupons.length ? { coupon_codes: appliedCoupons } : {}),
       });
 
       if (!intent.client_secret || !intent.publishable_key) {
@@ -608,68 +628,126 @@ export default function Cart() {
           </View>
         ) : null}
 
-        <View style={styles.couponCard} accessibilityRole="button">
-          <Text style={styles.couponLabel}>Promo code</Text>
-          {appliedCoupon ? (
-            <View style={styles.couponAppliedRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.couponAppliedCode}>{appliedCoupon}</Text>
-                <Text style={styles.couponAppliedMeta}>
-                  {couponFreeShipping ? "Free shipping" : `-$${couponDiscount.toFixed(2)}`}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => {
-                  haptics.tap();
-                  setAppliedCoupon(null);
-                  setCouponInput("");
-                  setCouponDiscount(0);
-                  setCouponFreeShipping(false);
-                  setCouponError(null);
+        {/* v1.0.209 (P0 #3) — stackable promo codes. Buyers may add several
+            codes; each valid one shows as its own chip with an × button.
+            "Find best deal" asks the server for the highest-total combo. */}
+        <View style={styles.couponCard}>
+          <Text style={styles.couponLabel}>Promo codes</Text>
+          {appliedCoupons.length > 0 ? (
+            <View style={styles.couponChipRow}>
+              {appliedCoupons.map((code) => {
+                const row = couponRows.find((r) => r.code.toUpperCase() === code.toUpperCase());
+                const invalid = row && !row.valid;
+                return (
+                  <View
+                    key={code}
+                    style={[styles.couponChip, invalid ? styles.couponChipInvalid : null]}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.couponChipCode}>{code}</Text>
+                      <Text style={styles.couponChipMeta}>
+                        {invalid
+                          ? (row?.reason || "Not valid")
+                          : row?.free_shipping
+                            ? "Free shipping"
+                            : `-$${(row?.discount || 0).toFixed(2)}`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        haptics.tap();
+                        setAppliedCoupons((prev) => prev.filter((c) => c !== code));
+                        setFinalReview(null);
+                        startNewCheckoutAttempt();
+                      }}
+                      accessibilityLabel={`Remove ${code}`}
+                      accessibilityRole="button"
+                      style={styles.couponChipRemove}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close" size={16} color={colors.onSurface} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+          <View style={styles.couponInputRow}>
+            <TextInput
+              value={couponInput}
+              onChangeText={(t) => { setCouponInput(t); if (couponError) setCouponError(null); }}
+              placeholder="Enter code"
+              placeholderTextColor={colors.onSurfaceMuted}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={styles.couponInput}
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                const code = couponInput.trim().toUpperCase();
+                if (!code || appliedCoupons.includes(code)) { setCouponInput(""); return; }
+                haptics.press();
+                setAppliedCoupons((prev) => [...prev, code]);
+                setCouponInput("");
+                setFinalReview(null);
+                startNewCheckoutAttempt();
+              }}
+            />
+            <TouchableOpacity
+              onPress={() => {
+                const code = couponInput.trim().toUpperCase();
+                if (!code || appliedCoupons.includes(code)) { setCouponInput(""); return; }
+                haptics.press();
+                setAppliedCoupons((prev) => [...prev, code]);
+                setCouponInput("");
+                setFinalReview(null);
+                startNewCheckoutAttempt();
+              }}
+              style={styles.couponApplyBtn}
+              accessibilityLabel="Apply coupon"
+              accessibilityRole="button"
+            >
+              <Text style={styles.couponApplyText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            onPress={async () => {
+              if (findingBestCoupons || itemsForApi.length === 0) return;
+              haptics.tap();
+              setFindingBestCoupons(true);
+              setCouponError(null);
+              try {
+                const best = await nest.findBestCoupons(itemsForApi);
+                if (!best.codes || best.codes.length === 0) {
+                  setCouponError("No promo codes apply to this cart right now.");
+                } else {
+                  setAppliedCoupons(best.codes);
                   setFinalReview(null);
                   startNewCheckoutAttempt();
-                }}
-                accessibilityLabel="Remove coupon"
-                style={styles.couponRemoveBtn}
-               accessibilityRole="button">
-                <Text style={styles.couponRemoveText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.couponInputRow}>
-              <TextInput
-                value={couponInput}
-                onChangeText={t => { setCouponInput(t); if (couponError) setCouponError(null); }}
-                placeholder="Enter code"
-                placeholderTextColor={colors.onSurfaceMuted}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                style={styles.couponInput}
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  const code = couponInput.trim().toUpperCase();
-                  if (!code) return;
-                  haptics.press();
-                  setAppliedCoupon(code);
-                  setFinalReview(null);
-                  startNewCheckoutAttempt();
-                }}
-                style={styles.couponApplyBtn}
-                accessibilityLabel="Apply coupon"
-               accessibilityRole="button">
-                <Text style={styles.couponApplyText}>Apply</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                }
+              } catch {
+                setCouponError("Couldn't check for the best deal. Try again.");
+              } finally {
+                setFindingBestCoupons(false);
+              }
+            }}
+            disabled={findingBestCoupons || itemsForApi.length === 0}
+            style={[styles.findBestBtn, (findingBestCoupons || itemsForApi.length === 0) ? styles.findBestBtnDisabled : null]}
+            accessibilityLabel="Find the best deal"
+            accessibilityRole="button"
+          >
+            <Ionicons name="sparkles-outline" size={16} color={colors.brand} style={{ marginRight: 6 }} />
+            <Text style={styles.findBestText}>{findingBestCoupons ? "Finding best deal…" : "Find best deal"}</Text>
+          </TouchableOpacity>
           {couponError ? <Text style={styles.couponError}>{couponError}</Text> : null}
         </View>
 
         <View style={styles.summary}>
           <SummaryRow label="Subtotal" value={`$${cart.subtotal.toFixed(2)}`} />
-          {couponDiscount > 0 ? (
-            <SummaryRow label={`Discount${appliedCoupon ? ` (${appliedCoupon})` : ""}`} value={`-$${couponDiscount.toFixed(2)}`} />
-          ) : null}
+          {/* v1.0.209 — one summary row per applied code so the buyer can see
+              exactly how much each coupon contributed. */}
+          {couponRows.filter((r) => r.valid && r.discount > 0).map((r) => (
+            <SummaryRow key={r.code} label={`Discount (${r.code})`} value={`-$${r.discount.toFixed(2)}`} />
+          ))}
           <SummaryRow label={shippingRowLabel} value={couponFreeShipping ? "Free" : shippingRowValue} />
           <SummaryRow label="Tax" value={displayTax == null ? "Calculated at checkout" : `$${displayTax.toFixed(2)}`} />
           <View style={styles.divider} />
@@ -965,6 +1043,16 @@ const styles = StyleSheet.create({
   couponRemoveBtn: { paddingHorizontal: 12, paddingVertical: 8 },
   couponRemoveText: { color: colors.onSurfaceMuted, fontWeight: "600" },
   couponError: { color: colors.error, marginTop: 8 },
+  // v1.0.209 (P0 #3) — stacked-coupon chip list + "Find best deal" button.
+  couponChipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  couponChip: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.divider, borderRadius: radius.sm, paddingHorizontal: 12, paddingVertical: 8, minWidth: 160, flexGrow: 1 },
+  couponChipInvalid: { borderColor: colors.error, opacity: 0.85 },
+  couponChipCode: { fontSize: 13, fontWeight: "700", color: colors.onSurface, letterSpacing: 0.3 },
+  couponChipMeta: { fontSize: 11, color: colors.success, marginTop: 2, fontWeight: "600" },
+  couponChipRemove: { width: 28, height: 28, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceTertiary },
+  findBestBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 10, paddingVertical: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.brand, backgroundColor: "transparent" },
+  findBestBtnDisabled: { opacity: 0.5 },
+  findBestText: { color: colors.brand, fontWeight: "700", fontSize: 14 },
   summary: { marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, ...shadows.card },
   divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.sm },
   secure: { textAlign: "center", color: colors.onSurfaceMuted, marginTop: spacing.md, marginHorizontal: spacing.lg, fontSize: 12 },

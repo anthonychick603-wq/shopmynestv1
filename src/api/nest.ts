@@ -862,8 +862,23 @@ export const nest = {
   // Native Stripe PaymentSheet checkout (nest-native/v1).
   // Passing a destination address unlocks real live carrier rates (shipping_rates);
   // without one the server returns the historical flat estimate only.
-  quoteCheckout: (items: { product_id: number; quantity: number; variation_id?: number }[], shippingAddress: NestWpAddress | null, couponCode?: string) =>
-    request<NestQuoteRaw>("checkout", "/checkout/quote", { method: "POST", body: { items, shipping_address: shippingAddress, coupon_code: couponCode || undefined } }),
+  // v1.0.209 (P0 #3) — pass coupon_codes[] for stacked coupons. Legacy
+  // callers can still pass couponCode; the server folds both together.
+  quoteCheckout: (
+    items: { product_id: number; quantity: number; variation_id?: number }[],
+    shippingAddress: NestWpAddress | null,
+    couponCode?: string,
+    couponCodes?: string[],
+  ) =>
+    request<NestQuoteRaw>("checkout", "/checkout/quote", {
+      method: "POST",
+      body: {
+        items,
+        shipping_address: shippingAddress,
+        coupon_code: couponCode || undefined,
+        coupon_codes: couponCodes && couponCodes.length ? couponCodes : undefined,
+      },
+    }),
   // Creates the WC order + Stripe PaymentIntent (and Customer + ephemeral key)
   // straight from the current cart items. Returns everything PaymentSheet needs.
   // The server re-computes shipping from shipping_address + shipping_method_id and
@@ -880,6 +895,7 @@ export const nest = {
     // instead of creating a duplicate.
     checkout_token?: string;
     coupon_code?: string;
+    coupon_codes?: string[];
   }) =>
     request<NestPaymentIntentRaw>("checkout", "/checkout/create-intent", { method: "POST", body: payload, timeoutMs: 45000 }),
   // Best-effort confirmation after PaymentSheet succeeds. The Stripe webhook is
@@ -919,10 +935,26 @@ export const nest = {
   deleteAdminCoupon: (id: number) =>
     request<{ success: boolean }>("marketplace", `/admin/coupons/${id}`, { method: "DELETE" }),
   applyCoupon: (code: string, items: { product_id: number; quantity: number; variation_id?: number }[]) =>
-    request<{ coupon: NestCoupon; subtotal: number; eligible: number; discount: number; free_shipping: boolean }>(
+    request<{ coupon: NestCoupon; subtotal: number; eligible: number; discount: number; free_shipping: boolean; stackable: boolean }>(
       "marketplace",
       "/coupons/apply",
       { method: "POST", body: { code, items } }
+    ),
+  // v1.0.209 (P0 #3) — "Find best deal": server scans public + user-scoped
+  // coupons and returns the highest-total combination that respects
+  // stacking rules. Reason is only set when nothing applies.
+  findBestCoupons: (items: { product_id: number; quantity: number; variation_id?: number }[]) =>
+    request<{
+      codes: string[];
+      total_discount: number;
+      free_shipping: boolean;
+      considered: number;
+      results?: { code: string; discount: number; free_shipping: boolean; valid: boolean; reason: string; stackable: boolean }[];
+      reason?: string;
+    }>(
+      "marketplace",
+      "/coupons/best",
+      { method: "POST", body: { items } }
     ),
 
   // v3.12.0 — verified purchase product reviews.
@@ -1200,6 +1232,8 @@ export type NestCoupon = {
   usage_count: number;
   expires_at: string;
   free_shipping: boolean;
+  // v1.0.209 (P0 #3) — opt-in stacking. Defaults false on legacy coupons.
+  stackable?: boolean;
   seller_id: number;
   scope: NestCouponScope;
 };
@@ -1212,6 +1246,8 @@ export type NestCouponWritePayload = {
   usage_limit?: number;
   expires_at?: string;
   free_shipping?: boolean;
+  // v1.0.209 (P0 #3)
+  stackable?: boolean;
 };
 
 // v3.7.119 (Build #11)
@@ -1868,7 +1904,7 @@ export type NestQuoteRaw = {
   // Present when live rates failed and the flat estimate fallback was used;
   // a short diagnostic string for the site owner.
   debug_reason?: string;
-  // v3.7.119 (Build #10) — present when a coupon_code was supplied.
+  // v3.7.119 (Build #10) — present when a single coupon_code was supplied.
   coupon?: {
     code: string;
     discount: number;
@@ -1876,6 +1912,16 @@ export type NestQuoteRaw = {
     valid: boolean;
     reason: string;
   };
+  // v1.0.209 (P0 #3) — populated for every code in coupon_codes[].
+  coupons?: {
+    code: string;
+    discount: number;
+    free_shipping: boolean;
+    valid: boolean;
+    reason: string;
+    stackable: boolean;
+  }[];
+  applied_coupon_codes?: string[];
 };
 
 export type NestPaymentIntentRaw = {
