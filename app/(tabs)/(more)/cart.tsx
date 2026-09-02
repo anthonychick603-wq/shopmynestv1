@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
@@ -19,6 +19,9 @@ import { initStripe, useStripe, PaymentSheetError } from "@stripe/stripe-react-n
 
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useCart } from "@/src/context/CartContext";
+import { useFavorites } from "@/src/context/FavoritesContext";
+import { toProduct } from "@/src/api/adapters";
+import type { Product } from "@/src/types";
 import { useAuth } from "@/src/context/AuthContext";
 import { useStripeKey, STRIPE_MERCHANT_ID, STRIPE_URL_SCHEME } from "@/src/context/StripePayment";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -52,7 +55,15 @@ export default function Cart() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { cart, updateItem, removeItem, clear, refreshPrices } = useCart();
+  const { cart, updateItem, removeItem, clear, refreshPrices, addProduct } = useCart();
+  // v1.0.212 (P0 #6) — save-for-later is backed by the existing favorites
+  // store, so "save" = add-to-favorites + remove-from-cart. Cart renders a
+  // Saved for later section listing favorites that aren't currently in the
+  // cart. Hydrated once per focus into `savedProducts` so we can show the
+  // title / image / price without an extra call per render.
+  const favorites = useFavorites();
+  const [savedProducts, setSavedProducts] = React.useState<Product[]>([]);
+  const [sflLoading, setSflLoading] = React.useState(false);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { setPublishableKey } = useStripeKey();
   const [paying, setPaying] = React.useState(false);
@@ -186,6 +197,43 @@ export default function Cart() {
       refreshPrices();
     }, [refreshPrices]),
   );
+
+  // v1.0.212 (P0 #6) — hydrate the Saved for later section. A saved item
+  // is any favorite that isn't already sitting in the cart. We fetch only
+  // the ids we don't already have cached to keep this cheap on re-renders.
+  const inCartIds = useMemo(() => {
+    const s = new Set<string>();
+    if (cart?.items) for (const it of cart.items) s.add(String(it.product_id));
+    return s;
+  }, [cart?.items]);
+  const savedIds = useMemo(() => {
+    return Array.from(favorites.ids).filter((id) => !inCartIds.has(String(id)));
+  }, [favorites.ids, inCartIds]);
+  useEffect(() => {
+    if (!user) { setSavedProducts([]); return; }
+    const wanted = new Set(savedIds.map(String));
+    // Drop any hydrated product that is no longer a saved id (moved to cart
+    // or un-favorited) so the section reflects the latest set immediately.
+    setSavedProducts((prev) => prev.filter((p) => wanted.has(String(p.id))));
+    const have = new Set(savedProducts.map((p) => String(p.id)));
+    const missing = savedIds.filter((id) => !have.has(String(id)));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    setSflLoading(true);
+    Promise.all(missing.map((id) => nest.getProduct(id).then(toProduct).catch(() => null)))
+      .then((results) => {
+        if (cancelled) return;
+        const fresh = results.filter((p): p is Product => !!p);
+        if (fresh.length === 0) return;
+        setSavedProducts((prev) => {
+          const seen = new Set(prev.map((p) => String(p.id)));
+          return [...prev, ...fresh.filter((p) => !seen.has(String(p.id)))];
+        });
+      })
+      .finally(() => { if (!cancelled) setSflLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedProducts is deliberately read fresh but omitted from deps to avoid a fetch loop.
+  }, [savedIds.join(","), user?.id]);
 
   // Fetch live carrier rates whenever there is an address + items. Failure or an
   // empty list is non-fatal — checkout still works with a flat estimate.
@@ -574,11 +622,104 @@ export default function Cart() {
                 <Text style={styles.itemPrice}>${it.line_total.toFixed(2)}</Text>
               </View>
             </View>
-            <TouchableOpacity onPress={() => { haptics.warning(); removeItem(idx); }} testID={`cart-remove-${idx}`} style={styles.removeBtn} accessibilityLabel={`Remove ${it.product.title} from cart`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
-              <Ionicons name="trash-outline" size={18} color={colors.error} />
-            </TouchableOpacity>
+            <View style={styles.itemActionsCol}>
+              <TouchableOpacity onPress={() => { haptics.warning(); removeItem(idx); }} testID={`cart-remove-${idx}`} style={styles.removeBtn} accessibilityLabel={`Remove ${it.product.title} from cart`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
+                <Ionicons name="trash-outline" size={18} color={colors.error} />
+              </TouchableOpacity>
+              {/* v1.0.212 (P0 #6) — Save for later. If the item isn't already
+                  favorited we favorite it first (so it survives past this
+                  session), then remove the cart line. Idempotent when the
+                  item is already a favorite. */}
+              <TouchableOpacity
+                onPress={async () => {
+                  haptics.tap();
+                  if (!favorites.isFavorite(it.product.id)) {
+                    try { await favorites.toggle(it.product.id); }
+                    catch { /* toast handled inside context */ return; }
+                  }
+                  removeItem(idx);
+                  toast.success("Saved for later");
+                }}
+                testID={`cart-save-later-${idx}`}
+                style={styles.saveLaterBtn}
+                accessibilityLabel={`Save ${it.product.title} for later`}
+                accessibilityRole="button"
+              >
+                <Ionicons name="bookmark-outline" size={14} color={colors.brand} />
+                <Text style={styles.saveLaterText}>Save</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
+
+        {/* v1.0.212 (P0 #6) — Saved for later section. Any favorite that
+            isn't in the cart shows up here so buyers can move it back in
+            with one tap. Empty state is intentionally hidden — no need to
+            surface a rail if the buyer has no saved items. */}
+        {savedProducts.length > 0 ? (
+          <View style={styles.sflSection} testID="cart-sfl-section">
+            <View style={styles.sflHeader}>
+              <Ionicons name="bookmark" size={16} color={colors.brand} />
+              <Text style={styles.sflTitle}>Saved for later ({savedProducts.length})</Text>
+            </View>
+            {savedProducts.map((sp) => {
+              const price = sp.sale_price ?? sp.price ?? 0;
+              return (
+                <View key={String(sp.id)} style={styles.sflRow}>
+                  <TouchableOpacity
+                    style={styles.sflMain}
+                    onPress={() => { haptics.tap(); router.push(`/product/${sp.id}`); }}
+                    accessibilityLabel={`Open ${sp.title}`}
+                    accessibilityRole="button"
+                    testID={`cart-sfl-open-${sp.id}`}
+                  >
+                    <AppImage source={{ uri: sp.images[0] }} style={styles.sflImg} fallbackIcon="image-outline" />
+                    <View style={{ flex: 1, paddingHorizontal: spacing.md }}>
+                      <Text style={styles.sflItemTitle} numberOfLines={2}>{sp.title}</Text>
+                      <Text style={styles.sflItemSeller} numberOfLines={1}>by {sp.seller?.name ?? "My Nest"}</Text>
+                      <Text style={styles.sflItemPrice}>${price.toFixed(2)}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <View style={styles.sflActionsCol}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        haptics.tap();
+                        // Move-to-cart: add first so a failure leaves the
+                        // save intact, then remove from favorites so it
+                        // vanishes from Saved for later.
+                        const ok = addProduct(sp, 1);
+                        if (!ok) return;
+                        favorites.toggle(sp.id).catch(() => { /* silent; the section will refresh next focus */ });
+                        toast.success("Moved to cart");
+                      }}
+                      testID={`cart-sfl-move-${sp.id}`}
+                      style={styles.sflMoveBtn}
+                      accessibilityLabel={`Move ${sp.title} to cart`}
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="bag-add-outline" size={14} color={colors.onBrand} />
+                      <Text style={styles.sflMoveText}>Move to cart</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => {
+                        haptics.warning();
+                        favorites.toggle(sp.id).catch(() => { /* silent */ });
+                      }}
+                      testID={`cart-sfl-remove-${sp.id}`}
+                      style={styles.sflRemoveBtn}
+                      accessibilityLabel={`Remove ${sp.title} from saved for later`}
+                      accessibilityRole="button"
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Text style={styles.sflRemoveText}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+            {sflLoading ? <ActivityIndicator style={{ marginTop: spacing.sm }} color={colors.brand} /> : null}
+          </View>
+        ) : null}
 
         {/* Shipping method (live rates) */}
         {address ? (
@@ -1022,6 +1163,24 @@ const styles = StyleSheet.create({
   qtyText: { fontSize: 14, fontWeight: "800", color: colors.onSurface, minWidth: 18, textAlign: "center" },
   itemPrice: { fontSize: 15, fontWeight: "800", color: colors.onSurface },
   removeBtn: { padding: spacing.xs, alignSelf: "flex-start" },
+  // v1.0.212 (P0 #6) — Save for later button styles + section layout.
+  itemActionsCol: { alignItems: "flex-end", justifyContent: "space-between", gap: spacing.xs },
+  saveLaterBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.brand },
+  saveLaterText: { fontSize: 12, fontWeight: "700", color: colors.brand },
+  sflSection: { marginTop: spacing.md, padding: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg },
+  sflHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.sm },
+  sflTitle: { fontSize: 14, fontWeight: "800", color: colors.onSurface },
+  sflRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  sflMain: { flex: 1, flexDirection: "row", alignItems: "center" },
+  sflImg: { width: 56, height: 56, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary },
+  sflItemTitle: { fontSize: 13, fontWeight: "700", color: colors.onSurface },
+  sflItemSeller: { fontSize: 11, color: colors.onSurfaceMuted, marginTop: 2 },
+  sflItemPrice: { fontSize: 13, fontWeight: "800", color: colors.onSurface, marginTop: 2 },
+  sflActionsCol: { alignItems: "flex-end", gap: spacing.xs, marginLeft: spacing.sm },
+  sflMoveBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.brand },
+  sflMoveText: { fontSize: 12, fontWeight: "800", color: colors.onBrand },
+  sflRemoveBtn: { paddingHorizontal: spacing.sm, paddingVertical: 4 },
+  sflRemoveText: { fontSize: 11, color: colors.onSurfaceMuted, textDecorationLine: "underline" },
   rateBox: { marginHorizontal: spacing.lg, marginTop: spacing.md, backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, ...shadows.card },
   rateBoxTitle: { fontSize: 13, fontWeight: "800", color: colors.onSurface, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: spacing.sm },
   rateLoading: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm },
