@@ -76,10 +76,6 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.pill,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.hairline,
   },
   topTitle: { ...typeTokens.h2, fontSize: 17 },
   card: {

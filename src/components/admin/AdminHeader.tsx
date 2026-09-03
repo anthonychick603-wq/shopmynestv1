@@ -18,7 +18,11 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-import { colors, radius, shadows, spacing } from "@/src/theme";
+// v1.0.230 — back and action buttons drop the pill‑chip look for the
+// canonical naked‑chevron pattern (no background, no border, no shadow;
+// icon‑only with a 40×40 hit target), matching src/components/ui/
+// ScreenHeader. This makes every admin screen inherit the fix at once.
+import { colors, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
 
@@ -102,22 +106,16 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
-    ...shadows.card,
   },
   titleWrap: { flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 17, fontWeight: "800", color: colors.onSurface },
-  subtitle: { fontSize: 12, color: colors.onSurfaceMuted, marginTop: 2 },
+  title: { ...typeTokens.h2, fontSize: 17, textAlign: "center" },
+  subtitle: { ...typeTokens.caption, marginTop: 2, textAlign: "center" },
   actions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   actionBtn: {
     width: 40,
     height: 40,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSecondary,
-    ...shadows.card,
   },
   badge: {
     position: "absolute",
