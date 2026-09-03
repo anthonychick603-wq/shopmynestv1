@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -77,13 +78,19 @@ export default function Blog() {
     }
   };
 
+  // v1.0.242 — useLatestRequest gates all home-tab async work so fast
+  // navigations and back-to-back refreshes can't commit stale state.
+  const { begin, isCurrent } = useLatestRequest();
+
   const loadHomeFeed = useCallback(async () => {
+    const _tok = begin();
     try {
       // v1.0.157 — request 25 items and enforce in-stock client-side so
       // Fresh from the Nest is exactly "25 most recent, in stock."
       // Server (plugin ≥ v3.13.18) already hides OOS, but the client
       // filter is a belt-and-suspenders for older plugin builds.
       const res = await nest.getHomeFeed({ per_page: 25 });
+      if (!isCurrent(_tok)) return;
       const items = (res.items || [])
         .map(toProduct)
         .filter((p) => p.in_stock && p.stock > 0)
@@ -93,7 +100,7 @@ export default function Blog() {
     } catch {
       // Non-fatal; home feed just stays empty.
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   // v1.0.132 — Personalized ranker: recency + favorites + follows + badge +
   // sales + boost. We only show the row when the user is signed in AND the
@@ -102,8 +109,10 @@ export default function Blog() {
   // Nest", so gating on a full row keeps the home tab from repeating itself.
   const loadForYouFeed = useCallback(async () => {
     if (!user) { setForYouItems([]); return; }
+    const _tok = begin();
     try {
       const res = await nest.trust.getPersonalizedFeed({ per_page: 12 });
+      if (!isCurrent(_tok)) return;
       // v1.0.159 — also filter OOS from Picked for you so the whole home
       // tab is consistent: no home carousel should ever surface a listing
       // the buyer can't add to cart.
@@ -112,16 +121,19 @@ export default function Blog() {
         .filter((p) => p.in_stock && p.stock > 0);
       setForYouItems(items.length >= 6 ? items : []);
     } catch {
+      if (!isCurrent(_tok)) return;
       setForYouItems([]);
     }
-  }, [user]);
+  }, [user, begin, isCurrent]);
 
   // v1.0.94 (Build #18a) — recently viewed for the signed-in buyer. Silent
   // failure keeps the row simply absent, so no error UI on the home tab.
   const loadRecentlyViewed = useCallback(async () => {
     if (!user) { setRecentlyViewed([]); return; }
+    const _tok = begin();
     try {
       const res = await nest.getRecentlyViewed(12);
+      if (!isCurrent(_tok)) return;
       // v1.0.159 — hide out-of-stock items from Keep browsing. A greyed-out
       // "you viewed this but can't buy it" row is worse than not showing
       // the item at all; when it restocks it will come back into the feed
@@ -131,29 +143,35 @@ export default function Blog() {
         .filter((p) => p.in_stock && p.stock > 0);
       setRecentlyViewed(items);
     } catch {
+      if (!isCurrent(_tok)) return;
       setRecentlyViewed([]);
     }
-  }, [user]);
+  }, [user, begin, isCurrent]);
 
   const load = useCallback(async (nextPage = 1) => {
+    const _tok = begin();
     setError(null);
     try {
       if (nextPage === 1) {
         await Promise.all([loadHomeFeed(), loadRecentlyViewed(), loadForYouFeed()]);
       }
       const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
+      if (!isCurrent(_tok)) return;
       const items = (res.items || []).map(toBlogPost);
       setPosts((prev) => (nextPage === 1 ? items : [...prev, ...items]));
       setPage(res.page ?? nextPage);
       setTotalPages(res.total_pages ?? 1);
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load the blog.");
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+      }
     }
-  }, [loadHomeFeed, loadRecentlyViewed, loadForYouFeed]);
+  }, [loadHomeFeed, loadRecentlyViewed, loadForYouFeed, begin, isCurrent]);
 
   // v1.0.166 — Vinted-style state preservation. Load the home feed once
   // on mount; do NOT reload on every focus. Returning to Home from a

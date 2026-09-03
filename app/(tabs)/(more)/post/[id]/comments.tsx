@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import {
   ActivityIndicator,
   FlatList,
@@ -62,19 +63,27 @@ export default function PostComments() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
+  // v1.0.242 — gate post-await state against fast unmount + refresh.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
     if (!id) return;
+    const _tok = begin();
     setError(null);
     try {
       const res = await nest.getPostComments(id, { page: 1, per_page: 50 });
+      if (!isCurrent(_tok)) return;
       setComments(res.comments || []);
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load comments.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [id]);
+  }, [id, begin, isCurrent]);
 
   useEffect(() => {
     load();

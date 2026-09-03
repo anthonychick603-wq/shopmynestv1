@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,15 +34,21 @@ export default function PublicSellerReviewsScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // v1.0.242 — gate post-await state so pull-to-refresh + end-reached
+  // pagination don't race.
+  const { begin, isCurrent } = useLatestRequest();
+
   const loadPage = useCallback(async (nextPage: number) => {
+    const _tok = begin();
     const res = await nest.getSellerReviews(id!, { page: nextPage, per_page: PAGE_SIZE })
       .catch(() => ({ items: [], total: 0, average: 0, page: nextPage, total_pages: 0 }));
+    if (!isCurrent(_tok)) return;
     setTotalPages(res.total_pages || 1);
     setTotal(res.total || 0);
     setAverage(res.average || 0);
     setItems((previous) => nextPage === 1 ? res.items || [] : [...previous, ...(res.items || [])]);
     setPage(nextPage);
-  }, [id]);
+  }, [id, begin, isCurrent]);
 
   useEffect(() => {
     (async () => {

@@ -4,6 +4,7 @@
 // account.tsx and (when we add price-drop alerts in Build #14) from the
 // alerts inbox as the "manage your shops" entry.
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,18 +32,26 @@ export default function FollowingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
+  // v1.0.242 — guard against unmount + fast re-fetch races.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
+    const _tok = begin();
     setError(null);
     try {
       const items = await nest.getFollowing();
+      if (!isCurrent(_tok)) return;
       setShops(Array.isArray(items) ? items : []);
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Couldn't load your shops.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
 

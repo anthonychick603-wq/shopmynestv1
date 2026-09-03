@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
@@ -64,7 +65,12 @@ export default function SellerProfile() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
 
+  // v1.0.242 — gate post-await state writes so pull-to-refresh and
+  // route param changes can't race and can't commit after unmount.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
+    const _tok = begin();
     setLoading(true);
     const [sellerRes, badgeRes, proRes, prodRes, reviewsRes, categoryRes] = await Promise.all([
       nest.getSeller(id!).catch(() => null),
@@ -74,6 +80,7 @@ export default function SellerProfile() {
       nest.getSellerReviews(id!, { per_page: 3 }).catch(() => ({ items: [], total: 0, average: 0, page: 1, total_pages: 0 })),
       nest.getCategories().catch(() => []),
     ]);
+    if (!isCurrent(_tok)) return;
     setSeller(sellerRes);
     setIsFollowing(!!sellerRes?.is_following);
     setBadge(badgeRes as SellerBadgeType | null);
@@ -85,7 +92,7 @@ export default function SellerProfile() {
     setReviewTotal(reviewsRes.total || 0);
     setLoading(false);
     setRefreshing(false);
-  }, [id]);
+  }, [id, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import {
   ActivityIndicator,
   FlatList,
@@ -96,11 +97,17 @@ export default function BlogPostDetail() {
   // the given comment id. Cancel resets it back to a new-comment composer.
   const [editingId, setEditingId] = useState<string | number | null>(null);
 
+  // v1.0.242 — gate post-await state so useFocusEffect re-fires and
+  // pull-to-refresh don't race and can't commit after unmount.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
     if (!id) return;
+    const _tok = begin();
     setError(null);
     try {
       const res = await nest.getBlogPostComments(id, { page: 1, per_page: 50 });
+      if (!isCurrent(_tok)) return;
       setComments(res.comments || []);
       // v1.0.115 — the server returns a total that comes from the same
       // filtered query as the list, so it's guaranteed to agree with the
@@ -114,18 +121,22 @@ export default function BlogPostDetail() {
       // Blog and Fresh from the Nest show.
       try {
         const feed = await nest.getBlogPosts({ page: 1, per_page: 50 });
+        if (!isCurrent(_tok)) return;
         const raw = (feed.items || []).find((p) => String(p.id) === String(id));
         if (raw) setPost(toBlogPost(raw));
       } catch {
         // header is optional; comments still render
       }
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load comments.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [id]);
+  }, [id, begin, isCurrent]);
 
   // v1.0.115 — refetch every time the screen regains focus so the count
   // and list stay in sync with the blog feed (which already uses

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -79,17 +80,24 @@ export default function ProductDetail() {
     if (product) toggleFavorite(product.id);
   };
 
+  // v1.0.242 — gate main product load against fast focus-refetches
+  // and route changes that could otherwise commit stale data.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
+    const _tok = begin();
     setErr(null);
     try {
       const p = toProduct(await nest.getProduct(id!));
+      if (!isCurrent(_tok)) return;
       setProduct(p);
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       setErr(e instanceof ApiError ? e.friendly : "Product not available");
     } finally {
-      setLoading(false);
+      if (isCurrent(_tok)) setLoading(false);
     }
-  }, [id]);
+  }, [id, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
 

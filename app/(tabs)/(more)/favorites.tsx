@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { FlatList, RefreshControl, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -44,7 +45,12 @@ export default function Favorites() {
   const [priceDropAlerts, setPriceDropAlerts] = useState(true);
   const [priceDropBusy, setPriceDropBusy] = useState(false);
 
+  // v1.0.242 — gate favorites refresh so fast pull-to-refresh + focus
+  // effects can't race and can't commit after unmount.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
+    const _tok = begin();
     setLoading(true);
     try {
       await refresh();
@@ -52,13 +58,16 @@ export default function Favorites() {
       const products = await Promise.all(
         idList.map((id) => nest.getProduct(id).then(toProduct).catch(() => null)),
       );
+      if (!isCurrent(_tok)) return;
       setItems(products.filter((p): p is Product => !!p));
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
 

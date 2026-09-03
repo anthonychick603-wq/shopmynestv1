@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, FlatList, Image, Modal, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,18 +32,27 @@ export default function ProductReviewsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
+  // v1.0.242 — gate post-await state so refresh + pagination + retry
+  // taps don't race.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async (nextPage = 1) => {
+    const _tok = begin();
     setError(null);
     try {
       const res = await nest.getProductReviews(id, { page: nextPage, per_page: PAGE_SIZE });
+      if (!isCurrent(_tok)) return;
       setItems((previous) => nextPage === 1 ? res.items || [] : [...previous, ...(res.items || [])]);
       setPage(nextPage); setTotal(res.total || 0); setAverage(res.average || 0); setTotalPages(res.total_pages || 1);
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "We couldn't load reviews.");
     } finally {
-      setLoading(false); setLoadingMore(false);
+      if (isCurrent(_tok)) {
+        setLoading(false); setLoadingMore(false);
+      }
     }
-  }, [id]);
+  }, [id, begin, isCurrent]);
   useEffect(() => { load(1); }, [load]);
 
   const onMore = () => {

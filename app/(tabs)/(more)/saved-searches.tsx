@@ -6,6 +6,7 @@
 // via an inline trash icon (a Modal confirm would be overkill for this).
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,22 +33,30 @@ export default function SavedSearchesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // v1.0.242 — gate post-await state with useLatestRequest.
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
     if (!user) {
       setItems([]);
       setLoading(false);
       return;
     }
+    const _tok = begin();
     try {
       const res = await nest.getSavedSearches();
+      if (!isCurrent(_tok)) return;
       setItems(res.items || []);
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       if (e instanceof ApiError) toast.error(e.friendly);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [user]);
+  }, [user, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
 

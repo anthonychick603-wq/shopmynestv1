@@ -9,6 +9,7 @@
 // personalization, so we route guests to sign in rather than showing them
 // the same thing they'd see under "Fresh from the Nest".
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,13 +48,20 @@ export default function ForYouScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // v1.0.242 — gate all post-await state writes with useLatestRequest
+  // so pull-to-refresh, infinite scroll, and mount-load don't race
+  // and can't commit state after unmount.
+  const { begin, isCurrent } = useLatestRequest();
+
   // The trust plugin returns { items, page, per_page, total, total_pages? }.
   // total_pages is optional in the type; derive it from total/per_page when
   // the server omits it so infinite scroll knows when to stop.
   const load = useCallback(async (nextPage = 1) => {
     if (!user) { setLoading(false); setRefreshing(false); return; }
+    const _tok = begin();
     try {
       const res = await nest.trust.getPersonalizedFeed({ page: nextPage, per_page: PER_PAGE });
+      if (!isCurrent(_tok)) return;
       const rows = (res.items || []).map(feedRowToProduct);
       setItems((prev) => (nextPage === 1 ? rows : [...prev, ...rows]));
       setPage(res.page ?? nextPage);
@@ -61,13 +69,16 @@ export default function ForYouScreen() {
         ?? (res.total && res.per_page ? Math.max(1, Math.ceil(res.total / res.per_page)) : nextPage);
       setTotalPages(derivedTotalPages);
     } catch (e) {
+      if (!isCurrent(_tok)) return;
       toast.error(e instanceof ApiError ? e.friendly : "Could not load your picks");
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setLoadingMore(false);
+        setRefreshing(false);
+      }
     }
-  }, [user]);
+  }, [user, begin, isCurrent]);
 
   useEffect(() => { load(1); }, [load]);
 
