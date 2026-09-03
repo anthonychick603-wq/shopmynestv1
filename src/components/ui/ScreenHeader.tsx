@@ -1,8 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Platform } from "react-native";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter } from "expo-router";
 import { colors, spacing, type as typeTokens } from "@/src/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { safeBack } from "@/src/utils/nav";
 
 type Props = {
   /**
@@ -17,11 +18,16 @@ type Props = {
   eyebrow?: string;
   /**
    * When true (default), a chevron-back button is rendered on the left.
-   * The button pops the current route; if no back stack exists, the
-   * button is hidden entirely — this is a fix over the previous header
-   * which showed a non-functional back arrow on some root screens.
+   * The button routes through safeBack — it pops the stack when there's
+   * history, and falls back to `backTo` (or /(tabs) if unset) when the
+   * screen was cold-started via a deep link.
    */
   showBack?: boolean;
+  /**
+   * Fallback route used by safeBack when there's no back stack to pop
+   * (cold-start deep link). Defaults to "/(tabs)".
+   */
+  backTo?: string;
   /**
    * Custom left element. Overrides showBack. Useful for menu icons.
    */
@@ -38,7 +44,7 @@ type Props = {
    */
   divider?: boolean;
   /**
-   * Optional callback fired instead of router.back() when the built-in
+   * Optional callback fired instead of safeBack when the built-in
    * back button is tapped. Screens use this to intercept dismissals
    * (e.g. a "Discard changes?" confirmation).
    */
@@ -61,24 +67,27 @@ export function ScreenHeader({
   title,
   eyebrow,
   showBack = true,
+  backTo = "/(tabs)",
   left,
   right,
   divider = false,
   onBack,
 }: Props) {
   const router = useRouter();
-  const navigation = useNavigation();
-  const canGoBack = navigation.canGoBack();
 
   const handleBack = React.useCallback(() => {
     if (onBack) {
       onBack();
       return;
     }
-    if (canGoBack) router.back();
-  }, [onBack, canGoBack, router]);
+    // v1.0.231 — was raw router.back() gated on canGoBack, which meant
+    // the button silently disappeared on cold-start deep links. Route
+    // through safeBack so the chevron always works and the fallback is
+    // used only when there's genuinely no history to pop.
+    safeBack(router, backTo);
+  }, [onBack, router, backTo]);
 
-  const showBackButton = showBack && !left && canGoBack;
+  const showBackButton = showBack && !left;
 
   return (
     <View style={[styles.wrap, divider && styles.divider]}>

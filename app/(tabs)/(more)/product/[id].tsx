@@ -252,13 +252,13 @@ export default function ProductDetail() {
     );
   }
   if (err || !product) {
-    return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.errText}>{err ?? "Product not found"}</Text><Button title="Back" onPress={() => safeBack(router, "/(tabs)")} style={{ marginTop: spacing.md }} /></View></SafeAreaView>;
+    return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.errText}>{err ?? "Product not found"}</Text><Button title="Back" onPress={() => safeBack(router, "/(tabs)/browse")} style={{ marginTop: spacing.md }} /></View></SafeAreaView>;
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)")} style={styles.topBtn} testID="product-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/browse")} style={styles.topBtn} testID="product-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <TouchableOpacity style={styles.topBtn} onPress={onFav} testID="product-favorite" accessibilityRole="button" accessibilityLabel={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"} hitSlop={8}>
             <Ionicons name={isFavorite(product.id) ? "heart" : "heart-outline"} size={20} color={isFavorite(product.id) ? colors.error : colors.onSurface} />
