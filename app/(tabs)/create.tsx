@@ -10,12 +10,13 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
-import { pushFromTab } from "@/src/utils/nav";
+import { usePushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
 export default function CreateTab() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const push = usePushFromTab();
   const { user } = useAuth();
 
   if (!user) {
@@ -26,7 +27,7 @@ export default function CreateTab() {
           title="Sign in to create"
           message="Log in to apply as a seller or list new products."
           actionLabel="Sign in"
-          onAction={() => pushFromTab(router, "/(auth)/login")}
+          onAction={() => push("/(auth)/login")}
           testID="create-signed-out"
         />
       </SafeAreaView>
@@ -65,7 +66,7 @@ export default function CreateTab() {
               icon="storefront-outline"
               title="Build your Nest"
               body="Tell us about your shop and what you make."
-              onPress={() => { haptics.press(); pushFromTab(router, "/seller/apply"); }}
+              onPress={() => { haptics.press(); push("/seller/apply"); }}
               testID="create-apply-seller"
             />
             {user.seller_application_status === "rejected" ? (

@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { useAuth } from "@/src/context/AuthContext";
-import { pushFromTab } from "@/src/utils/nav";
+import { usePushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
 const TAB_BAR_HEIGHT = 64;
@@ -33,6 +33,7 @@ function TabIcon({
 // publicly, so the older unmoderated composer is not offered here.
 function CreatePlusButton() {
   const router = useRouter();
+  const push = usePushFromTab();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const isMaker = user?.is_approved_seller === true;
@@ -58,9 +59,9 @@ function CreatePlusButton() {
   const go = (mode?: "blog") => {
     hide(() => {
       if (mode === "blog") {
-        pushFromTab(router, "/blog/compose");
+        push("/blog/compose");
       } else if (isMaker) {
-        pushFromTab(router, "/seller/product-form");
+        push("/seller/product-form");
       } else {
         router.push("/(tabs)/create");
       }
@@ -74,7 +75,7 @@ function CreatePlusButton() {
     <>
       <Pressable
         style={styles.createBtnWrap}
-        onPress={() => { haptics.press(); isMaker ? show() : pushFromTab(router, "/blog/compose"); }}
+        onPress={() => { haptics.press(); isMaker ? show() : push("/blog/compose"); }}
         testID="tab-create"
         accessibilityLabel="Create"
         accessibilityRole="button"
@@ -121,6 +122,10 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // v1.0.239 — pin Blog (tabs/index) as the initial route so cold
+      // launches always land there, regardless of whichever tab the
+      // user was on when the OS killed the app.
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         // v1.0.163 — Stop random tab-swap crashes.

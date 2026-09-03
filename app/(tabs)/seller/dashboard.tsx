@@ -21,7 +21,7 @@ import { SellerBadge } from "@/src/components/SellerBadge";
 import { BoostSheet } from "@/src/components/BoostSheet";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
-import { pushFromTab } from "@/src/utils/nav";
+import { usePushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
 import { StatusPill } from "@/src/components/StatusPill";
@@ -30,6 +30,7 @@ import { useRedirectAdmins } from "@/src/hooks/use-redirect-admins";
 export default function SellerDashboard() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const push = usePushFromTab();
   const { user } = useAuth();
   // v1.0.237 — seller tab is hidden for admins in _layout.tsx, but the
   // route is still registered so deep links resolve. If an admin arrives
@@ -148,7 +149,7 @@ export default function SellerDashboard() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top />
-        <EmptyState icon="lock-closed-outline" title="Maker only" message="Apply to become a seller first." actionLabel="Apply" onAction={() => pushFromTab(router, "/seller/apply")} />
+        <EmptyState icon="lock-closed-outline" title="Maker only" message="Apply to become a seller first." actionLabel="Apply" onAction={() => push("/seller/apply")} />
       </SafeAreaView>
     );
   }
@@ -214,14 +215,14 @@ export default function SellerDashboard() {
             hint={oosCount > 0 ? `${oosCount} out of stock` : undefined}
             hintTone={oosCount > 0 ? "warning" : undefined}
             icon="cube-outline"
-            onPress={() => pushFromTab(router, "/seller/listings")}
+            onPress={() => push("/seller/listings")}
             testID="dash-stat-products"
           />
           <Stat
             label="Orders"
             value={String(orders.length || totals.orders || 0)}
             icon="bag-check-outline"
-            onPress={() => pushFromTab(router, "/orders")}
+            onPress={() => push("/orders")}
             testID="dash-stat-orders"
           />
           <Stat
@@ -229,7 +230,7 @@ export default function SellerDashboard() {
             value={formatMoney(earnings)}
             hint="Lifetime"
             icon="cash-outline"
-            onPress={() => pushFromTab(router, "/seller/payouts")}
+            onPress={() => push("/seller/payouts")}
             testID="dash-stat-earnings"
           />
         </View>
@@ -237,7 +238,7 @@ export default function SellerDashboard() {
         <SellerReadinessCard readiness={readiness} />
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Quick actions</Text></View>
-        <Button title="+ Create a new listing" onPress={() => pushFromTab(router, "/seller/product-form")} testID="dash-new-product" />
+        <Button title="+ Create a new listing" onPress={() => push("/seller/product-form")} testID="dash-new-product" />
 
         {/* v1.0.70 — settings destinations moved into a compact 2-column grid
             so the dashboard stops burning half a screen on chevron rows. */}
@@ -245,19 +246,19 @@ export default function SellerDashboard() {
           <ActionTile
             icon="storefront-outline"
             label="Shop profile"
-            onPress={() => pushFromTab(router, "/seller/shop-settings")}
+            onPress={() => push("/seller/shop-settings")}
             testID="dash-shop-profile"
           />
           <ActionTile
             icon="analytics-outline"
             label="Analytics"
-            onPress={() => pushFromTab(router, "/seller/analytics")}
+            onPress={() => push("/seller/analytics")}
             testID="dash-analytics"
           />
           <ActionTile
             icon="cash-outline"
             label="Earnings & payouts"
-            onPress={() => pushFromTab(router, "/seller/payouts")}
+            onPress={() => push("/seller/payouts")}
             testID="dash-payouts"
           />
           {/* v1.0.127 — tile renamed. The old "Shipping (Shippo)" label
@@ -268,31 +269,31 @@ export default function SellerDashboard() {
           <ActionTile
             icon="location-outline"
             label="Ship-from address"
-            onPress={() => pushFromTab(router, "/seller/shippo")}
+            onPress={() => push("/seller/shippo")}
             testID="dash-shippo"
           />
           <ActionTile
             icon="business-outline"
             label="Payout account"
-            onPress={() => pushFromTab(router, "/seller/bank")}
+            onPress={() => push("/seller/bank")}
             testID="dash-connect"
           />
           <ActionTile
             icon="cloud-upload-outline"
             label="Import CSV"
-            onPress={() => pushFromTab(router, "/seller/import")}
+            onPress={() => push("/seller/import")}
             testID="dash-import"
           />
           <ActionTile
             icon="list-outline"
             label="All listings"
-            onPress={() => pushFromTab(router, "/seller/listings")}
+            onPress={() => push("/seller/listings")}
             testID="dash-listings"
           />
           <ActionTile
             icon="star-outline"
             label="Reviews"
-            onPress={() => pushFromTab(router, "/seller/reviews")}
+            onPress={() => push("/seller/reviews")}
             testID="dash-reviews"
           />
         </View>
@@ -307,7 +308,7 @@ export default function SellerDashboard() {
               style={styles.orderRow}
               onPress={() => {
                 haptics.tap();
-                pushFromTab(router, `/order/${o.id}`);
+                push(`/order/${o.id}`);
               }}
               testID={`dash-order-${o.id}`}
              accessibilityRole="button">
@@ -337,7 +338,7 @@ export default function SellerDashboard() {
                     // Your listings screen's Out of stock tab so the filter
                     // lives in one place (the listings screen), not on a
                     // separate route.
-                    pushFromTab(router, "/seller/listings?filter=oos");
+                    push("/seller/listings?filter=oos");
                   }}
                   testID="dash-oos-link"
                   accessibilityLabel={`View ${oosCount} out of stock items`}
@@ -389,7 +390,7 @@ export default function SellerDashboard() {
                     style={styles.iconBtn}
                     onPress={() => {
                       haptics.tap();
-                      pushFromTab(router, `/seller/product-form?id=${p.id}`);
+                      push(`/seller/product-form?id=${p.id}`);
                     }}
                     testID={`dash-edit-${p.id}`}
                     accessibilityLabel={`Edit ${p.title}`}

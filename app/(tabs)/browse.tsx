@@ -17,7 +17,7 @@ import {
   type HierarchicalCategory,
 } from "@/src/utils/categories";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
-import { pushFromTab } from "@/src/utils/nav";
+import { usePushFromTab } from "@/src/utils/nav";
 import type { Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
@@ -53,6 +53,7 @@ const SORT_LABEL: Record<SortKey, string> = {
 export default function Browse() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const push = usePushFromTab();
   const { category: initialCat } = useLocalSearchParams<{ category?: string }>();
   // v1.0.187 — browse-side filter is multi-select: shoppers can pick any
   // number of categories AND drill in with sub-category checkboxes.
@@ -217,7 +218,7 @@ export default function Browse() {
   }, [load]);
 
   const onAdd = async (p: Product) => {
-    if (!user) return pushFromTab(router, "/(auth)/login");
+    if (!user) return push("/(auth)/login");
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
@@ -229,7 +230,7 @@ export default function Browse() {
   };
 
   const onFav = (p: Product) => {
-    if (!user) return pushFromTab(router, "/(auth)/login");
+    if (!user) return push("/(auth)/login");
     toggleFavorite(p.id);
   };
 
@@ -255,7 +256,7 @@ export default function Browse() {
   // when new listings match. Requires login.
   const onSaveAlert = async () => {
     if (!user) {
-      pushFromTab(router, "/(auth)/login");
+      push("/(auth)/login");
       return;
     }
     haptics.press();
@@ -392,7 +393,7 @@ export default function Browse() {
           recent={mergedRecent}
           onClearRecent={onClearBothRecents}
           onPickTerm={(t) => { setSearch(t); commitSearch(t); }}
-          onPickProduct={(id) => { setSearchFocused(false); pushFromTab(router, `/(tabs)/(more)/product/${id}`); }}
+          onPickProduct={(id) => { setSearchFocused(false); push(`/(tabs)/(more)/product/${id}`); }}
           onPickCategory={(id, name) => {
             // Bounce back into the same screen with the category id preselected.
             // Clear the typed text so results reflect the filter, not the term.
@@ -403,7 +404,7 @@ export default function Browse() {
             setSelectedSubcategoryIds([]);
             haptics.tap();
           }}
-          onPickShop={(id) => { setSearchFocused(false); pushFromTab(router, `/(tabs)/(more)/seller/${id}`); }}
+          onPickShop={(id) => { setSearchFocused(false); push(`/(tabs)/(more)/seller/${id}`); }}
         />
       ) : null}
 
@@ -428,7 +429,7 @@ export default function Browse() {
         <View style={styles.shopsBlock}>
           <View style={styles.shopsHeader}>
             <Text style={styles.shopsTitle}>Discover shops</Text>
-            <TouchableOpacity onPress={() => pushFromTab(router, "/(tabs)/(more)/shops")} testID="shops-see-all" accessibilityRole="button" accessibilityLabel="See all shops">
+            <TouchableOpacity onPress={() => push("/(tabs)/(more)/shops")} testID="shops-see-all" accessibilityRole="button" accessibilityLabel="See all shops">
               <Text style={styles.shopsSeeAll}>See all</Text>
             </TouchableOpacity>
           </View>
@@ -439,7 +440,7 @@ export default function Browse() {
                 style={styles.shopCard}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${s.store_name || s.display_name || "shop"}`}
-                onPress={() => pushFromTab(router, `/(tabs)/(more)/seller/${s.id}`)}
+                onPress={() => push(`/(tabs)/(more)/seller/${s.id}`)}
                 testID={`shop-${s.id}`}
               >
                 {s.avatar ? (

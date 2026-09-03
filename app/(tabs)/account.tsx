@@ -17,7 +17,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { Card, Badge, ListRow, Screen } from "@/src/components/ui";
-import { pushFromTab } from "@/src/utils/nav";
+import { usePushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 
 // v1.0.224 — Account screen, refined.
@@ -35,6 +35,7 @@ import { haptics } from "@/src/utils/haptics";
 //     the app.
 export default function Account() {
   const router = useRouter();
+  const push = usePushFromTab();
   const { user, logout, refresh } = useAuth();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
@@ -85,14 +86,14 @@ export default function Account() {
           </Text>
           <Button
             title="Sign in"
-            onPress={() => pushFromTab(router, "/(auth)/login")}
+            onPress={() => push("/(auth)/login")}
             style={{ marginTop: spacing.lg, minWidth: 220 }}
             testID="account-signin"
           />
           <Button
             title="Create account"
             variant="outline"
-            onPress={() => pushFromTab(router, "/(auth)/register")}
+            onPress={() => push("/(auth)/register")}
             style={{ marginTop: spacing.sm, minWidth: 220 }}
             testID="account-register"
           />
@@ -152,31 +153,31 @@ export default function Account() {
 
         <SectionEyebrow>Shopping</SectionEyebrow>
         <Card variant="flat" padding="none">
-          <ListRow icon="bag-check-outline" title="Orders" onPress={() => pushFromTab(router, "/orders")} />
-          <ListRow icon="hammer-outline" title="Custom requests" onPress={() => pushFromTab(router, "/custom-requests")} />
-          <ListRow icon="chatbubble-ellipses-outline" title="Messages" onPress={() => pushFromTab(router, "/messages")} />
-          <ListRow icon="bookmark-outline" title="Favorites" onPress={() => pushFromTab(router, "/favorites")} />
-          <ListRow icon="notifications-circle-outline" title="Saved searches" onPress={() => pushFromTab(router, "/saved-searches")} />
-          <ListRow icon="heart-outline" title="Shops you follow" onPress={() => pushFromTab(router, "/following")} />
-          <ListRow icon="home-outline" title="Address book" onPress={() => pushFromTab(router, "/me/addresses")} />
-          <ListRow icon="notifications-outline" title="Notifications" onPress={() => pushFromTab(router, "/settings/notifications")} />
-          <ListRow icon="lock-closed-outline" title="App lock" onPress={() => pushFromTab(router, "/settings/app-lock")} />
-          <ListRow icon="shield-checkmark-outline" title="Buyer protection & disputes" onPress={() => pushFromTab(router, "/disputes")} />
+          <ListRow icon="bag-check-outline" title="Orders" onPress={() => push("/orders")} />
+          <ListRow icon="hammer-outline" title="Custom requests" onPress={() => push("/custom-requests")} />
+          <ListRow icon="chatbubble-ellipses-outline" title="Messages" onPress={() => push("/messages")} />
+          <ListRow icon="bookmark-outline" title="Favorites" onPress={() => push("/favorites")} />
+          <ListRow icon="notifications-circle-outline" title="Saved searches" onPress={() => push("/saved-searches")} />
+          <ListRow icon="heart-outline" title="Shops you follow" onPress={() => push("/following")} />
+          <ListRow icon="home-outline" title="Address book" onPress={() => push("/me/addresses")} />
+          <ListRow icon="notifications-outline" title="Notifications" onPress={() => push("/settings/notifications")} />
+          <ListRow icon="lock-closed-outline" title="App lock" onPress={() => push("/settings/app-lock")} />
+          <ListRow icon="shield-checkmark-outline" title="Buyer protection & disputes" onPress={() => push("/disputes")} />
         </Card>
 
         <SectionEyebrow>Selling</SectionEyebrow>
         <Card variant="flat" padding="none">
           {isSeller ? (
             <>
-              <ListRow icon="storefront-outline" title="My Nest" onPress={() => pushFromTab(router, "/seller/dashboard")} />
-              <ListRow icon="cube-outline" title="Add new product" onPress={() => pushFromTab(router, "/seller/product-form")} />
-              <ListRow icon="pricetag-outline" title="Coupons" onPress={() => pushFromTab(router, "/seller/coupons")} />
-              <ListRow icon="cloud-upload-outline" title="Import products from CSV" onPress={() => pushFromTab(router, "/seller/import")} />
+              <ListRow icon="storefront-outline" title="My Nest" onPress={() => push("/seller/dashboard")} />
+              <ListRow icon="cube-outline" title="Add new product" onPress={() => push("/seller/product-form")} />
+              <ListRow icon="pricetag-outline" title="Coupons" onPress={() => push("/seller/coupons")} />
+              <ListRow icon="cloud-upload-outline" title="Import products from CSV" onPress={() => push("/seller/import")} />
             </>
           ) : user.seller_application_status === "pending" ? (
             <ListRow icon="hourglass-outline" title="Application status: Pending" hideChevron />
           ) : (
-            <ListRow icon="storefront-outline" title="Build your Nest" onPress={() => pushFromTab(router, "/seller/apply")} />
+            <ListRow icon="storefront-outline" title="Build your Nest" onPress={() => push("/seller/apply")} />
           )}
         </Card>
 
@@ -184,8 +185,8 @@ export default function Account() {
           <>
             <SectionEyebrow>Admin</SectionEyebrow>
             <Card variant="flat" padding="none">
-              <ListRow icon="settings-outline" title="Admin controls" onPress={() => pushFromTab(router, "/admin")} />
-              <ListRow icon="pricetag-outline" title="Site-wide coupons" onPress={() => pushFromTab(router, "/admin/coupons")} />
+              <ListRow icon="settings-outline" title="Admin controls" onPress={() => push("/admin")} />
+              <ListRow icon="pricetag-outline" title="Site-wide coupons" onPress={() => push("/admin/coupons")} />
             </Card>
           </>
         ) : null}
@@ -225,12 +226,13 @@ export default function Account() {
 
 function Header({ admin }: { admin?: boolean }) {
   const router = useRouter();
+  const push = usePushFromTab();
   return (
     <View style={styles.header}>
       <TouchableOpacity
         activeOpacity={1}
         delayLongPress={800}
-        onLongPress={() => (admin ? pushFromTab(router, "/blog/moderation") : undefined)}
+        onLongPress={() => (admin ? push("/blog/moderation") : undefined)}
         testID="acc-blog-moderation"
         accessibilityRole="button"
       >

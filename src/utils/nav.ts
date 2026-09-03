@@ -31,7 +31,8 @@
 // current screen is already on, and router.back() returns the user to
 // where they tapped from — no tracker required.
 
-import { router as globalRouter, type Router } from "expo-router";
+import { useCallback } from "react";
+import { router as globalRouter, useRouter, useSegments, type Router } from "expo-router";
 
 // -----------------------------------------------------------------------
 // Back.
@@ -80,12 +81,58 @@ function _push(
     router.push(path as never);
   }
 }
+// v1.0.239 — pushFromTab now behaves like a real "enter the (more) stack
+// from outside it" primitive. When the caller is on a tab-root screen
+// (Blog, Browse, Account, Seller Dashboard, Create) and pushes a route
+// that lives under (more), we FIRST clear any lingering (more) history
+// so back returns cleanly to the tab root instead of revealing whatever
+// screen the (more) tab happened to be sitting on. When the caller is
+// already inside (more) — admin/*.tsx, cart, alerts — we plain-push so
+// their own back stack keeps working.
+//
+// Legacy signature kept for compatibility: passing a raw Router still
+// works and behaves like the pre-v1.0.239 plain push. New callers
+// should use usePushFromTab() so the segment check runs.
 export function pushFromTab(
   router: Router,
   path: string,
   params?: Record<string, unknown>,
 ): void {
   _push(router, path, params);
+}
+
+/**
+ * Hook version of pushFromTab that runs the segment-aware reset.
+ * Returns a stable function; safe to call from onPress handlers.
+ */
+export function usePushFromTab() {
+  const router = useRouter();
+  const segments = useSegments();
+  const insideMore = segments.some((s) => s === "(more)");
+
+  return useCallback(
+    (path: string, params?: Record<string, unknown>) => {
+      // Callers already on a (more)-stack screen just push normally;
+      // dismissing here would nuke their own back history.
+      if (insideMore) {
+        _push(router, path, params);
+        return;
+      }
+      // Tab-root caller entering (more). Clear any prior (more) history
+      // so back from the target returns to the tab root instead of
+      // whatever screen (more) was sitting on from an earlier flow.
+      // dismissAll() is a no-op when the stack is already at root.
+      try {
+        // dismissAll exists on router in expo-router 6. It's a no-op
+        // when the current stack is already at its root.
+        router.dismissAll?.();
+      } catch {
+        // Ignore — push still works even if dismiss fails.
+      }
+      _push(router, path, params);
+    },
+    [router, insideMore],
+  );
 }
 export function pushFromCard(
   router: Router,

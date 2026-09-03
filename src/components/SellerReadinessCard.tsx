@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 
 import type { NestSellerReadiness, NestSellerReadinessStep } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
-import { pushFromTab } from "@/src/utils/nav";
+import { usePushFromTab } from "@/src/utils/nav";
 
 // v1.0.61 — the readiness endpoint still returns a "Set your shop name"
 // step but shops now have a display name at signup, so it never provides
@@ -27,6 +27,7 @@ const HIDDEN_STEP_KEYS = new Set(["store_name"]);
 
 export function SellerReadinessCard({ readiness }: { readiness: NestSellerReadiness | null }) {
   const router = useRouter();
+  const push = usePushFromTab();
   if (!readiness || !readiness.steps?.length) return null;
 
   const visibleSteps = readiness.steps.filter((s) => !HIDDEN_STEP_KEYS.has(s.key));
@@ -46,7 +47,7 @@ export function SellerReadinessCard({ readiness }: { readiness: NestSellerReadin
     if (!step.action_url) return;
     // Rendered only on the seller dashboard tab root, so every step opens a
     // (more) screen — reset the shared stack so back returns to the tab.
-    pushFromTab(router, String(step.action_url));
+    push(String(step.action_url));
   };
 
   return (

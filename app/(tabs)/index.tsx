@@ -17,7 +17,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { Button } from "@/src/components/Button";
-import { pushFromTab } from "@/src/utils/nav";
+import { usePushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
@@ -29,6 +29,7 @@ const PER_PAGE = 20;
 export default function Blog() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const push = usePushFromTab();
   const { user } = useAuth();
 
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -61,11 +62,11 @@ export default function Blog() {
   // heart-toggles-favorite / plus-adds-to-cart contract works on the home
   // feed too.
   const onFav = (p: Product) => {
-    if (!user) return pushFromTab(router, "/(auth)/login");
+    if (!user) return push("/(auth)/login");
     toggleFavorite(p.id);
   };
   const onAdd = async (p: Product) => {
-    if (!user) return pushFromTab(router, "/(auth)/login");
+    if (!user) return push("/(auth)/login");
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
@@ -317,7 +318,7 @@ export default function Blog() {
                 activeOpacity={0.85}
                 onPress={() => {
                   haptics.tap();
-                  pushFromTab(router, "/(tabs)/(more)/blog/[id]", { id: item.id, post: JSON.stringify(item) });
+                  push("/(tabs)/(more)/blog/[id]", { id: item.id, post: JSON.stringify(item) });
                 }}
                 testID={`blog-open-${item.id}`}
                accessibilityRole="button">
@@ -382,7 +383,7 @@ export default function Blog() {
                 <View style={styles.homeFeedSection}>
                   <View style={styles.homeFeedHeader}>
                     <Text style={styles.homeFeedTitle}>Keep browsing</Text>
-                    <TouchableOpacity accessibilityLabel="See all recently viewed products" accessibilityRole="button" onPress={() => { haptics.tap(); pushFromTab(router, "/me/recently-viewed"); }} testID="home-recent-see-all">
+                    <TouchableOpacity accessibilityLabel="See all recently viewed products" accessibilityRole="button" onPress={() => { haptics.tap(); push("/me/recently-viewed"); }} testID="home-recent-see-all">
                       <Text style={styles.homeFeedSeeAll}>See all</Text>
                     </TouchableOpacity>
                   </View>
@@ -415,7 +416,7 @@ export default function Blog() {
                     <TouchableOpacity
                       accessibilityLabel="See all personalized picks"
                       accessibilityRole="button"
-                      onPress={() => { haptics.tap(); pushFromTab(router, "/for-you"); }}
+                      onPress={() => { haptics.tap(); push("/for-you"); }}
                       testID="home-foryou-see-all"
                     >
                       <Text style={styles.homeFeedSeeAll}>See all</Text>
@@ -480,7 +481,7 @@ export default function Blog() {
                 <Text style={styles.composeTitle}>Share something with the Nest</Text>
                 <Button
                   title="New Post"
-                  onPress={() => { haptics.tap(); (user ? pushFromTab(router, "/blog/compose") : pushFromTab(router, "/(auth)/login")); }}
+                  onPress={() => { haptics.tap(); (user ? push("/blog/compose") : push("/(auth)/login")); }}
                   style={{ marginTop: spacing.md }}
                   testID="blog-new-post"
                 />
@@ -489,7 +490,7 @@ export default function Blog() {
               {showBecomeMaker ? (
                 <TouchableOpacity
                   testID="become-seller-cta"
-                  onPress={() => { haptics.tap(); (user ? pushFromTab(router, "/seller/apply") : pushFromTab(router, "/(auth)/login")); }}
+                  onPress={() => { haptics.tap(); (user ? push("/seller/apply") : push("/(auth)/login")); }}
                   style={styles.becomeSellerCard}
                   activeOpacity={0.85}
                  accessibilityRole="button">
