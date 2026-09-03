@@ -25,11 +25,18 @@ import { pushFromTab } from "@/src/utils/nav";
 import { haptics } from "@/src/utils/haptics";
 import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
 import { StatusPill } from "@/src/components/StatusPill";
+import { useRedirectAdmins } from "@/src/hooks/use-redirect-admins";
 
 export default function SellerDashboard() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
+  // v1.0.237 — seller tab is hidden for admins in _layout.tsx, but the
+  // route is still registered so deep links resolve. If an admin arrives
+  // here through a stale notification or a link, bounce them to /admin
+  // instead of showing them a dashboard full of tiles that all lead to
+  // seller-only backends.
+  const { isAdmin } = useRedirectAdmins("/admin");
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<DashOrder[]>([]);
   const [totals, setTotals] = useState<{ orders?: number; revenue?: number; earnings?: number }>({});
@@ -42,7 +49,10 @@ export default function SellerDashboard() {
 
   const lastLoadAt = useRef(0);
   const load = useCallback(async () => {
-    if (!user || (user.role !== "seller" && user.role !== "admin")) return;
+    // v1.0.237 — admins are separated from sellers; they don't have a
+    // seller dashboard payload at all. The screen redirects to /admin
+    // above; make sure no seller-scoped requests fire in the meantime.
+    if (!user || user.role !== "seller") return;
     try {
       // Fire all requests in parallel. Trust the dashboard endpoint as primary
       // and only fall back to list endpoints if dashboard is missing sections.
@@ -142,6 +152,10 @@ export default function SellerDashboard() {
       </SafeAreaView>
     );
   }
+
+  // v1.0.237 — admins are being replaced to /admin by useRedirectAdmins;
+  // return nothing while the router swap is in flight.
+  if (isAdmin) return null;
 
   if (loading) {
     return (

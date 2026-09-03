@@ -25,11 +25,18 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { useRedirectAdmins } from "@/src/hooks/use-redirect-admins";
 
 export default function ShopSettings() {
   useBackFallback("/(tabs)/seller/dashboard");
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // v1.0.237 — admins don't have a public shop; if one gets here via a
+  // deep link or notification, bounce to the admin console before the
+  // GET /seller/profile call fires and returns the admin-fallback that
+  // triggers a confusing "That shop is no longer available." toast on
+  // save.
+  const { isAdmin } = useRedirectAdmins("/admin");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<NestSellerProfileMe | null>(null);
@@ -38,6 +45,7 @@ export default function ShopSettings() {
   const [about, setAbout] = useState("");
 
   useEffect(() => {
+    if (isAdmin) return; // don't fire the seller GET as an admin
     let cancel = false;
     (async () => {
       try {
@@ -56,7 +64,7 @@ export default function ShopSettings() {
     return () => {
       cancel = true;
     };
-  }, []);
+  }, [isAdmin]);
 
   const save = async () => {
     const trimmed = storeName.trim();
@@ -83,6 +91,10 @@ export default function ShopSettings() {
       setSaving(false);
     }
   };
+
+  // Admins get bounced by the hook above; render nothing while the
+  // replace is in flight so no seller UI flashes on screen.
+  if (isAdmin) return null;
 
   if (loading) {
     return (

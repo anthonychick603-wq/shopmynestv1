@@ -109,6 +109,15 @@ function CreatePlusButton() {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  // v1.0.237 — Hide the "My Nest" seller tab entirely when the current user
+  // is an admin. Admins are not sellers on this marketplace (they don't have
+  // a public storefront, ledger balance, payouts, or fee accrual), so the
+  // seller dashboard — and every tile on it that deep-links to a
+  // seller-only screen like /seller/shop-settings — must not be reachable
+  // from the tab bar. The admin console is reached via the More tab or
+  // /admin.
+  const { user } = useAuth();
+  const hideSellerTab = user?.role === "admin";
 
   return (
     <Tabs
@@ -171,6 +180,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused, color }) => <TabIcon name={focused ? "storefront" : "storefront-outline"} color={color} focused={focused} />,
           tabBarButtonTestID: "tab-seller-dashboard",
           tabBarAccessibilityLabel: "My Nest seller dashboard tab",
+          // v1.0.237 — admin users see no seller tab. The screen stays
+          // registered so deep links keep resolving (the screen itself
+          // bounces admins to /admin), but the tab bar button vanishes.
+          ...(hideSellerTab
+            ? { tabBarButton: () => null, tabBarItemStyle: { display: "none" } }
+            : {}),
         }}
       />
       <Tabs.Screen
