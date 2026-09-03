@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
@@ -92,6 +92,25 @@ export default function ProductDetail() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // v1.0.234 — refetch the product on screen focus if the last load is more
+  // than 5 seconds old. Fixes the “wp-admin edits don’t reflect in the app”
+  // gap where the buyer opens PDP, backgrounds the app while a seller/admin
+  // edits the listing, then returns and sees the stale row. Pairs with the
+  // v3.13.79 plugin change that (a) sends `Cache-Control: no-store` on every
+  // product REST response and (b) purges wc_delete_product_transients() +
+  // clean_post_cache() on every save_post_product / woocommerce_update_product
+  // hook, so the origin recomputes fresh data for us to fetch.
+  const lastLoadedRef = useRef<number>(Date.now());
+  useEffect(() => { lastLoadedRef.current = Date.now(); }, [product]);
+  useFocusEffect(
+    useCallback(() => {
+      const STALE_MS = 5_000;
+      if (Date.now() - lastLoadedRef.current >= STALE_MS) {
+        load();
+      }
+    }, [load]),
+  );
 
   // v1.0.210 (P0 #4) — fetch similar products after the main product is
   // available. We fire this off separately from the main load so a slow
