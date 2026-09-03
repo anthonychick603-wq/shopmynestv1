@@ -25,6 +25,7 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { useCart } from "@/src/context/CartContext";
@@ -32,6 +33,7 @@ import { useCart } from "@/src/context/CartContext";
 const PER_PAGE = 20;
 
 export default function ForYouScreen() {
+  useBackFallback("/(tabs)");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

@@ -12,6 +12,7 @@ import { Fab } from "@/src/components/Fab";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 // v1.0.92 (Build #11) — buyer address book. Multi-address list backed by
@@ -19,6 +20,7 @@ import { haptics } from "@/src/utils/haptics";
 // the default at any time; the API enforces that server-side too.
 
 export default function AddressBookScreen() {
+  useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<NestAddressBookEntry[]>([]);

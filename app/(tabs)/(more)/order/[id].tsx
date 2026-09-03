@@ -23,12 +23,14 @@ import { RefundStatusCard } from "@/src/components/RefundStatusCard";
 import { BuyerTrackingCard } from "@/src/components/BuyerTrackingCard";
 import { OrderStatusTimeline } from "@/src/components/OrderStatusTimeline";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { OrderDetailSkeleton } from "@/src/components/OrderDetailSkeleton";
 import { parseServerDate } from "@/src/utils/datetime";
 import { statusLabel } from "@/src/utils/orderStatus";
 
 export default function OrderDetail() {
+  useBackFallback("/(tabs)/(more)/orders");
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();

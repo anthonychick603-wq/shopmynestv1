@@ -12,8 +12,10 @@ import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 export default function SellerApplicationsAdmin() {
+  useBackFallback("/admin/operations");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();

@@ -15,12 +15,14 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useCart } from "@/src/context/CartContext";
 import { pushDetail, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
 
 type Dialog = "quote" | "decline" | null;
 
 export default function CustomRequestDetail() {
+  useBackFallback("/custom-requests");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { user } = useAuth();

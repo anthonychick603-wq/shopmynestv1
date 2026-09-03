@@ -10,6 +10,7 @@ import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
@@ -23,6 +24,7 @@ const REASONS = [
 ] as const;
 
 export default function ReportItem() {
+  useBackFallback("/(tabs)");
   // v1.0.76 — `type` selects which endpoint we hit. Default remains
   // "product" so all existing product-report entry points keep working with
   // no changes; blog posts pass `?type=blog_post` from the 3-dot menu.

@@ -12,6 +12,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { decodeEntities } from "@/src/utils/html";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -20,6 +21,7 @@ const PAGE_SIZE = 20;
 
 export default function PublicSellerReviewsScreen() {
   const { id, name } = useLocalSearchParams<{ id: string; name?: string }>();
+  useBackFallback(`/seller/${id}`);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [items, setItems] = useState<NestSellerReviewRaw[]>([]);

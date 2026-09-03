@@ -29,6 +29,7 @@ import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -188,6 +189,7 @@ function PhotoGrid({
 }
 
 export default function MessageThread() {
+  useBackFallback("/(tabs)/(more)/messages");
   const router = useRouter();
   const params = useLocalSearchParams<{ userId: string; name?: string; productId?: string; draft?: string; orderId?: string; orderTitle?: string }>();
   const { user } = useAuth();

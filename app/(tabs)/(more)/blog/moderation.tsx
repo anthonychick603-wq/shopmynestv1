@@ -13,6 +13,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
@@ -20,6 +21,7 @@ type Status = "pending" | "approved" | "rejected";
 const TABS: Status[] = ["pending", "approved", "rejected"];
 
 export default function BlogModeration() {
+  useBackFallback("/(tabs)");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

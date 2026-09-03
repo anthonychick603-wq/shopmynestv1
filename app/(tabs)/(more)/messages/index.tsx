@@ -11,6 +11,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -36,6 +37,7 @@ function formatRelative(iso: string): string {
 }
 
 export default function MessagesInbox() {
+  useBackFallback("/(tabs)/account");
   const router = useRouter();
   const { user } = useAuth();
   const [items, setItems] = useState<NestConversationRaw[]>([]);

@@ -11,11 +11,13 @@ import { toast } from "@/src/components/Toast";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 const PAGE_SIZE = 20;
 
 export default function SellerReviewsInbox() {
+  useBackFallback("/seller/dashboard");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<ProductReview[]>([]);

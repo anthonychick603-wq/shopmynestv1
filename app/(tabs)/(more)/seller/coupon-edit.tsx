@@ -12,6 +12,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 // v1.0.92 (Build #10) — coupon editor. Shared by /seller/coupon-edit and
@@ -30,6 +31,7 @@ export default function CouponEditScreen() {
   const router = useRouter();
   const { id, scope } = useLocalSearchParams<{ id?: string; scope?: string }>();
   const scopeMode: Scope = scope === "admin" ? "admin" : "seller";
+  useBackFallback(scopeMode === "admin" ? "/admin/coupons" : "/seller/coupons");
   const isEdit = !!id;
 
   const [loading, setLoading] = useState(isEdit);

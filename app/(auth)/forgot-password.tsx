@@ -12,6 +12,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { nest, ApiError } from "@/src/api/nest";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 // v1.0.133 — Step 1 of the password-reset flow. Asks for the email or
 // username on the account, calls /auth/password-reset/request, and
@@ -19,6 +20,7 @@ import { safeBack } from "@/src/utils/nav";
 // oblivious to whether the account exists (always returns sent:true)
 // so we can display the same "code sent" copy either way.
 export default function ForgotPassword() {
+  useBackFallback("/(auth)/login");
   const router = useRouter();
   const params = useLocalSearchParams<{ email?: string }>();
   const [email, setEmail] = useState<string>(String(params.email ?? ""));

@@ -26,6 +26,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 const STATUS_CHIPS: readonly FilterChip<AdminProductStatus>[] = [
   { value: "any", label: "All" },
@@ -45,6 +46,7 @@ const ACTION_LABELS: Record<AdminProductAction, { label: string; destructive?: b
 };
 
 export default function ProductsScreen() {
+  useBackFallback("/admin");
   const { user: me } = useAuth();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<AdminProductStatus>("any");

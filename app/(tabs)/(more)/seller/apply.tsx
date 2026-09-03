@@ -16,6 +16,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import {
   categoryPathLabel,
@@ -35,6 +36,7 @@ function newSelection(key = "category-1"): ApplicationCategorySelection {
 }
 
 export default function ApplySeller() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { refresh } = useAuth();

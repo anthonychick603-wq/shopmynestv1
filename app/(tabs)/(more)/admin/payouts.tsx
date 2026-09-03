@@ -30,6 +30,7 @@ import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/Infin
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 type PayoutStatus = "all" | AdminPayout["status"];
 
@@ -46,6 +47,7 @@ const CHIPS: readonly FilterChip<PayoutStatus>[] = [
 const money = (n: number, c: string) => `${c || "USD"} ${Number(n || 0).toFixed(2)}`;
 
 export default function AdminPayoutsScreen() {
+  useBackFallback("/admin/operations");
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 

@@ -15,11 +15,13 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { appendFilePart } from "@/src/utils/upload";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 type UploadedPhoto = { id: number; uri: string };
 
 export default function NewCustomRequest() {
+  useBackFallback("/(tabs)/browse");
   const router = useRouter();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
   const [product, setProduct] = useState<NestProductRaw | null>(null);

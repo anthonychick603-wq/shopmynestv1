@@ -19,9 +19,11 @@ import { useAuth } from "@/src/context/AuthContext";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 export default function SavedSearchesScreen() {
+  useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

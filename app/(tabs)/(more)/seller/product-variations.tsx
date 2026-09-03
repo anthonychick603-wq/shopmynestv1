@@ -12,6 +12,7 @@ import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 // v1.0.92 (Build #8) — Simple variations editor for sellers.
@@ -51,6 +52,7 @@ function variationKey(row: Record<string, string>): string {
 }
 
 export default function ProductVariationsScreen() {
+  useBackFallback("/seller/listings");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();

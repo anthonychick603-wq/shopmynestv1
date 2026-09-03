@@ -32,6 +32,7 @@ import { AdminCard } from "@/src/components/admin/AdminCard";
 import { EmptyState } from "@/src/components/EmptyState";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 type ItemWithMeta = AdminCategory & { depth: number; childCount: number };
 
@@ -87,6 +88,7 @@ function buildDisplayList(
 }
 
 export default function CategoriesScreen() {
+  useBackFallback("/(tabs)/(more)/admin");
   const [items, setItems] = useState<AdminCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

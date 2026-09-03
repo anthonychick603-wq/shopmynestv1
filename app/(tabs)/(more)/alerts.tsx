@@ -17,6 +17,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAlerts } from "@/src/context/AlertsContext";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { routeForPush } from "@/src/hooks/use-notification-routing";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -71,6 +72,7 @@ function BackChip({ router }: { router: ReturnType<typeof useRouter> }) {
 }
 
 export default function Alerts() {
+  useBackFallback("/(tabs)");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

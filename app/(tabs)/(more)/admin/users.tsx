@@ -31,6 +31,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
 import { haptics } from "@/src/utils/haptics";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 const CHIPS: readonly FilterChip<AdminUserStatus>[] = [
   { value: "all", label: "All" },
@@ -41,6 +42,7 @@ const CHIPS: readonly FilterChip<AdminUserStatus>[] = [
 ];
 
 export default function UsersScreen() {
+  useBackFallback("/admin");
   const { user: me } = useAuth();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<AdminUserStatus>("all");

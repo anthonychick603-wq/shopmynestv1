@@ -27,6 +27,7 @@ import { MiniBarChart } from "@/src/components/admin/MiniBarChart";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 const WINDOWS = [
@@ -36,6 +37,7 @@ const WINDOWS = [
 ] as const;
 
 export default function AnalyticsScreen() {
+  useBackFallback("/admin");
   const { user: me } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();

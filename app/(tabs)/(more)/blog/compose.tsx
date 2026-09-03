@@ -17,11 +17,13 @@ import { appendFilePart } from "@/src/utils/upload";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { stripHtml } from "@/src/utils/html";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function BlogComposer() {
+  useBackFallback("/(tabs)");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

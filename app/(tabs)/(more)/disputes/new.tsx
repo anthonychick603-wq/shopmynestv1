@@ -11,6 +11,7 @@ import { colors, radius, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { appendFilePart } from "@/src/utils/upload";
@@ -24,6 +25,7 @@ const REASONS: { slug: string; label: string }[] = [
 ];
 
 export default function NewDispute() {
+  useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { order } = useLocalSearchParams<{ order?: string }>();

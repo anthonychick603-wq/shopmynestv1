@@ -18,9 +18,11 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 export default function PostComposer() {
+  useBackFallback("/(tabs)");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

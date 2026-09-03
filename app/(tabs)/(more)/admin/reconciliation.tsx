@@ -29,6 +29,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useLoadOnce } from "@/src/hooks/use-load-once";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { parseServerDate } from "@/src/utils/datetime";
 import { haptics } from "@/src/utils/haptics";
 
@@ -39,6 +40,7 @@ const WINDOWS = [
 ] as const;
 
 export default function ReconciliationScreen() {
+  useBackFallback("/admin");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();

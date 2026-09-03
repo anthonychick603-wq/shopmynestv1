@@ -13,8 +13,10 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/api/nest";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 export default function Login() {
+  useBackFallback("/(tabs)");
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState("");

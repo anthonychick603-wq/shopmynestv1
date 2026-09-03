@@ -11,8 +11,10 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { haptics } from "@/src/utils/haptics";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 export default function AdminOperations() {
+  useBackFallback("/admin");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

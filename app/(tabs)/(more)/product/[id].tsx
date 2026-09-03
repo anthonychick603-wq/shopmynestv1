@@ -25,6 +25,7 @@ import { useStripe } from "@stripe/stripe-react-native";
 import { useStripeKey } from "@/src/context/StripePayment";
 import { runExpressCheckout } from "@/src/utils/expressCheckout";
 import { pushDetail, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { shareProduct } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
 import { ProductDetailSkeleton } from "@/src/components/ProductDetailSkeleton";
@@ -33,6 +34,7 @@ import { ProductCard } from "@/src/components/ProductCard";
 import type { ProductVariationDetail } from "@/src/types";
 
 export default function ProductDetail() {
+  useBackFallback("/(tabs)/browse");
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();

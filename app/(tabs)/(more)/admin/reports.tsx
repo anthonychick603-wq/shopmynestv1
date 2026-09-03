@@ -14,6 +14,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -22,6 +23,7 @@ type Status = "pending" | "resolved" | "dismissed";
 const TABS: Status[] = ["pending", "resolved", "dismissed"];
 
 export default function AdminReports() {
+  useBackFallback("/admin");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

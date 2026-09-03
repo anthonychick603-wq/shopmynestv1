@@ -12,6 +12,7 @@ import { loadRuntimeTheme } from "@/src/theme/runtime";
 import { AppLockProvider, useAppLock } from "@/src/context/AppLockContext";
 import { AppLockScreen } from "@/src/components/AppLockScreen";
 import { AuthProvider, useAuth } from "@/src/context/AuthContext";
+import { BackFallbackProvider } from "@/src/context/BackFallback";
 import { CartProvider } from "@/src/context/CartContext";
 import { FavoritesProvider } from "@/src/context/FavoritesContext";
 import { AlertsProvider } from "@/src/context/AlertsContext";
@@ -63,6 +64,7 @@ export default function RootLayout() {
       {/* v1.0.73 — ErrorBoundary at the very top so a mid-tree render throw
           shows a recovery screen instead of the white default. */}
       <ErrorBoundary>
+      <BackFallbackProvider>
       <NetworkProvider>
       <AuthProvider>
         <AppLockProvider>
@@ -98,6 +100,7 @@ export default function RootLayout() {
               <AppLockOverlay />
             </View>
             </StripePaymentProvider>
+            
             </RestockAlertsProvider>
             </AlertsProvider>
           </FavoritesProvider>
@@ -105,6 +108,7 @@ export default function RootLayout() {
         </AppLockProvider>
       </AuthProvider>
       </NetworkProvider>
+      </BackFallbackProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

@@ -15,6 +15,7 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { OrderListSkeleton } from "@/src/components/OrderListSkeleton";
 import { pushDetail, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/context/AuthContext";
@@ -47,6 +48,7 @@ type SellerOrderRow = {
 };
 
 export default function Orders() {
+  useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

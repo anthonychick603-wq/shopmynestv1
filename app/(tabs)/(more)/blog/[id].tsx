@@ -28,6 +28,7 @@ import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { shareBlogPost } from "@/src/utils/share";
 import { haptics } from "@/src/utils/haptics";
 import { stripHtml } from "@/src/utils/html";
@@ -60,6 +61,7 @@ function timeAgo(iso?: string): string {
 }
 
 export default function BlogPostDetail() {
+  useBackFallback("/(tabs)/(more)/blog");
   const router = useRouter();
   const { id, post: postJson } = useLocalSearchParams<{ id: string; post?: string }>();
   const { user } = useAuth();

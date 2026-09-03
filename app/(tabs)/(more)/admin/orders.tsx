@@ -14,6 +14,7 @@ import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { pushDetail, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -36,6 +37,7 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function AdminOrders() {
+  useBackFallback("/admin");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

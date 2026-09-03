@@ -13,6 +13,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 const MAX_PHOTOS = 5;
@@ -23,6 +24,7 @@ export default function ProductReviewComposer() {
   const { id, product_id } = useLocalSearchParams<{ id: string; product_id?: string }>();
   const orderId = Number(id);
   const initialProductId = Number(product_id);
+  useBackFallback(`/order/${orderId}`);
   const [products, setProducts] = useState<ReviewableProduct[]>([]);
   const [selected, setSelected] = useState<ReviewableProduct | null>(null);
   const [loading, setLoading] = useState(true);

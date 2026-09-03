@@ -31,6 +31,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
@@ -42,6 +43,7 @@ const RANGES: { key: Range; label: string }[] = [
 ];
 
 export default function SellerAnalytics() {
+  useBackFallback("/seller/dashboard");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

@@ -12,11 +12,13 @@ import { useAuth } from "@/src/context/AuthContext";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { pushDetail, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 type RequestRole = "buyer" | "seller";
 
 export default function CustomRequestsList() {
+  useBackFallback("/(tabs)/account");
   const router = useRouter();
   const { user } = useAuth();
   const canSell = user?.is_approved_seller === true;

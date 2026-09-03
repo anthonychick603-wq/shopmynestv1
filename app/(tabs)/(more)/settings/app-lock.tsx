@@ -18,8 +18,10 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import { APP_LOCK_GRACE_OPTIONS, authenticateWithBiometrics, type AppLockGrace } from "@/src/utils/appLock";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 export default function AppLockSettingsScreen() {
+  useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { settings, capability, setEnabled, setGrace } = useAppLock();

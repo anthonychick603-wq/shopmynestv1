@@ -12,6 +12,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
 import { toUser } from "@/src/api/adapters";
@@ -21,6 +22,7 @@ import { toUser } from "@/src/api/adapters";
 // correct it. Server enforces one-default-only.
 
 export default function AddressEditScreen() {
+  useBackFallback("/me/addresses");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;

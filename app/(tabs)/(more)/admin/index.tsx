@@ -14,12 +14,14 @@ import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack, pushFromTab } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { useLoadOnce } from "@/src/hooks/use-load-once";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
 
 export default function AdminDashboard() {
+  useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

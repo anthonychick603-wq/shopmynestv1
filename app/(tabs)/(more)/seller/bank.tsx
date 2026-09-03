@@ -15,6 +15,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 // v3.8.0 — the Stripe Connect flow has been retired. Sellers now save a
@@ -32,6 +33,7 @@ type UiState = "loading" | "empty" | "saved" | "editing";
 const digitsOnly = (v: string) => v.replace(/\D+/g, "");
 
 export default function SellerBankAccount() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

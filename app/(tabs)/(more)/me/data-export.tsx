@@ -9,6 +9,7 @@ import { colors, radius, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
 
@@ -42,6 +43,7 @@ function formatDate(unixSeconds?: number): string {
 }
 
 export default function DataExportScreen() {
+  useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();

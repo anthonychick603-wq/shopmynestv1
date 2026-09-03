@@ -15,12 +15,14 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function FollowingScreen() {
+  useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [shops, setShops] = useState<NestFollowedShop[]>([]);

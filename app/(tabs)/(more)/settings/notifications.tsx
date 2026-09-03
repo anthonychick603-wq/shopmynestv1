@@ -14,6 +14,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useRestockAlerts } from "@/src/context/RestockAlertsContext";
 
@@ -45,6 +46,7 @@ function withDefaults(p: NestMePreferences): Required<NestMePreferences> {
 }
 
 export default function NotificationsPreferencesScreen() {
+  useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [prefs, setPrefs] = useState<Required<NestMePreferences> | null>(null);

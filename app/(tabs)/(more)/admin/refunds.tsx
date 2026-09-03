@@ -25,6 +25,7 @@ import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/Infin
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { parseServerDate } from "@/src/utils/datetime";
 
 type RefundStatus = "open" | "all" | AdminRefund["state"];
@@ -44,6 +45,7 @@ const CHIPS: readonly FilterChip<RefundStatus>[] = [
 const money = (n: number, c: string) => `${c || "USD"} ${Number(n || 0).toFixed(2)}`;
 
 export default function AdminRefundsScreen() {
+  useBackFallback("/admin/operations");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();

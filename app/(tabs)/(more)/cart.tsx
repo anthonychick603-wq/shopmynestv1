@@ -34,6 +34,7 @@ import { SITE, nest, ApiError, type NestWpAddress, type NestShippingRate, type N
 import { toast } from "@/src/components/Toast";
 import { storage } from "@/src/utils/storage";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { CartSkeleton } from "@/src/components/CartSkeleton";
 import { AppImage } from "@/src/components/AppImage";
@@ -55,6 +56,7 @@ const flatEstimate = (subtotal: number) => (subtotal >= 50 || subtotal === 0 ? 0
 const newCheckoutToken = () => `nest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
 
 export default function Cart() {
+  useBackFallback("/(tabs)");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

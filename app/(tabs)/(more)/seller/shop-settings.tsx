@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { nest, ApiError, type NestSellerProfileMe } from "@/src/api/nest";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
@@ -26,6 +27,7 @@ import { toast } from "@/src/components/Toast";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 
 export default function ShopSettings() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);

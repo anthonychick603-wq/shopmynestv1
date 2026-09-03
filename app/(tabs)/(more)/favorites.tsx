@@ -20,6 +20,7 @@ import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 // v1.0.55 - tabs switch between favorited products and favorited blog posts,
@@ -27,6 +28,7 @@ import { haptics } from "@/src/utils/haptics";
 type Tab = "items" | "posts";
 
 export default function Favorites() {
+  useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

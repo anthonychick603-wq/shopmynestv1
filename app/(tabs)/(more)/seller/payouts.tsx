@@ -14,10 +14,12 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
 
 export default function Payouts() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();

@@ -11,6 +11,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { nest, ApiError } from "@/src/api/nest";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 // v1.0.133 — Step 2 of the password-reset flow. Six-box code input
 // mirroring the signup verify screen. Verifying the code before we
@@ -18,6 +19,7 @@ import { safeBack } from "@/src/utils/nav";
 // making the user re-type their new password. Successful verify
 // pushes to /forgot-password-reset with the same email + code.
 export default function ForgotPasswordVerify() {
+  useBackFallback("/(auth)/forgot-password");
   const router = useRouter();
   const params = useLocalSearchParams<{ email?: string }>();
   const email = String(params.email ?? "");

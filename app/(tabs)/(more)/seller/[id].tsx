@@ -25,6 +25,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { shareSeller } from "@/src/utils/share";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -33,6 +34,7 @@ import { subcategoriesFor, toHierarchicalCategory, type HierarchicalCategory } f
 type ShopSort = "shop" | "price_asc" | "price_desc" | "name_asc";
 
 export default function SellerProfile() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();

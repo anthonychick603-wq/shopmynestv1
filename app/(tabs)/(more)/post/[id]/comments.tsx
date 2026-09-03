@@ -24,6 +24,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
 
@@ -49,6 +50,7 @@ function timeAgo(iso?: string): string {
 }
 
 export default function PostComments() {
+  useBackFallback("/(tabs)");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();

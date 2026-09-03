@@ -16,6 +16,7 @@ import { AppImage } from "@/src/components/AppImage";
 import { toast } from "@/src/components/Toast";
 import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 const PER_PAGE = 50;
@@ -43,6 +44,7 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 
 export default function SellerListings() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ filter?: string }>();

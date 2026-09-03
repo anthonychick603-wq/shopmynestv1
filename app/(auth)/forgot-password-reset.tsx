@@ -13,6 +13,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { nest, ApiError } from "@/src/api/nest";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 // v1.0.133 — Step 3 of the password-reset flow. Collects a new
 // password + confirmation, calls /auth/password-reset/confirm, and
@@ -23,6 +24,7 @@ import { safeBack } from "@/src/utils/nav";
 const MIN_LEN = 8;
 
 export default function ForgotPasswordReset() {
+  useBackFallback("/(auth)/forgot-password");
   const router = useRouter();
   const { adoptSessionToken } = useAuth();
   const params = useLocalSearchParams<{ email?: string; code?: string }>();

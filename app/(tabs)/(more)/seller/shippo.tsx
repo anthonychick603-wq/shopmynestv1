@@ -12,6 +12,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 
@@ -52,6 +53,7 @@ const REQUIRED_FIELDS: Array<keyof NestSellerShippingProfile> = [
 const COUNTRY_DEFAULT = "US";
 
 export default function SellerShipFromAddress() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [profile, setProfile] = useState<NestSellerShippingProfile | null>(null);

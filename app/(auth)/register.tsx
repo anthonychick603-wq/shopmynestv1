@@ -13,6 +13,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/api/nest";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 
 // v1.0.120 — the first half of the two-step signup flow.
 //
@@ -25,6 +26,7 @@ import { safeBack } from "@/src/utils/nav";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Register() {
+  useBackFallback("/(tabs)");
   const router = useRouter();
   const { signupStart } = useAuth();
   const [name, setName] = useState("");

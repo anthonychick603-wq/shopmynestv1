@@ -8,6 +8,7 @@ import { useRouter } from "expo-router";
 import { nest } from "@/src/api/nest";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { toast } from "@/src/components/Toast";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
@@ -30,6 +31,7 @@ type StatusResult = Awaited<ReturnType<typeof nest.getImportStatus>>;
  *      2 seconds until status becomes "complete".
  */
 export default function ImportScreen() {
+  useBackFallback("/(tabs)/seller/dashboard");
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [phase, setPhase] = useState<Phase>("idle");

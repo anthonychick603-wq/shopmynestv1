@@ -11,12 +11,14 @@ import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { decodeEntities } from "@/src/utils/html";
 import { parseServerDate } from "@/src/utils/datetime";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 const PAGE_SIZE = 20;
 
 export default function ProductReviewsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  useBackFallback(`/product/${id}`);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<ProductReview[]>([]);
