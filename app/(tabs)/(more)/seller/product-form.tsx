@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
-import { nest, ApiError, type NestProductWritePayload, type NestSellerShippingProfile } from "@/src/api/nest";
+import { nest, ApiError, type NestProductWritePayload, type NestSellerShippingProfile, type NestSellerReadinessStep } from "@/src/api/nest";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
@@ -77,6 +77,13 @@ export default function ProductForm() {
   // the primary button reads "Publish" for drafts vs "Save changes" for
   // live listings. Defaults to false; hydrated below in the load effect.
   const [existingIsDraft, setExistingIsDraft] = useState(false);
+
+  // v1.0.238 — When a seller taps Publish, the server-side ship-from guard
+  // (class-mnu-ship-from-guard.php) silently rewrites post_status: publish
+  // → draft if the seller's ship-from address, package weight/dimensions,
+  // or contact email/phone is missing. The mobile app had no way to show
+  // WHY the listing stayed a draft. These fields power a banner below.
+  const [readinessBlockers, setReadinessBlockers] = useState<NestSellerReadinessStep[]>([]);
 
   // v1.0.64 (Build #3) — server clones and returns the new draft; we then
   // navigate to the form for that new id. `router.replace` (not push) so the
@@ -239,6 +246,35 @@ export default function ProductForm() {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- router is stable
   }, [id, isEdit]);
+
+  // v1.0.238 — For edit-mode drafts, fetch readiness so the banner can
+  // name the exact missing seller-level fields (ship-from address, bank).
+  // Product-level parcel issues (weight/L·W·H) are computed locally from
+  // form state further down. Runs only when the loaded listing is a draft.
+  useEffect(() => {
+    if (!isEdit || !existingIsDraft) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await nest.getSellerReadiness();
+        if (cancelled) return;
+        // Blocking && !ok = something the publish-guard cares about.
+        // Skip the "first_product" step (not blocking) and "store_name"
+        // (not blocking) — those don't cause the draft downgrade.
+        const blockers = (r.steps ?? []).filter(
+          (s) => s.blocking && !s.ok && (
+            s.key === "ship_from_complete" ||
+            s.key === "bank_account" ||
+            s.key === "contact_complete"
+          ),
+        );
+        setReadinessBlockers(blockers);
+      } catch {
+        // Non-fatal — banner just falls back to local parcel check.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, existingIsDraft]);
 
   // v1.0.124 — New listings require a saved bank account. Check on mount so
   // we can block the form up front (edits are exempt). A failed check leaves
@@ -519,6 +555,27 @@ export default function ProductForm() {
     }
   };
 
+  // v1.0.238 — Compute product-level parcel blockers from current form state.
+  // Mirrors mnu_product_parcel_missing_field() in class-mnu-ship-from-guard.php:
+  // weight is always required; L/W/H are required only when package_size='custom'.
+  const parcelBlockers: string[] = [];
+  if (isEdit && existingIsDraft) {
+    const w = Number(weightOz);
+    if (!weightOz.trim() || Number.isNaN(w) || w <= 0) {
+      parcelBlockers.push("Package weight (oz)");
+    }
+    if (packageSize === "custom") {
+      const l = Number(lengthIn);
+      const wd = Number(widthIn);
+      const h = Number(heightIn);
+      if (!lengthIn.trim() || Number.isNaN(l) || l <= 0) parcelBlockers.push("Package length (in)");
+      if (!widthIn.trim() || Number.isNaN(wd) || wd <= 0) parcelBlockers.push("Package width (in)");
+      if (!heightIn.trim() || Number.isNaN(h) || h <= 0) parcelBlockers.push("Package height (in)");
+    }
+  }
+  const showDraftBanner =
+    isEdit && existingIsDraft && (readinessBlockers.length > 0 || parcelBlockers.length > 0);
+
   if (loading || gateChecking) {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -580,6 +637,47 @@ export default function ProductForm() {
         duplicating={duplicating}
       />
       <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
+          {/* v1.0.238 — Draft-reason banner. Explains why a listing the seller
+              tried to publish is stuck as a draft. Server's ship-from guard
+              silently rewrites publish → draft when required fields are
+              missing; this banner surfaces the exact list and offers a Fix
+              deep-link to the settings screen that resolves each item. */}
+          {showDraftBanner ? (
+            <View style={styles.draftBanner} testID="pf-draft-banner">
+              <View style={styles.draftBannerHeader}>
+                <Ionicons name="warning-outline" size={18} color="#8a5a00" />
+                <Text style={styles.draftBannerTitle}>This listing is a draft</Text>
+              </View>
+              <Text style={styles.draftBannerBody}>
+                You tapped Publish, but ShopMyNest kept this listing as a draft because some information is missing. Fix these to publish:
+              </Text>
+              {readinessBlockers.map((s) => (
+                <TouchableOpacity
+                  key={s.key}
+                  onPress={() => { haptics.tap(); router.push(s.action_url as never); }}
+                  style={styles.draftBannerRow}
+                  accessibilityRole="button"
+                  testID={`pf-draft-fix-${s.key}`}
+                >
+                  <Ionicons name="ellipse" size={6} color="#8a5a00" style={{ marginTop: 7 }} />
+                  <Text style={styles.draftBannerItem}>
+                    {s.label}{s.detail ? ` — ${s.detail}` : ""}
+                  </Text>
+                  <Text style={styles.draftBannerFix}>Fix ›</Text>
+                </TouchableOpacity>
+              ))}
+              {parcelBlockers.map((label) => (
+                <View key={label} style={styles.draftBannerRow}>
+                  <Ionicons name="ellipse" size={6} color="#8a5a00" style={{ marginTop: 7 }} />
+                  <Text style={styles.draftBannerItem}>{label}</Text>
+                  <Text style={styles.draftBannerFix}>Fill in below</Text>
+                </View>
+              ))}
+              <Text style={styles.draftBannerFooter}>
+                Once every item is set, tap Publish again to make this listing live.
+              </Text>
+            </View>
+          ) : null}
           {/* v1.0.204 — multi-photo grid + optional single video. Tap the
               [+] tile to add photos (multi-select on iOS/Android). Tap a
               non-primary photo to promote it to primary; tap the trash
@@ -868,6 +966,54 @@ const styles = StyleSheet.create({
   photoEmpty: { alignItems: "center", gap: spacing.sm },
   photoText: { ...typeTokens.body, color: colors.onSurfaceMuted, fontWeight: "600" },
   photoHint: { ...typeTokens.caption, marginBottom: spacing.sm },
+  // v1.0.238 — draft-reason banner. Amber palette so it reads as an
+  // actionable warning without being as loud as a destructive error.
+  draftBanner: {
+    backgroundColor: "#fff7e6",
+    borderColor: "#f0c674",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  draftBannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: spacing.xs,
+  },
+  draftBannerTitle: {
+    ...typeTokens.body,
+    fontWeight: "700",
+    color: "#8a5a00",
+  },
+  draftBannerBody: {
+    ...typeTokens.caption,
+    color: "#5a3d00",
+    marginBottom: spacing.sm,
+  },
+  draftBannerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  draftBannerItem: {
+    ...typeTokens.caption,
+    color: "#5a3d00",
+    flex: 1,
+  },
+  draftBannerFix: {
+    ...typeTokens.caption,
+    color: "#8a5a00",
+    fontWeight: "600",
+  },
+  draftBannerFooter: {
+    ...typeTokens.caption,
+    color: "#5a3d00",
+    marginTop: spacing.xs,
+    fontStyle: "italic",
+  },
   photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.lg },
   photoTile: { width: 92, height: 92, borderRadius: radius.field, backgroundColor: colors.surfaceTertiary, overflow: "hidden", position: "relative" },
   photoTileTouch: { width: "100%", height: "100%" },
