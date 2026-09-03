@@ -134,12 +134,28 @@ export async function runExpressCheckout({ items, buyerEmail, stripe }: ExpressC
     return { kind: "error", message: sheetError.message || "Payment could not be completed." };
   }
 
-  // 6. Best-effort completion ping; the Stripe webhook is the source of
-  //    truth so we don't await on this failing.
-  try {
-    await nest.completeCheckout({ order_id: intent.order_id, payment_intent_id: intent.payment_intent_id });
-  } catch {
-    /* webhook settles it regardless */
+  // 6. Resolve the REAL order id. Under plugin v3.13.39+ the WC order does
+  //    not exist at create-intent time (`intent.order_id` is 0), so we must
+  //    read it back from completeCheckout's response. Retry briefly if the
+  //    webhook hasn't materialized the order yet. Webhook remains the source
+  //    of truth for order state; this loop just resolves the id.
+  let resolvedOrderId = 0;
+  const start = Date.now();
+  while (Date.now() - start < 10000 && resolvedOrderId <= 0) {
+    try {
+      const resp = await nest.completeCheckout({
+        order_id: 0, // Server ignores; uses payment_intent_id.
+        payment_intent_id: intent.payment_intent_id,
+      });
+      if (resp && typeof resp.order_id === "number" && resp.order_id > 0) {
+        resolvedOrderId = resp.order_id;
+        break;
+      }
+    } catch {
+      /* transient — retry */
+    }
+    await new Promise((r) => setTimeout(r, 750));
   }
-  return { kind: "success", order_id: intent.order_id, payment_intent_id: intent.payment_intent_id };
+
+  return { kind: "success", order_id: resolvedOrderId, payment_intent_id: intent.payment_intent_id };
 }

@@ -107,7 +107,12 @@ export default function Cart() {
   const [shippingOverride, setShippingOverride] = React.useState<number | null>(null);
   // Final money returned by create-intent after WooCommerce calculates tax.
   // PaymentSheet is not opened until the buyer has seen these values once.
-  const [finalReview, setFinalReview] = React.useState<{ orderId: number; tax: number; total: number; shipping: number | null } | null>(null);
+  // v1.0.233 — Keyed on paymentIntentId, not order_id. Under plugin v3.13.39+
+  // the server returns `order_id: 0` from create-intent because no WC order
+  // exists until the Stripe webhook finalizes. `payment_intent_id` is stable
+  // across retries with the same checkout_token, so it's the right anchor for
+  // "buyer already confirmed the reviewed total for this attempt".
+  const [finalReview, setFinalReview] = React.useState<{ paymentIntentId: string; tax: number; total: number; shipping: number | null } | null>(null);
 
   // v1.0.222 — flash the total row when the server returns a different
   // amount than the buyer saw, so the two-tap review is visible instead of
@@ -565,7 +570,8 @@ export default function Cart() {
       const serverTax = typeof intent.tax_total === "number" ? intent.tax_total : 0;
       const serverDiscount = typeof intent.discount_total === "number" ? intent.discount_total : null;
       const shippingDiffers = serverShipping != null && shippingAmount != null && Math.abs(serverShipping - shippingAmount) >= 0.01;
-      const alreadyReviewed = finalReview?.orderId === intent.order_id
+      const alreadyReviewed = !!finalReview
+        && finalReview.paymentIntentId === intent.payment_intent_id
         && Math.abs(finalReview.total - intent.amount) < 0.01
         && Math.abs(finalReview.tax - serverTax) < 0.01;
       const finalDiffers = Math.abs(intent.amount - displayTotal) >= 0.01;
@@ -573,7 +579,7 @@ export default function Cart() {
       if (!alreadyReviewed && (intent.shipping_selection_changed || shippingDiffers || finalDiffers)) {
         if (serverShipping != null) setShippingOverride(serverShipping);
         if (intent.shipping_method_id) setSelectedRateId(intent.shipping_method_id);
-        setFinalReview({ orderId: intent.order_id, tax: serverTax, total: intent.amount, shipping: serverShipping });
+        setFinalReview({ paymentIntentId: intent.payment_intent_id, tax: serverTax, total: intent.amount, shipping: serverShipping });
         // v1.0.223 — Named rate + itemized deltas replace the vague generic toast.
         // If the picked rate was gone, name the fallback rate the server chose.
         if (intent.shipping_selection_changed && intent.shipping_label) {
@@ -638,27 +644,62 @@ export default function Cart() {
         return;
       }
 
-      // 5. Best-effort immediate confirmation (webhook is the source of truth).
-      try {
-        await nest.completeCheckout({ order_id: intent.order_id, payment_intent_id: intent.payment_intent_id });
-      } catch {
-        // Ignore — the Stripe webhook settles the order server-side regardless.
+      // v1.0.233 — Resolve the REAL order id. Under plugin v3.13.39+ the
+      // WooCommerce order does not exist at create-intent time (`intent.order_id`
+      // is always 0), so we must read it back from either completeCheckout's
+      // response or from a short retry loop that waits for the webhook to
+      // materialize the order. Every downstream use — polling, navigation,
+      // toast — takes this resolved id.
+      //
+      // completeCheckout is authoritative when it returns ok=true: it either
+      // finds the order the webhook already created, or triggers finalization
+      // itself against the succeeded PaymentIntent. Webhook remains the true
+      // source of truth for the order state, but for RESOLVING the id after
+      // Stripe confirms, completeCheckout is the fastest path.
+      setPayStage("verifying");
+      let resolvedOrderId = 0;
+      const completeStart = Date.now();
+      // Retry completeCheckout up to ~10s: on the very first call the webhook
+      // may not have run yet AND the intent status transition to 'succeeded'
+      // in Stripe can lag PaymentSheet by a beat. Server returns ok=false with
+      // payment_status='processing' in that window.
+      while (Date.now() - completeStart < 10000 && resolvedOrderId <= 0) {
+        try {
+          const resp = await nest.completeCheckout({
+            order_id: 0, // Server ignores this; it uses payment_intent_id.
+            payment_intent_id: intent.payment_intent_id,
+          });
+          if (resp && typeof resp.order_id === "number" && resp.order_id > 0) {
+            resolvedOrderId = resp.order_id;
+            break;
+          }
+        } catch {
+          // Transient (401 refresh mid-flight, network hiccup) — fall through
+          // to the sleep + retry.
+        }
+        await new Promise((r) => setTimeout(r, 750));
       }
 
-      // v1.0.223 — Poll the order until Stripe's webhook flips it to paid,
-      // then clear the cart and route the buyer to their new order. This
-      // replaces the old fire-and-forget navigation that left buyers on an
-      // /orders screen where their new order didn't exist yet.
-      setPayStage("verifying");
-      const settled = await waitForOrderPaid(intent.order_id);
       startNewCheckoutAttempt();
       await clear();
-      if (settled === "paid") {
-        toast.success("Payment received. Your order is confirmed and the seller has been notified.");
+
+      if (resolvedOrderId > 0) {
+        // We have a real order. Give the webhook a beat to flip it to paid so
+        // the buyer lands on a confirmed order screen rather than a pending one.
+        const settled = await waitForOrderPaid(resolvedOrderId);
+        if (settled === "paid") {
+          toast.success("Payment received. Your order is confirmed and the seller has been notified.");
+        } else {
+          toast.show("Payment received. Your order is being finalized — we'll notify you when it's confirmed.", "info");
+        }
+        pushFromTab(router, `/orders/${resolvedOrderId}`);
       } else {
-        toast.show("Payment received. Your order is being finalized — we'll notify you when it's confirmed.", "info");
+        // Webhook is behind. Route the buyer to their orders list where the
+        // new order will surface as soon as the webhook lands, instead of a
+        // broken /orders/0 screen. Payment is safe on Stripe's side.
+        toast.show("Payment received. Your order is being finalized — it'll appear in your orders shortly.", "info");
+        pushFromTab(router, "/orders");
       }
-      pushFromTab(router, `/orders/${intent.order_id}`);
     } catch (e) {
       // v1.0.160 — Plugin v3.13.32 gates checkout on the buyer having an
       // email + phone on file AND a complete shipping address (first_name,
