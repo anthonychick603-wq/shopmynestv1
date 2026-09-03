@@ -31,7 +31,7 @@ export default function SellerDashboard() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const push = usePushFromTab();
-  const { user } = useAuth();
+  const { user, refresh: refreshAuth } = useAuth();
   // v1.0.237 — seller tab is hidden for admins in _layout.tsx, but the
   // route is still registered so deep links resolve. If an admin arrives
   // here through a stale notification or a link, bounce them to /admin
@@ -185,7 +185,10 @@ export default function SellerDashboard() {
               // v1.0.70 — manual pull-to-refresh; the on-focus 60s freshness
               // gate stays in place, this just lets a seller force a reload
               // after taking an action outside the app.
+              // v1.0.240 — also re-fetch /me so role changes (approved
+              // seller, admin) reflect immediately without a cold start.
               setRefreshing(true);
+              refreshAuth().catch(() => {});
               load();
             }}
             tintColor={colors.brand}

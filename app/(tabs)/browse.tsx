@@ -63,7 +63,7 @@ export default function Browse() {
     () => (initialCat ? [initialCat] : []),
     [initialCat],
   );
-  const { user } = useAuth();
+  const { user, refresh: refreshAuth } = useAuth();
   const { addProduct } = useCart();
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
 
@@ -505,7 +505,7 @@ export default function Browse() {
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
           ListHeaderComponent={StickyHeader}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refreshAuth().catch(() => {}); load(); }} tintColor={colors.brand} />}
           renderItem={({ item }) => <ProductCard product={item} layout="grid" onAddToCart={() => onAdd(item)} onToggleFavorite={() => onFav(item)} isFavorite={isFavorite(item.id)} />}
           ListEmptyComponent={<EmptyState icon="search-outline" title="No products found" message="Try a different search or category." testID="browse-empty" />}
         />

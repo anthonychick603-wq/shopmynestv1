@@ -30,7 +30,7 @@ export default function Blog() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const push = usePushFromTab();
-  const { user } = useAuth();
+  const { user, refresh: refreshAuth } = useAuth();
 
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [page, setPage] = useState(1);
@@ -333,7 +333,7 @@ export default function Blog() {
             )
           )}
           contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 100 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(1); }} tintColor={colors.brand} colors={[colors.brand]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refreshAuth().catch(() => {}); load(1); }} tintColor={colors.brand} colors={[colors.brand]} />}
           onEndReachedThreshold={0.4}
           onEndReached={() => {
             if (loadingMore || page >= totalPages) return;

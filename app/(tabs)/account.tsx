@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -38,6 +38,14 @@ export default function Account() {
   const push = usePushFromTab();
   const { user, logout, refresh } = useAuth();
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // v1.0.240 — pull-to-refresh re-fetches /me so role/approval
+  // changes reflect immediately without a cold start.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try { await refresh(); } catch { /* swallow */ }
+    setRefreshing(false);
+  };
 
   const changeAvatar = async () => {
     if (uploadingPhoto) return;
@@ -108,7 +116,19 @@ export default function Account() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <Header admin={user.role === "admin"} />
-      <Screen bottomInset={80}>
+      <Screen
+        bottomInset={80}
+        scrollProps={{
+          refreshControl: (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.brand}
+              colors={[colors.brand]}
+            />
+          ),
+        }}
+      >
         {/* Profile hero card — the app now has a real "who am I" moment
             at the top of the account tab. Prior version was a big cream
             circle on a cream page, which read as visual noise. */}
