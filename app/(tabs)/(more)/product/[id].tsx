@@ -215,7 +215,14 @@ export default function ProductDetail() {
       });
       if (result.kind === "success") {
         toast.success("Payment received! Your order is confirmed.");
-        router.push("/orders");
+        // v1.0.235 — land on the actual order detail (/order/:id, singular)
+        // when we have a resolved id; fall back to the orders list only when
+        // the webhook hasn't materialised the order yet.
+        if (result.order_id > 0) {
+          router.push(`/order/${result.order_id}` as never);
+        } else {
+          router.push("/orders");
+        }
       } else if (result.kind === "missing_address") {
         toast.show("Add a shipping address to check out. Take me to the cart to add one.", "info");
         // Land the buyer in cart with this item so they don't lose their

@@ -692,11 +692,18 @@ export default function Cart() {
         } else {
           toast.show("Payment received. Your order is being finalized — we'll notify you when it's confirmed.", "info");
         }
-        pushFromTab(router, `/orders/${resolvedOrderId}`);
+        // v1.0.235 — the order-detail route is /order/:id (singular). v1.0.233
+        // pushed /orders/:id (plural) which is an Unmatched Route: Expo Router
+        // has app/(tabs)/(more)/order/[id].tsx and app/(tabs)/(more)/orders.tsx,
+        // NOT app/(tabs)/(more)/orders/[id].tsx. Post-checkout the buyer saw a
+        // full-screen `thenest:///` "Page could not be found" instead of their
+        // order. Corrected below; the orders-list fallback is `/orders`
+        // (plural, which is correct because orders.tsx is a leaf file).
+        pushFromTab(router, `/order/${resolvedOrderId}`);
       } else {
         // Webhook is behind. Route the buyer to their orders list where the
         // new order will surface as soon as the webhook lands, instead of a
-        // broken /orders/0 screen. Payment is safe on Stripe's side.
+        // broken order-detail screen. Payment is safe on Stripe's side.
         toast.show("Payment received. Your order is being finalized — it'll appear in your orders shortly.", "info");
         pushFromTab(router, "/orders");
       }
