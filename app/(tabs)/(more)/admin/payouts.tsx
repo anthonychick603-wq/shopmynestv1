@@ -28,6 +28,7 @@ import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
 import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
+import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -60,6 +61,7 @@ export default function AdminPayoutsScreen() {
   // ref API on InfiniteList.
   const [reloadToken, setReloadToken] = useState(0);
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
+  useAdminFocusRefetch(reload); // v1.0.236 admin console focus refetch
 
   // Fetcher captures the current filter state; changing status/query
   // triggers a reload via reloadToken so the fetcher itself doesn't need

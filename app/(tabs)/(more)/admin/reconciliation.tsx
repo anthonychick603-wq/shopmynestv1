@@ -69,7 +69,10 @@ export default function ReconciliationScreen() {
 
   // v1.0.192 — treat the window switch as a hard reload; the report is
   // small enough that we don't need to cache per-window results.
-  const { markLoaded } = useLoadOnce(load, { staleMs: 5 * 60_000 });
+  // v1.0.236 — dropped from 5 minutes to 30 seconds. Reconciliation is a
+  // living operations report; when the admin returns after acting on a
+  // payout batch or refund they expect the totals to reflect it.
+  const { markLoaded } = useLoadOnce(load, { staleMs: 30_000 });
   void markLoaded;
 
   if (user?.role !== "admin") {

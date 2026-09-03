@@ -18,6 +18,7 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
+import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
 
 type Status = "pending" | "resolved" | "dismissed";
 const TABS: Status[] = ["pending", "resolved", "dismissed"];
@@ -50,8 +51,12 @@ export default function AdminReports() {
   }, []);
 
   // v1.0.167 — load on mount and when the status filter changes.
-  // Focus refetch removed to preserve state on return.
+  // v1.0.236 — admin focus refetch reinstated; pending queue must reflect
+  // resolutions from concurrent admins or from returning after a pushed
+  // action.
   React.useEffect(() => { load(status); }, [load, status]);
+  const refetch = useCallback(() => load(status), [load, status]);
+  useAdminFocusRefetch(refetch);
 
   const act = async (id: number, action: "resolve" | "dismiss") => {
     setActing(id);

@@ -55,10 +55,13 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // v1.0.167 — load once on mount, refetch only if the screen has been
-  // out of focus more than 5 minutes. Preserves scroll and any expanded
-  // state when returning from a pushed admin detail.
-  const { markLoaded } = useLoadOnce(load, { staleMs: 5 * 60_000 });
+  // v1.0.167 — load once on mount, refetch when the screen has been out
+  // of focus long enough that the tiles could be stale.
+  // v1.0.236 — dropped from 5 minutes to 30 seconds. The admin dashboard
+  // tiles show live counts (pending refunds, unpaid payouts, seller apps,
+  // reports); five minutes was too long. The plugin‑side no-store and
+  // cache-purge changes make this cheap.
+  const { markLoaded } = useLoadOnce(load, { staleMs: 30_000 });
   // markLoaded exposed for pull-to-refresh handlers.
   void markLoaded;
 

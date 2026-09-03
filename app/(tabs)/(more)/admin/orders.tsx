@@ -18,6 +18,7 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
+import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
 
 type Range = "7d" | "30d" | "all";
 const RANGES: { key: Range; label: string }[] = [
@@ -65,9 +66,14 @@ export default function AdminOrders() {
   }, []);
 
   // v1.0.167 — load on mount and when the range filter changes.
-  // Focus refetch removed to preserve scroll / pagination state when
-  // the user returns from a pushed screen.
+  // v1.0.236 — focus refetch is back for the admin surface. Admins need
+  // to see queue state accurately after returning from a pushed detail
+  // screen (mark-shipped, resolve dispute, etc.); scroll preservation is
+  // less important here than freshness, and pushed screens are usually
+  // action-oriented so returning to the top of the list is fine.
   React.useEffect(() => { load(range); }, [load, range]);
+  const refetch = useCallback(() => load(range), [load, range]);
+  useAdminFocusRefetch(refetch);
 
   if (user?.role !== "admin") {
     return (

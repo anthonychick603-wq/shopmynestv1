@@ -12,6 +12,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { haptics } from "@/src/utils/haptics";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
+import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
 
 export default function AdminOperations() {
   useBackFallback("/admin");
@@ -37,6 +38,7 @@ export default function AdminOperations() {
   }, [user?.role]);
 
   React.useEffect(() => { void load(); }, [load]);
+  useAdminFocusRefetch(load); // v1.0.236 admin console focus refetch
 
   if (user?.role !== "admin") {
     return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/admin")} /><EmptyState icon="lock-closed-outline" title="Not available" message="Operations controls are limited to marketplace owners." /></SafeAreaView>;

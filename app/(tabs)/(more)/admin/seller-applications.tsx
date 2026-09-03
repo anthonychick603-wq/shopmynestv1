@@ -13,6 +13,7 @@ import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
+import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
 
 export default function SellerApplicationsAdmin() {
   useBackFallback("/admin/operations");
@@ -35,10 +36,14 @@ export default function SellerApplicationsAdmin() {
     } finally { setLoading(false); setRefreshing(false); }
   }, [user?.role]);
   React.useEffect(() => { void load(); }, [load]);
+  useAdminFocusRefetch(load); // v1.0.236 admin console focus refetch
 
   const approve = (app: AdminSellerApplication) => Alert.alert("Approve seller?", `${app.store_name || app.seller_name} will become an approved seller.`, [
     { text: "Cancel", style: "cancel" },
-    { text: "Approve", onPress: async () => { setWorking(app.id); try { await nest.adminApproveSellerApplication(app.id); setItems((x) => x.filter((i) => i.id !== app.id)); toast.success("Seller approved"); } catch (e) { toast.error(e instanceof ApiError ? e.friendly : "Could not approve seller"); } finally { setWorking(null); } } },
+    // v1.0.236 — after a successful approve we filter locally for a snappy
+    // update and then re-hit the server so the counters/queues owned by
+    // /admin/operations reflect reality on the next focus refetch too.
+    { text: "Approve", onPress: async () => { setWorking(app.id); try { await nest.adminApproveSellerApplication(app.id); setItems((x) => x.filter((i) => i.id !== app.id)); toast.success("Seller approved"); void load(); } catch (e) { toast.error(e instanceof ApiError ? e.friendly : "Could not approve seller"); } finally { setWorking(null); } } },
   ]);
 
   const reject = (app: AdminSellerApplication) => {
@@ -46,7 +51,9 @@ export default function SellerApplicationsAdmin() {
     if (reason.length < 3) return toast.error("Add a short rejection reason first");
     Alert.alert("Reject application?", "The seller will be allowed to correct the application and resubmit.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Reject", style: "destructive", onPress: async () => { setWorking(app.id); try { await nest.adminRejectSellerApplication(app.id, { reason, can_resubmit: true }); setItems((x) => x.filter((i) => i.id !== app.id)); toast.success("Application rejected with feedback"); } catch (e) { toast.error(e instanceof ApiError ? e.friendly : "Could not reject application"); } finally { setWorking(null); } } },
+      // v1.0.236 — same reload-after-mutation as approve, so any side
+      // effects (queue counters, notification badges) refresh promptly.
+      { text: "Reject", style: "destructive", onPress: async () => { setWorking(app.id); try { await nest.adminRejectSellerApplication(app.id, { reason, can_resubmit: true }); setItems((x) => x.filter((i) => i.id !== app.id)); toast.success("Application rejected with feedback"); void load(); } catch (e) { toast.error(e instanceof ApiError ? e.friendly : "Could not reject application"); } finally { setWorking(null); } } },
     ]);
   };
 

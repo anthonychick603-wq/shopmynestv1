@@ -28,6 +28,7 @@ import { InfiniteList } from "@/src/components/admin/InfiniteList";
 import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
+import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
 import { haptics } from "@/src/utils/haptics";
@@ -59,6 +60,7 @@ export default function UsersScreen() {
   );
 
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
+  useAdminFocusRefetch(reload); // v1.0.236 admin console focus refetch
 
   // v1.0.193 — Action sheet for a user row. Only the actions valid for the
   // current user state are shown (no "Ban" for admins, no "Unban" for
