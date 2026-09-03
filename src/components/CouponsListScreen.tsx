@@ -23,6 +23,7 @@ import { Fab } from "@/src/components/Fab";
 import { EmptyState } from "@/src/components/EmptyState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
+import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 
 export type CouponsScope = "admin" | "seller";
@@ -70,6 +71,8 @@ function formatAmount(c: NestCoupon): string {
 type Props = { scope: CouponsScope };
 
 export function CouponsListScreen({ scope }: Props) {
+  const cfg0 = scope === "admin" ? { backPath: "/admin" } : { backPath: "/(tabs)/seller/dashboard" };
+  useBackFallback(cfg0.backPath);
   const cfg = CONFIG[scope];
   const router = useRouter();
   const insets = useSafeAreaInsets();
