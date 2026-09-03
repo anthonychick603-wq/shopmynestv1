@@ -12,6 +12,7 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 // v1.0.219 (P0 #13) — personal data export ("email-a-ZIP").
 //
@@ -43,6 +44,14 @@ function formatDate(unixSeconds?: number): string {
 }
 
 export default function DataExportScreen() {
+  return (
+    <RequireAuth message={'Sign in to request your data export.'}>
+      <DataExportScreenImpl />
+    </RequireAuth>
+  );
+}
+
+function DataExportScreenImpl() {
   useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();

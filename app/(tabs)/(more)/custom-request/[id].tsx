@@ -18,10 +18,19 @@ import { pushDetail, safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 type Dialog = "quote" | "decline" | null;
 
 export default function CustomRequestDetail() {
+  return (
+    <RequireAuth message={'Sign in to view your custom request.'}>
+      <CustomRequestDetailImpl />
+    </RequireAuth>
+  );
+}
+
+function CustomRequestDetailImpl() {
   useBackFallback("/custom-requests");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -95,8 +104,22 @@ export default function CustomRequestDetail() {
   const sendMessage = async () => {
     if (!request || !message.trim() || working) return;
     const body = message.trim();
-    setMessage("");
-    await runAction(() => nest.custom.postMessage(request.id, { body }));
+    // v1.0.241 — don't clear the composer until the post has
+    // succeeded. If the network drops, the buyer keeps their draft
+    // so they can retry without retyping.
+    setWorking(true);
+    setError(null);
+    try {
+      await nest.custom.postMessage(request.id, { body });
+      setMessage("");
+      haptics.success();
+      await load();
+    } catch (e) {
+      haptics.warning();
+      setError(e instanceof ApiError ? e.friendly : "Couldn't send that message. Please try again.");
+    } finally {
+      setWorking(false);
+    }
   };
 
   const submitQuote = async () => {

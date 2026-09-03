@@ -12,6 +12,7 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 // v1.0.211 (P0 #5) — self-serve account deletion with 14-day grace.
 // Google Play's 2024 policy requires an in-app path (not a web link),
@@ -38,6 +39,14 @@ function formatDate(unixSeconds: number): string {
 }
 
 export default function DeleteAccountScreen() {
+  return (
+    <RequireAuth message={'Sign in to delete your account.'}>
+      <DeleteAccountScreenImpl />
+    </RequireAuth>
+  );
+}
+
+function DeleteAccountScreenImpl() {
   useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -54,9 +63,11 @@ export default function DeleteAccountScreen() {
     setSubmitting(true);
     try {
       const res = await nest.requestAccountDeletion("DELETE");
-      // Server has already revoked our token; any further nest.* call
-      // would 401. Force a local sign-out so the tab UI clears before
-      // we bounce to the login screen.
+      // v1.0.241 — deletion is scheduled 30 days out with a cancel
+      // link, so the local session stays active while we show the
+      // confirmation screen. The buyer taps "Sign out and close"
+      // (or manually navigates away) to actually logout — see
+      // onFinish() below.
       setDone({ scheduledFor: res.scheduled_for ?? Math.floor(Date.now() / 1000) + GRACE_DAYS * 86400 });
     } catch (e) {
       const msg = e instanceof ApiError ? e.friendly : "We couldn't schedule the deletion. Please try again.";

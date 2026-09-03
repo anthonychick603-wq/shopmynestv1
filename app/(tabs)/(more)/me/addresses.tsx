@@ -14,12 +14,21 @@ import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 // v1.0.92 (Build #11) — buyer address book. Multi-address list backed by
 // the user's tnm_address_book meta on the server. Exactly one entry can be
 // the default at any time; the API enforces that server-side too.
 
 export default function AddressBookScreen() {
+  return (
+    <RequireAuth message={'Sign in to manage your saved addresses.'}>
+      <AddressBookScreenImpl />
+    </RequireAuth>
+  );
+}
+
+function AddressBookScreenImpl() {
   useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();

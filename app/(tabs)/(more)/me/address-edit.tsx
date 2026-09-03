@@ -16,12 +16,21 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useAuth } from "@/src/context/AuthContext";
 import { toUser } from "@/src/api/adapters";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 // v1.0.92 (Build #11) — address book add/edit. Country defaults to US; state
 // is left blank so buyers outside a single default region don't have to
 // correct it. Server enforces one-default-only.
 
 export default function AddressEditScreen() {
+  return (
+    <RequireAuth message={'Sign in to edit your address.'}>
+      <AddressEditScreenImpl />
+    </RequireAuth>
+  );
+}
+
+function AddressEditScreenImpl() {
   useBackFallback("/me/addresses");
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();

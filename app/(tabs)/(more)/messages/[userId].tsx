@@ -278,17 +278,25 @@ export default function MessageThread() {
       toast.error("Photo picker is unavailable.");
       return;
     }
-    const perms = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perms.granted) {
-      toast.error("Photo library access is required to send photos.");
+    // v1.0.241 — wrap the native permission + picker in try/catch so
+    // an OS-level rejection can't bubble out as an unhandled promise.
+    let res: Awaited<ReturnType<typeof ImagePicker.launchImageLibraryAsync>>;
+    try {
+      const perms = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perms.granted) {
+        toast.error("Photo library access is required to send photos.");
+        return;
+      }
+      res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? "Images",
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.9,
+      });
+    } catch {
+      toast.error("Couldn't open the photo library. Please try again.");
       return;
     }
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? "Images",
-      allowsMultipleSelection: true,
-      selectionLimit: remaining,
-      quality: 0.9,
-    });
     if (res.canceled || !res.assets?.length) return;
 
     const picks = res.assets.slice(0, remaining);

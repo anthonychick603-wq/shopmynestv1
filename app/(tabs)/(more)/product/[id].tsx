@@ -233,6 +233,16 @@ export default function ProductDetail() {
         toast.error(result.message);
       }
       // "cancelled" — user dismissed the sheet, stay quiet.
+    } catch (e) {
+      // v1.0.241 — catch any exception thrown before or during
+      // runExpressCheckout so a native Stripe init failure doesn't
+      // become an unhandled promise rejection and doesn't leave the
+      // buyer with a stuck Buy button.
+      const msg =
+        e instanceof Error && e.message
+          ? e.message
+          : "Couldn't start checkout. Please try again.";
+      toast.error(msg);
     } finally {
       setExpressPaying(false);
     }

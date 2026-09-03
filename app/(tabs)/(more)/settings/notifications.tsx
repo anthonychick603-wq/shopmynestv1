@@ -17,6 +17,7 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useRestockAlerts } from "@/src/context/RestockAlertsContext";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 type PrefKey = keyof NestMePreferences;
 
@@ -46,6 +47,14 @@ function withDefaults(p: NestMePreferences): Required<NestMePreferences> {
 }
 
 export default function NotificationsPreferencesScreen() {
+  return (
+    <RequireAuth message={'Sign in to manage notification preferences.'}>
+      <NotificationsPreferencesScreenImpl />
+    </RequireAuth>
+  );
+}
+
+function NotificationsPreferencesScreenImpl() {
   useBackFallback("/(tabs)/account");
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -57,7 +66,15 @@ export default function NotificationsPreferencesScreen() {
     let cancelled = false;
     nest.getPreferences()
       .then((p) => { if (!cancelled) setPrefs(withDefaults(p)); })
-      .catch((e) => { if (!cancelled) toast.error(e instanceof ApiError ? e.friendly : "Could not load preferences"); })
+      .catch((e) => {
+        if (cancelled) return;
+        toast.error(e instanceof ApiError ? e.friendly : "Could not load preferences");
+        // v1.0.241 — fall back to defaults so the screen shows
+        // the toggle rows instead of a permanent spinner. Any
+        // successful toggle will persist and rehydrate from the
+        // server response.
+        setPrefs(withDefaults({}));
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);

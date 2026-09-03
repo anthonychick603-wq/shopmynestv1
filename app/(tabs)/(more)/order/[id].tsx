@@ -28,8 +28,17 @@ import { haptics } from "@/src/utils/haptics";
 import { OrderDetailSkeleton } from "@/src/components/OrderDetailSkeleton";
 import { parseServerDate } from "@/src/utils/datetime";
 import { statusLabel } from "@/src/utils/orderStatus";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 export default function OrderDetail() {
+  return (
+    <RequireAuth message={'Sign in to view this order.'}>
+      <OrderDetailImpl />
+    </RequireAuth>
+  );
+}
+
+function OrderDetailImpl() {
   useBackFallback("/(tabs)/(more)/orders");
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();

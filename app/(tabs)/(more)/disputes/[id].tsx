@@ -21,8 +21,17 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 export default function DisputeDetail() {
+  return (
+    <RequireAuth message={'Sign in to view this dispute.'}>
+      <DisputeDetailImpl />
+    </RequireAuth>
+  );
+}
+
+function DisputeDetailImpl() {
   useBackFallback("/(tabs)/account");
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();

@@ -4,6 +4,7 @@
 // (paginated); non-empty query hits the server's ?search= param so shoppers
 // can find a shop by store name / display name.
 import React, { useCallback, useEffect, useState } from "react";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,9 +32,15 @@ export default function AllShops() {
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
 
+  // v1.0.241 — useLatestRequest gates state writes to the most
+  // recent load call, so rapid search submits can't race and
+  // overwrite the results of the current query with a stale one.
+  const { begin, isCurrent } = useLatestRequest();
+
   // Empty query → walk pages until we've pulled the entire directory.
   // Non-empty → first page of server-filtered results (typically small).
   const load = useCallback(async (search: string) => {
+    const _tok = begin();
     setError(null);
     try {
       const first = await nest.getSellers({ per_page: 100, page: 1, search: search || undefined });
@@ -49,15 +56,19 @@ export default function AllShops() {
           }
         }
       }
+      if (!isCurrent(_tok)) return;
       const sorted = collected.sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
       setShops(sorted);
     } catch {
+      if (!isCurrent(_tok)) return;
       setError("Couldn't load shops.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(_tok)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   useEffect(() => { load(submitted); }, [load, submitted]);
 

@@ -17,10 +17,19 @@ import { appendFilePart } from "@/src/utils/upload";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 type UploadedPhoto = { id: number; uri: string };
 
 export default function NewCustomRequest() {
+  return (
+    <RequireAuth message={'Sign in to send a custom request to a seller.'}>
+      <NewCustomRequestImpl />
+    </RequireAuth>
+  );
+}
+
+function NewCustomRequestImpl() {
   useBackFallback("/(tabs)/browse");
   const router = useRouter();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
@@ -53,12 +62,21 @@ export default function NewCustomRequest() {
 
   const addPhotos = async () => {
     if (uploading || photos.length >= 3) return;
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError("Photo permission is needed to add reference photos.");
+    // v1.0.241 — wrap the native permission + picker call in
+    // try/catch so an OS rejection doesn't become an unhandled
+    // promise rejection.
+    let result: Awaited<ReturnType<typeof ImagePicker.launchImageLibraryAsync>>;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setError("Photo permission is needed to add reference photos.");
+        return;
+      }
+      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8, allowsMultipleSelection: true, selectionLimit: 3 - photos.length });
+    } catch {
+      setError("Couldn't open the photo library. Please try again.");
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8, allowsMultipleSelection: true, selectionLimit: 3 - photos.length });
     if (result.canceled || !result.assets?.length) return;
 
     setUploading(true);

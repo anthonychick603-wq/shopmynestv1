@@ -13,6 +13,7 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 const REASONS = [
   { id: "prohibited", label: "Prohibited item" },
@@ -24,6 +25,14 @@ const REASONS = [
 ] as const;
 
 export default function ReportItem() {
+  return (
+    <RequireAuth message={'Sign in to report this item.'}>
+      <ReportItemImpl />
+    </RequireAuth>
+  );
+}
+
+function ReportItemImpl() {
   useBackFallback("/(tabs)");
   // v1.0.76 — `type` selects which endpoint we hit. Default remains
   // "product" so all existing product-report entry points keep working with

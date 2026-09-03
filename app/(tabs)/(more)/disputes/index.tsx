@@ -16,8 +16,17 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { pushDetail, safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 export default function DisputesList() {
+  return (
+    <RequireAuth message={'Sign in to view your disputes.'}>
+      <DisputesListImpl />
+    </RequireAuth>
+  );
+}
+
+function DisputesListImpl() {
   useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();

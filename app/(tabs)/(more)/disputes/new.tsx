@@ -15,6 +15,7 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { appendFilePart } from "@/src/utils/upload";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 const REASONS: { slug: string; label: string }[] = [
   { slug: "not_arrived", label: "Item never arrived" },
@@ -25,6 +26,14 @@ const REASONS: { slug: string; label: string }[] = [
 ];
 
 export default function NewDispute() {
+  return (
+    <RequireAuth message={'Sign in to open a dispute.'}>
+      <NewDisputeImpl />
+    </RequireAuth>
+  );
+}
+
+function NewDisputeImpl() {
   useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();

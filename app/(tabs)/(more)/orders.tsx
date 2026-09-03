@@ -20,6 +20,7 @@ import { haptics } from "@/src/utils/haptics";
 import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/context/AuthContext";
 import { parseServerDate } from "@/src/utils/datetime";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 // v1.0.71 — status coloring is shared with the seller dashboard via StatusPill
 // so buyers and sellers see the same color language across the app.
@@ -48,6 +49,14 @@ type SellerOrderRow = {
 };
 
 export default function Orders() {
+  return (
+    <RequireAuth message={'Sign in to view your orders.'}>
+      <OrdersImpl />
+    </RequireAuth>
+  );
+}
+
+function OrdersImpl() {
   useBackFallback("/(tabs)/account");
   const insets = useSafeAreaInsets();
   const router = useRouter();

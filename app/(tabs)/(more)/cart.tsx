@@ -807,12 +807,22 @@ export default function Cart() {
                   item is already a favorite. */}
               <TouchableOpacity
                 onPress={async () => {
+                  // v1.0.241 — use the product id as the stable
+                  // identity of the cart line, not the array index.
+                  // While the favorites toggle awaits, another cart
+                  // mutation can shift indexes, so we resolve the
+                  // real index AFTER the await against the latest
+                  // cart state.
+                  const productId = it.product.id;
                   haptics.tap();
-                  if (!favorites.isFavorite(it.product.id)) {
-                    try { await favorites.toggle(it.product.id); }
+                  if (!favorites.isFavorite(productId)) {
+                    try { await favorites.toggle(productId); }
                     catch { /* toast handled inside context */ return; }
                   }
-                  removeItem(idx);
+                  const currentIdx = (cart.items ?? []).findIndex(
+                    (line) => line.product.id === productId,
+                  );
+                  if (currentIdx >= 0) removeItem(currentIdx);
                   toast.success("Saved for later");
                 }}
                 testID={`cart-save-later-${idx}`}

@@ -15,10 +15,19 @@ import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { RequireAuth } from "@/src/components/RequireAuth";
 
 const MAX_PHOTOS = 5;
 
 export default function ProductReviewComposer() {
+  return (
+    <RequireAuth message={'Sign in to leave a product review.'}>
+      <ProductReviewComposerImpl />
+    </RequireAuth>
+  );
+}
+
+function ProductReviewComposerImpl() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id, product_id } = useLocalSearchParams<{ id: string; product_id?: string }>();
@@ -55,18 +64,25 @@ export default function ProductReviewComposer() {
   useEffect(() => { load(); }, [load]);
 
   const pickPhotos = async () => {
+    // v1.0.241 — wrap the full permission + picker call in try/catch
+    // so a native rejection (permission denied at OS level, picker
+    // crash) becomes a toast, not an unhandled promise rejection.
     const remaining = MAX_PHOTOS - photos.length;
     if (remaining <= 0) return toast.info("You can add up to 5 photos.");
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return toast.error("Photo library access is needed to add review photos.");
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      selectionLimit: remaining,
-      quality: 0.85,
-    });
-    if (!result.canceled && result.assets?.length) {
-      setPhotos((current) => [...current, ...result.assets.slice(0, remaining)]);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) return toast.error("Photo library access is needed to add review photos.");
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets?.length) {
+        setPhotos((current) => [...current, ...result.assets.slice(0, remaining)]);
+      }
+    } catch {
+      toast.error("Couldn't open the photo library. Please try again.");
     }
   };
 
