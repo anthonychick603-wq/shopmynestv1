@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   FlatList,
   KeyboardAvoidingView,
   RefreshControl,
@@ -14,6 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,14 +33,16 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 // Format a MySQL UTC timestamp as a friendly time-of-day / date line above a
 // message bubble ("Today 3:14 PM", "Yesterday 11:02 AM", "Mar 4 3:14 PM").
+// v1.0.250 — parseServerDate returns null on invalid input, so the extra
+// isNaN(d.getTime()) guard was dead code. One guard is enough.
 function formatBubbleTime(iso: string): string {
   const utc = iso.includes("T") ? iso : iso.replace(" ", "T") + "Z";
   const d = parseServerDate(utc);
   if (!d) return "";
-  if (Number.isNaN(d.getTime())) return "";
   const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
@@ -212,10 +214,12 @@ export default function MessageThread() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  // v1.0.95 — cancel guard so backing out mid-fetch doesn't setState on
-  // an unmounted conversation.
-  const cancelRef = useRef({ cancelled: false });
-  useEffect(() => () => { cancelRef.current.cancelled = true; }, []);
+  // v1.0.250 — the old cancelRef only handled unmount, not request races.
+  // useLatestRequest handles BOTH: an older getConversation() that lands
+  // after a newer one (fast pull-to-refresh, or an onSend-triggered
+  // reload arriving before an earlier focus refetch) can no longer
+  // overwrite the newer response.
+  const { begin, isCurrent } = useLatestRequest();
 
   // v1.0.220 — hide the bottom Tabs bar while the message thread is
   // focused so the composer sits directly above the OS gesture bar. With
@@ -238,26 +242,37 @@ export default function MessageThread() {
 
   const load = useCallback(async () => {
     if (!user || !otherId) return;
+    const id = begin();
     try {
       const rows = await nest.getConversation(otherId, 200);
-      if (cancelRef.current.cancelled) return;
+      if (!isCurrent(id)) return;
       setMessages(Array.isArray(rows) ? rows : []);
     } catch (e: unknown) {
-      if (cancelRef.current.cancelled) return;
+      if (!isCurrent(id)) return;
       toast.error(friendlyMessage(e) || "Could not load conversation.");
     } finally {
-      if (!cancelRef.current.cancelled) setLoading(false);
+      if (isCurrent(id)) setLoading(false);
     }
-  }, [user, otherId]);
+  }, [user, otherId, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    if (!loading && messages.length && listRef.current) {
-      // Wait a tick for layout so scrollToEnd lands on the newest bubble.
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 40);
-    }
-  }, [loading, messages.length]);
+  // v1.0.250 — the previous version scheduled a 40ms setTimeout after every
+  // messages-length change to call scrollToEnd. On slow devices or when
+  // photos were still loading, list content height wasn't final at 40ms
+  // and the scroll ended up mid-thread. We now anchor the scroll to
+  // FlatList's onContentSizeChange (declarative last-known content height)
+  // and only auto-scroll when a new *last* message appears — not on every
+  // photo hydration.
+  const lastAutoScrolledIdRef = useRef<number | null>(null);
+  const onListContentSizeChange = useCallback(() => {
+    if (loading) return;
+    const last = messages[messages.length - 1];
+    if (!last) return;
+    if (lastAutoScrolledIdRef.current === last.id) return;
+    lastAutoScrolledIdRef.current = last.id;
+    listRef.current?.scrollToEnd({ animated: false });
+  }, [loading, messages]);
 
   // v3.7.86 — pick up to (5 - alreadyDrafted) photos, compress each locally, then
   // upload them in parallel. Progress state lives in `drafts` so the composer can
@@ -309,7 +324,11 @@ export default function MessageThread() {
 
     // Upload each pick in parallel with per-item error handling so a single
     // failure doesn't take the batch down.
-    await Promise.all(newDrafts.map(async (d, i) => {
+    // v1.0.250 — gate each state write on the current request so a screen
+    // unmount mid-upload can't fire toasts or state setters into a torn-down
+    // tree.
+    const uploadReq = begin();
+    await Promise.all(newDrafts.map(async (d) => {
       try {
         // Compress to max 2048px longer edge, JPEG q=0.82. Keeps most uploads
         // well under the 8 MB server cap.
@@ -325,19 +344,31 @@ export default function MessageThread() {
           type: "image/jpeg",
         });
         const resp = await nest.uploadMessagePhoto(fd);
+        if (!isCurrent(uploadReq)) return;
         setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, attachmentId: resp.attachment_id } : p)));
       } catch (e: unknown) {
+        if (!isCurrent(uploadReq)) return;
         setDrafts((prev) => prev.map((p) => (p.key === d.key ? { ...p, uploading: false, error: friendlyMessage(e) || "Upload failed" } : p)));
         toast.error(friendlyMessage(e) || "One photo could not be uploaded.");
       }
     }));
-  }, [drafts.length, otherId, sending]);
+  }, [drafts.length, otherId, sending, begin, isCurrent]);
 
   const removeDraft = useCallback((key: string) => {
     setDrafts((prev) => prev.filter((p) => p.key !== key));
   }, []);
 
-  const onSend = async () => {
+  // v1.0.250 — onSend used to await sendMessage() AND the follow-up load()
+  // inside a single try/catch, then roll back the optimistic bubble on any
+  // failure. If sendMessage() succeeded but the follow-up load() threw
+  // (transient network), the bubble was rolled back and the user re-sent —
+  // resulting in a duplicate. Split now: sendMessage failure rolls back;
+  // load() failure keeps the bubble and shows a soft "tap to refresh" toast.
+  //
+  // Also memoized as useCallback so the render tree can memoize rows.
+  // Also — rollback preserves the current draft if the user has started
+  // editing (drops the restore silently rather than clobbering fresh text).
+  const onSend = useCallback(async () => {
     const body = draft.trim();
     const wireBody = withOrderContext(body, orderId || undefined);
     const readyIds = drafts.filter((d) => !d.uploading && !d.error && d.attachmentId).map((d) => d.attachmentId!) as number[];
@@ -351,43 +382,70 @@ export default function MessageThread() {
     haptics.tap();
     setSending(true);
     const tempId = -Date.now();
+    // Snapshot drafts BEFORE clearing so a rollback still has access to the
+    // exact photo entries the user picked (fixes the race where a photo
+    // finishes uploading between the filter() call and the setDrafts([])).
+    const draftsAtSend = drafts;
+    // v1.0.250 — sender_id: coerce to number, fall back to 0 if the id was
+    // ever a non-numeric string. Prevents NaN sender_id, which would compare
+    // as "NaN" === "NaN" in the mine-check but is confusing when inspecting
+    // state during debugging.
+    const senderId = Number(user!.id) || 0;
+    // v1.0.250 — the optimistic bubble no longer fabricates photo entries
+    // with local file URIs (they were being mistaken for signed URLs). It
+    // just carries a lightweight placeholder count that the row renderer
+    // uses to draw an "Uploading…" tile. After load() lands, the real
+    // server photos with fresh signed URLs replace this row entirely.
     const optimistic: NestMessageRaw = {
       id: tempId,
-      // v1.0.71 — NestMessageRaw declares these as number; User.id is a
-      // string in our types, so coerce here (server-side ids are all numeric).
-      sender_id: Number(user!.id),
+      sender_id: senderId,
       recipient_id: otherId,
       message: wireBody,
       is_read: false,
       created_at: new Date().toISOString().slice(0, 19).replace("T", " "),
-      photos: drafts
+      photos: draftsAtSend
         .filter((d) => d.attachmentId)
         .map((d) => ({ id: d.attachmentId!, url: d.uri, w: 0, h: 0, mime: "image/jpeg", hidden: false })),
     };
     setMessages((prev) => [...prev, optimistic]);
     setDraft("");
     setDrafts([]);
+    const sendReq = begin();
     try {
       await nest.sendMessage({ recipient_id: otherId, message: wireBody, product_id: productId || undefined, photo_ids: readyIds });
-      // Reload to get server-authoritative rows (fresh signed URLs, etc.).
-      await load();
       haptics.success();
     } catch (e: unknown) {
+      if (!isCurrent(sendReq)) return;
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       haptics.error();
       toast.error(friendlyMessage(e) || "Message could not be sent.");
-      setDraft(body);
-      // Keep drafts in the composer so the user can retry send without re-picking.
-      setDrafts(optimistic.photos!.map((p) => ({
-        key: `retry-${p.id}`,
-        uri: p.url,
+      // v1.0.250 — only restore the draft text if the user hasn't started
+      // typing something new in the meantime. Preserving in-progress text
+      // is more valuable than the exact prior body.
+      setDraft((current) => (current === "" ? body : current));
+      // Keep drafts in the composer so the user can retry send without
+      // re-picking. Use the pre-send snapshot so photos that finished
+      // uploading after the filter() call are preserved.
+      setDrafts(draftsAtSend.filter((d) => d.attachmentId).map((d) => ({
+        key: `retry-${d.attachmentId}`,
+        uri: d.uri,
         uploading: false,
-        attachmentId: p.id,
+        attachmentId: d.attachmentId,
       })));
-    } finally {
       setSending(false);
+      return;
     }
-  };
+
+    // Reload to get server-authoritative rows (fresh signed URLs, etc.).
+    // v1.0.250 — if this fails we DON'T roll back — the send succeeded and
+    // rolling back would prompt the user to duplicate. Show a soft hint.
+    try {
+      await load();
+    } catch {
+      if (isCurrent(sendReq)) toast.info("Sent — pull to refresh if you don't see it.");
+    }
+    if (isCurrent(sendReq)) setSending(false);
+  }, [draft, drafts, orderId, sending, otherId, user, productId, load, begin, isCurrent]);
 
   const canSend = useMemo(() => {
     if (sending) return false;
@@ -407,18 +465,22 @@ export default function MessageThread() {
           text: "Report",
           style: "destructive",
           onPress: async () => {
+            // v1.0.250 — guard the toast and follow-up load against unmount.
+            const reqId = begin();
             try {
               await nest.reportMessagePhoto(messageId, photo.id, "user reported from chat");
+              if (!isCurrent(reqId)) return;
               toast.success("Photo reported and hidden.");
               await load();
             } catch (e: unknown) {
+              if (!isCurrent(reqId)) return;
               toast.error(friendlyMessage(e) || "Could not report photo.");
             }
           },
         },
       ]
     );
-  }, [load]);
+  }, [load, begin, isCurrent]);
 
   if (!user) {
     return (
@@ -462,8 +524,61 @@ export default function MessageThread() {
     );
   }
 
-  const winWidth = Dimensions.get("window").width;
+  // v1.0.250 — was Dimensions.get('window') which is captured once per render
+  // and doesn't respond to rotation. useWindowDimensions re-renders when the
+  // window changes, so tablet rotation or split-screen resize repaints bubbles
+  // at the correct max width.
+  const { width: winWidth } = useWindowDimensions();
   const bubbleMaxWidth = Math.min(320, winWidth * 0.72);
+
+  // v1.0.250 — renderItem was previously an inline arrow in the JSX which
+  // means FlatList sees a new function reference on every keystroke of the
+  // composer (draft state change re-renders this component). Memoizing lets
+  // FlatList skip row work when the underlying `messages` array is stable.
+  const renderMessage = useCallback(({ item, index }: { item: NestMessageRaw; index: number }) => {
+    const mine = String(item.sender_id) === String(user!.id);
+    const prev = index > 0 ? messages[index - 1] : null;
+    const showTime =
+      !prev ||
+      Math.abs((parseServerDate(item.created_at)?.getTime() ?? 0) -
+        (parseServerDate(prev.created_at)?.getTime() ?? 0)) > 15 * 60 * 1000;
+    const parsed = parseOrderContext(item.message);
+    const hasPhotos = (item.photos?.length || 0) > 0;
+    const hasText = !!parsed.body.trim();
+    return (
+      <View>
+        {showTime ? <Text style={styles.timeLabel}>{formatBubbleTime(item.created_at)}</Text> : null}
+        {parsed.orderId ? (
+          <TouchableOpacity
+            style={[styles.orderTag, mine ? styles.orderTagMine : styles.orderTagTheirs]}
+            onPress={() => router.push(`/order/${parsed.orderId}`)}
+            accessibilityRole="button"
+            accessibilityLabel={`View order ${parsed.orderId}`}
+          >
+            <Ionicons name="receipt-outline" size={12} color={colors.brandDark} />
+            <Text style={styles.orderTagText}>Order #{parsed.orderId}</Text>
+          </TouchableOpacity>
+        ) : null}
+        {hasPhotos ? (
+          <View style={[styles.photoWrap, mine ? styles.photoWrapMine : styles.photoWrapTheirs]}>
+            <PhotoGrid
+              photos={item.photos ?? []}
+              bubbleMaxWidth={bubbleMaxWidth}
+              onPress={(i) => setViewer({ photos: item.photos ?? [], index: i })}
+              onLongPress={(p) => onPhotoLongPress(p, item.id)}
+            />
+          </View>
+        ) : null}
+        {hasText ? (
+          <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs, hasPhotos && { marginTop: 4 }]}>
+            <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]} selectable>
+              {renderBody(parsed.body)}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [messages, user, bubbleMaxWidth, onPhotoLongPress, router]);
 
   return (
     // v1.0.113 — stop including the bottom safe-area edge here. When the
@@ -482,7 +597,13 @@ export default function MessageThread() {
           testID="thread-open-shop"
          accessibilityRole="button">
           <Text style={styles.topTitle} numberOfLines={1}>{headerName}</Text>
-          <Text style={styles.topSubtitle} numberOfLines={1}>Tap to view shop</Text>
+          {/* v1.0.250 — only show "Tap to view shop" when we know we routed
+              from a shop / product / order surface (i.e. we have a name from
+              the inbox that reads like a shop). If we don't have a shop-ish
+              header name, don't imply the counterpart is a seller. */}
+          {headerName && headerName !== "Conversation" ? (
+            <Text style={styles.topSubtitle} numberOfLines={1}>Tap to view shop</Text>
+          ) : null}
         </TouchableOpacity>
         <AlertsBellButton />
       </View>
@@ -527,51 +648,15 @@ export default function MessageThread() {
             data={messages}
             keyExtractor={(m) => String(m.id)}
             contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.brand} colors={[colors.brand]} />}
-            renderItem={({ item, index }) => {
-              const mine = String(item.sender_id) === String(user.id);
-              const prev = index > 0 ? messages[index - 1] : null;
-              const showTime =
-                !prev ||
-                Math.abs((parseServerDate(item.created_at)?.getTime() ?? 0) -
-                  (parseServerDate(prev.created_at)?.getTime() ?? 0)) > 15 * 60 * 1000;
-              const parsed = parseOrderContext(item.message);
-              const hasPhotos = (item.photos?.length || 0) > 0;
-              const hasText = !!parsed.body.trim();
-              return (
-                <View>
-                  {showTime ? <Text style={styles.timeLabel}>{formatBubbleTime(item.created_at)}</Text> : null}
-                  {parsed.orderId ? (
-                    <TouchableOpacity
-                      style={[styles.orderTag, mine ? styles.orderTagMine : styles.orderTagTheirs]}
-                      onPress={() => router.push(`/order/${parsed.orderId}`)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`View order ${parsed.orderId}`}
-                    >
-                      <Ionicons name="receipt-outline" size={12} color={colors.brandDark} />
-                      <Text style={styles.orderTagText}>Order #{parsed.orderId}</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                  {hasPhotos ? (
-                    <View style={[styles.photoWrap, mine ? styles.photoWrapMine : styles.photoWrapTheirs]}>
-                      <PhotoGrid
-                        photos={item.photos!}
-                        bubbleMaxWidth={bubbleMaxWidth}
-                        onPress={(i) => setViewer({ photos: item.photos!, index: i })}
-                        onLongPress={(p) => onPhotoLongPress(p, item.id)}
-                      />
-                    </View>
-                  ) : null}
-                  {hasText ? (
-                    <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs, hasPhotos && { marginTop: 4 }]}>
-                      <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]} selectable>
-                        {renderBody(parsed.body)}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-              );
-            }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => {
+              // v1.0.250 — dedupe rapid pull-to-refresh while a load is in flight.
+              if (loading || refreshing) return;
+              setRefreshing(true);
+              try { await load(); }
+              finally { setRefreshing(false); }
+            }} tintColor={colors.brand} colors={[colors.brand]} />}
+            onContentSizeChange={onListContentSizeChange}
+            renderItem={renderMessage}
             ListEmptyComponent={
               <EmptyState
                 icon="chatbubble-ellipses-outline"
@@ -636,7 +721,9 @@ export default function MessageThread() {
             accessibilityRole="button"
             accessibilityLabel="Send message"
             accessibilityState={{ disabled: !canSend }}
-           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+           /* v1.0.250 — hitSlop only when the button is enabled. When disabled
+              the extended touch target implied the button was actionable. */
+           hitSlop={canSend ? { top: 8, bottom: 8, left: 8, right: 8 } : undefined}>
             {sending ? (
               <ActivityIndicator color={colors.onBrand} />
             ) : (
@@ -651,12 +738,31 @@ export default function MessageThread() {
         <Pressable style={styles.viewerRoot} onPress={() => setViewer(null)}>
           {viewer ? (
             <>
-              <ExpoImage
-                source={{ uri: viewer.photos[viewer.index]?.url || "" }}
+              {/* v1.0.250 — tap the photo itself to advance to the next photo
+                  (Instagram-style). If it's the last photo, tap closes the
+                  viewer. Long-press still delegates to the outer Pressable
+                  via propagation, keeping close-on-outside-tap intact. */}
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  if (viewer.index < viewer.photos.length - 1) {
+                    setViewer({ ...viewer, index: viewer.index + 1 });
+                  } else {
+                    setViewer(null);
+                  }
+                }}
                 style={styles.viewerImg}
-                contentFit="contain"
-                transition={120}
-              />
+                testID="viewer-tap-advance"
+                accessibilityRole="imagebutton"
+                accessibilityLabel={viewer.index < viewer.photos.length - 1 ? "Next photo" : "Close viewer"}
+              >
+                <ExpoImage
+                  source={{ uri: viewer.photos[viewer.index]?.url || "" }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="contain"
+                  transition={120}
+                />
+              </Pressable>
               <View style={styles.viewerHeader}>
                 <TouchableOpacity onPress={() => setViewer(null)} style={styles.viewerBtn} testID="viewer-close" accessibilityRole="button" accessibilityLabel="Close" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="close" size={22} color="#fff" />

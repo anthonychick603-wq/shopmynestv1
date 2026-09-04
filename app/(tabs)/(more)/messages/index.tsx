@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -16,15 +16,18 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
+import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
 
 // Format an ISO/MySQL UTC timestamp as a relative label (e.g. "3m", "2h", "Yesterday", "Mar 4").
 function formatRelative(iso: string): string {
   if (!iso) return "";
   // The-nest returns MySQL UTC ("YYYY-MM-DD HH:MM:SS"); make it a real ISO string.
   const utc = iso.includes("T") ? iso : iso.replace(" ", "T") + "Z";
+  // v1.0.250 — parseServerDate returns null on invalid input, so a
+  // second NaN check is dead code. One guard is enough.
   const d = parseServerDate(utc);
   if (!d) return "";
-  if (Number.isNaN(d.getTime())) return "";
   const diffMs = Date.now() - d.getTime();
   const diffMin = Math.round(diffMs / 60000);
   if (diffMin < 1) return "now";
@@ -45,25 +48,38 @@ export default function MessagesInbox() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
 
+  // v1.0.250 — load now uses useLatestRequest so unmount mid-fetch or a
+  // superseded call (fast focus refetch → pull-to-refresh) can't paint
+  // stale rows or toast into a torn-down tree.
   const load = useCallback(async () => {
     if (!user) return;
+    const id = begin();
     setError(null);
     try {
       const rows = await nest.getConversations();
+      if (!isCurrent(id)) return;
       setItems(Array.isArray(rows) ? rows : []);
     } catch (e: unknown) {
+      if (!isCurrent(id)) return;
       setError(friendlyMessage(e) || "Could not load messages.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(id)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [user]);
+  }, [user, begin, isCurrent]);
 
   // v1.0.167 — load once on mount. Pull to refresh to force reload.
-  // The old focus refetch was resetting scroll position every time the
-  // user returned to the inbox.
+  // v1.0.250 — restored a self-throttled focus refetch. Prior to today the
+  // inbox stayed stale for the entire session; the original concern (scroll
+  // reset) is handled by FlatList's default behavior when the data array
+  // identity stays reference-stable across a refetch, and useAdminFocusRefetch
+  // self-throttles so a rapid tab switch doesn't spam the endpoint.
   useEffect(() => { load(); }, [load]);
+  useAdminFocusRefetch(load, { staleMs: 30_000 });
 
   if (!user) {
     return (
@@ -106,12 +122,14 @@ export default function MessagesInbox() {
           data={items}
           keyExtractor={(c) => String(c.user.id)}
           contentContainerStyle={{ paddingBottom: spacing["3xl"] }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { if (loading || refreshing) return; /* v1.0.250 dedupe */ setRefreshing(true); load(); }} tintColor={colors.brand} />}
           renderItem={({ item }) => {
             const name = decodeEntities(item.user.store_name || item.user.display_name || "Shop");
             return (
-              <TouchableOpacity
-                style={styles.row}
+              // v1.0.250 — Pressable with pressed-state feedback matches every
+              // other row list in the app (orders, products, seller list).
+              <Pressable
+                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 onPress={() => { haptics.tap(); router.push({ pathname: "/messages/[userId]", params: { userId: String(item.user.id), name } }); }}
                 testID={`msg-row-${item.user.id}`}
                accessibilityRole="button">
@@ -130,7 +148,7 @@ export default function MessagesInbox() {
                   </Text>
                 </View>
                 {item.unread ? <View style={styles.unreadDot} /> : null}
-              </TouchableOpacity>
+              </Pressable>
             );
           }}
           ItemSeparatorComponent={() => <View style={styles.sep} />}
@@ -184,6 +202,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md + 2,
   },
+  rowPressed: { backgroundColor: colors.surfaceSecondary },
   avatar: {
     width: 52,
     height: 52,
