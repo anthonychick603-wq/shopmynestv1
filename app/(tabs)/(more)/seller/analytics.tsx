@@ -34,6 +34,7 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 type Range = 7 | 30 | 90;
 const RANGES: { key: Range; label: string }[] = [
@@ -58,17 +59,45 @@ export default function SellerAnalytics() {
   // rest of the dashboard. Silent-fail on error (same pattern as the home
   // feed carousels).
   const [payouts, setPayouts] = useState<NestPayoutRaw[]>([]);
+  // v1.0.247 — track payouts-only failure separately so a payouts fetch
+  // failure no longer silently masquerades as "no payouts yet" (audit P1).
+  const [payoutsError, setPayoutsError] = useState<string | null>(null);
   // v1.0.93 (Build #15) — CSV export state; export is a one-off action so
   // we only track a busy flag, not a full request lifecycle.
   const [exporting, setExporting] = useState(false);
+  // v1.0.247 — last CSV export path so we can clean it up before writing
+  // the next one. Avoids the cache growing unbounded on device (audit P1).
+  const lastExportPathRef = React.useRef<string | null>(null);
+  // v1.0.247 — useLatestRequest so a rapid 7d→30d→7d toggle can't let
+  // the older range's response arrive last and overwrite the visible
+  // chart with the wrong data (audit P0).
+  const { begin, isCurrent } = useLatestRequest();
 
   const onExport = useCallback(async () => {
     if (exporting) return;
+    // v1.0.247 — assert cacheDirectory is non-null. expo-file-system
+    // /legacy types it as `string | null`; if it's null we'd write to
+    // `"nullshopmynest-analytics-…"` and hit an opaque error (audit P1).
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) {
+      toast.error("Storage unavailable on this device. Can't export right now.");
+      return;
+    }
     setExporting(true);
     try {
+      // v1.0.247 — delete the previous export before writing a new one
+      // so the cache directory doesn't grow unbounded across many
+      // exports (audit P1). Ignore errors on cleanup — old file may
+      // already be gone.
+      if (lastExportPathRef.current) {
+        try {
+          await FileSystem.deleteAsync(lastExportPathRef.current, { idempotent: true });
+        } catch { /* best-effort cleanup */ }
+      }
       const res = await nest.exportSellerAnalytics(range);
-      const target = `${FileSystem.cacheDirectory}${res.filename}`;
+      const target = `${cacheDir}${res.filename}`;
       await FileSystem.writeAsStringAsync(target, res.csv, { encoding: FileSystem.EncodingType.UTF8 });
+      lastExportPathRef.current = target;
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(target, { mimeType: "text/csv", dialogTitle: "Export orders", UTI: "public.comma-separated-values-text" });
       } else {
@@ -82,15 +111,17 @@ export default function SellerAnalytics() {
   }, [exporting, range]);
 
   const load = useCallback(async (next: Range) => {
+    const reqId = begin();
     setLoading(true);
     setError(null);
     try {
       // v1.0.138 — fetch analytics + payouts in parallel. Payout errors
-      // don't fail the analytics load: they just leave the strip empty.
+      // don't fail the analytics load: they surface in their own strip.
       const [analyticsRes, payoutsRes] = await Promise.allSettled([
         nest.getSellerAnalytics(next),
         nest.getSellerPayouts(),
       ]);
+      if (!isCurrent(reqId)) return;
       if (analyticsRes.status === "fulfilled") {
         setData(analyticsRes.value);
       } else {
@@ -99,14 +130,21 @@ export default function SellerAnalytics() {
       }
       if (payoutsRes.status === "fulfilled") {
         setPayouts(payoutsRes.value.payouts || []);
+        setPayoutsError(null);
       } else {
+        // v1.0.247 — surface a distinct error rather than silently
+        // rendering an empty payouts strip (audit P1).
+        const reason = payoutsRes.reason;
         setPayouts([]);
+        setPayoutsError(reason instanceof ApiError ? reason.friendly : "Couldn't load recent payouts.");
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(reqId)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   // v1.0.167 — load on mount and when the range changes. Focus
   // refetch removed so scroll and pagination survive returning from
@@ -202,7 +240,11 @@ export default function SellerAnalytics() {
           <Text style={styles.sectionLabel}>Overview</Text>
           <View style={styles.kpiGrid}>
             <Kpi label="Orders" value={String(data.orders_count)} icon="bag-check-outline" />
-            <Kpi label="Refund rate" value={`${(data.refund_rate * 100).toFixed(1)}%`} icon="return-down-back-outline" tone={data.refund_rate > 0.05 ? "warning" : "default"} />
+            {/* v1.0.247 — refund_rate contract audit P2: the field is
+                documented as a 0-1 decimal (`0.05 = 5%`). Clamp to a
+                sane range so a server contract slip (returning `5` for
+                `5%`) doesn't render the tile as "500.0%". */}
+            <Kpi label="Refund rate" value={`${(Math.min(1, Math.max(0, data.refund_rate)) * 100).toFixed(1)}%`} icon="return-down-back-outline" tone={data.refund_rate > 0.05 ? "warning" : "default"} />
             <Kpi label="Pending payout" value={`$${data.pending_payout.toFixed(2)}`} icon="wallet-outline" />
             <Kpi label="Avg order" value={`$${data.orders_count > 0 ? (data.total_gross / data.orders_count).toFixed(2) : "0.00"}`} icon="analytics-outline" />
           </View>
@@ -229,6 +271,28 @@ export default function SellerAnalytics() {
                 <Kpi label="Returning" value={String(data.customers.repeat)} icon="person-circle-outline" />
               </View>
             </>
+          ) : null}
+
+          {/* v1.0.247 — payouts strip failure surface (audit P1). If
+              the payouts fetch failed, show a compact retry affordance
+              so the seller knows the strip is empty because the
+              request failed, not because they've never had a payout. */}
+          {payoutsError && payouts.length === 0 ? (
+            <View style={styles.payoutErrorCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionLabel}>Recent payouts</Text>
+                <Text style={styles.payoutErrorText}>{payoutsError}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => { haptics.tap(); load(range); }}
+                style={styles.seeAllBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading recent payouts"
+                testID="analytics-payouts-retry"
+              >
+                <Text style={styles.seeAllText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
           ) : null}
 
           {payouts.length > 0 ? (
@@ -303,13 +367,13 @@ export default function SellerAnalytics() {
 
 function RevenueBars({ series }: { series: SellerAnalytics["revenue"] }) {
   const max = Math.max(1, ...series.map((s) => s.revenue));
-  const n = series.length;
-  // Show up to 30 labels for readability
-  const labelStep = Math.max(1, Math.ceil(n / 6));
+  // v1.0.247 — dropped unused `n` and the unused `i` in the first map
+  // (audit P3). The second map still uses `i` for the label step.
+  const labelStep = Math.max(1, Math.ceil(series.length / 6));
   return (
     <View style={styles.barsWrap}>
       <View style={styles.bars} accessibilityRole="summary">
-        {series.map((pt, i) => {
+        {series.map((pt) => {
           const h = Math.max(2, (pt.revenue / max) * 100);
           return (
             <View key={pt.date} style={styles.barCol}>
@@ -594,4 +658,17 @@ const styles = StyleSheet.create({
   payoutIcon: { width: 36, height: 36, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" },
   payoutAmount: { ...typeTokens.body, fontWeight: "800", color: colors.onSurface },
   payoutMeta: { ...typeTokens.caption, marginTop: 2 },
+  // v1.0.247 — payouts-strip failure surface.
+  payoutErrorCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.card,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  payoutErrorText: { ...typeTokens.caption, marginTop: 2, color: colors.onSurface },
 });

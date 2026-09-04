@@ -14,6 +14,8 @@ import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
+import { ErrorState } from "@/src/components/ErrorState";
 
 // v1.0.92 (Build #10) — coupon editor. Shared by /seller/coupon-edit and
 // /admin/coupon-edit; the `scope` param picks the API surface. The server
@@ -36,6 +38,13 @@ export default function CouponEditScreen() {
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  // v1.0.247 — track load success separately so Save can refuse to run
+  // when the initial load failed. Previously the form stayed on its
+  // useState defaults (blank code, "percent", 10) after a load failure,
+  // and any Save afterwards would overwrite the real coupon with those
+  // defaults (audit P1).
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadSucceeded, setLoadSucceeded] = useState(!isEdit);
 
   const [code, setCode] = useState("");
   const [type, setType] = useState<NestCouponDiscountType>("percent");
@@ -49,21 +58,38 @@ export default function CouponEditScreen() {
   // that shipped before this build keeps single-use behavior.
   const [stackable, setStackable] = useState(false);
 
-  useEffect(() => {
+  // v1.0.247 — useLatestRequest so a fast back-nav or a retry doesn't
+  // stomp state after unmount (audit P0). The server returns up to
+  // 200 seller coupons per call (no pagination), so a single listSeller
+  // call is enough to find the coupon by id — no need to walk pages.
+  const { begin, isCurrent } = useLatestRequest();
+
+  const doLoad = React.useCallback(async () => {
     if (!isEdit || !id) return;
-    (async () => {
-      try {
-        const list = scopeMode === "admin" ? await nest.listAdminCoupons() : await nest.listSellerCoupons();
-        const c = (list.items || []).find(x => String(x.id) === String(id));
-        if (c) hydrate(c);
-        else toast.error("Coupon not found");
-      } catch (e) {
-        toast.error(e instanceof ApiError ? e.friendly : "Load failed");
-      } finally {
-        setLoading(false);
+    const reqId = begin();
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = scopeMode === "admin" ? await nest.listAdminCoupons() : await nest.listSellerCoupons();
+      if (!isCurrent(reqId)) return;
+      const c = (list.items || []).find(x => String(x.id) === String(id));
+      if (c) {
+        hydrate(c);
+        setLoadSucceeded(true);
+      } else {
+        setLoadError("Coupon not found. It may have been deleted.");
+        setLoadSucceeded(false);
       }
-    })();
-  }, [id, isEdit, scopeMode]);
+    } catch (e) {
+      if (!isCurrent(reqId)) return;
+      setLoadError(e instanceof ApiError ? e.friendly : "Couldn't load this coupon. Check your connection and try again.");
+      setLoadSucceeded(false);
+    } finally {
+      if (isCurrent(reqId)) setLoading(false);
+    }
+  }, [id, isEdit, scopeMode, begin, isCurrent]);
+
+  useEffect(() => { doLoad(); }, [doLoad]);
 
   const hydrate = (c: NestCoupon) => {
     setCode(c.code);
@@ -78,10 +104,57 @@ export default function CouponEditScreen() {
   };
 
   const save = async () => {
+    // v1.0.247 — refuse to save an edit when the initial load didn't
+    // succeed. Otherwise the form's useState defaults would overwrite
+    // the real coupon's fields on a transient network error (audit P1).
+    if (isEdit && !loadSucceeded) {
+      toast.error("Couldn't load this coupon. Tap Retry before saving.");
+      return;
+    }
     if (!code.trim()) { toast.error("Code is required"); return; }
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt < 0) { toast.error("Amount must be zero or more"); return; }
     if (type === "percent" && amt > 100) { toast.error("Percent cannot exceed 100"); return; }
+
+    // v1.0.247 — numeric coercion audit P1. Previously `minimum ? Number(minimum) : undefined`
+    // would forward `Number("abc") = NaN` to the server, which either
+    // silently stored 0 or rejected the whole payload with an unhelpful
+    // error. Coerce carefully and reject client-side.
+    let minimumAmount: number | undefined;
+    if (minimum.trim() !== "") {
+      const n = Number(minimum);
+      if (!Number.isFinite(n) || n < 0) { toast.error("Minimum cart amount must be zero or more."); return; }
+      minimumAmount = n;
+    }
+    let usageLimitNum: number | undefined;
+    if (usageLimit.trim() !== "") {
+      const n = Number(usageLimit);
+      if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) { toast.error("Usage limit must be a whole number of 0 or more."); return; }
+      usageLimitNum = n;
+    }
+
+    // v1.0.247 — validate free-text expiry against YYYY-MM-DD so typos
+    // like `2026-13-45` never reach the server (audit P1).
+    let expiresAtValue: string | undefined;
+    if (expiresAt.trim() !== "") {
+      const raw = expiresAt.trim();
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+      if (!m) { toast.error("Expiry must be in YYYY-MM-DD format."); return; }
+      const [, y, mo, d] = m;
+      const parsed = new Date(`${y}-${mo}-${d}T00:00:00Z`);
+      if (
+        Number.isNaN(parsed.getTime()) ||
+        parsed.getUTCFullYear() !== Number(y) ||
+        parsed.getUTCMonth() + 1 !== Number(mo) ||
+        parsed.getUTCDate() !== Number(d)
+      ) {
+        toast.error("Expiry is not a real calendar date.");
+        return;
+      }
+      expiresAtValue = raw;
+    }
+
+    const reqId = begin();
     setSaving(true);
     try {
       const payload: NestCouponWritePayload = {
@@ -89,9 +162,9 @@ export default function CouponEditScreen() {
         discount_type: type,
         amount: amt,
         description: description || undefined,
-        minimum_amount: minimum ? Number(minimum) : undefined,
-        usage_limit: usageLimit ? Number(usageLimit) : undefined,
-        expires_at: expiresAt || undefined,
+        minimum_amount: minimumAmount,
+        usage_limit: usageLimitNum,
+        expires_at: expiresAtValue,
         free_shipping: freeShipping,
         stackable,
       };
@@ -102,12 +175,14 @@ export default function CouponEditScreen() {
         if (isEdit && id) await nest.updateSellerCoupon(Number(id), payload);
         else await nest.createSellerCoupon(payload);
       }
+      if (!isCurrent(reqId)) return;
       toast.success(isEdit ? "Coupon saved" : "Coupon created");
       safeBack(router, scopeMode === "admin" ? "/admin/coupons" : "/seller/coupons");
     } catch (e) {
+      if (!isCurrent(reqId)) return;
       toast.error(e instanceof ApiError ? e.friendly : "Save failed");
     } finally {
-      setSaving(false);
+      if (isCurrent(reqId)) setSaving(false);
     }
   };
 
@@ -124,6 +199,18 @@ export default function CouponEditScreen() {
 
       {loading ? (
         <View style={styles.loading}><ActivityIndicator color={colors.brand} /></View>
+      ) : loadError ? (
+        // v1.0.247 — explicit retry state on load failure so the seller
+        // can't accidentally overwrite the real coupon's fields with
+        // this form's useState defaults (audit P1).
+        <View style={{ padding: spacing.md }}>
+          <ErrorState
+            title="Couldn't load this coupon"
+            message={loadError}
+            onRetry={doLoad}
+            testID="coupon-edit-load-error"
+          />
+        </View>
       ) : (
         <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.md }} keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>Code</Text>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +22,8 @@ import { StatusPill } from "@/src/components/StatusPill";
 import { useAuth } from "@/src/context/AuthContext";
 import { parseServerDate } from "@/src/utils/datetime";
 import { RequireAuth } from "@/src/components/RequireAuth";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
+import { toast } from "@/src/components/Toast";
 
 // v1.0.71 — status coloring is shared with the seller dashboard via StatusPill
 // so buyers and sellers see the same color language across the app.
@@ -47,6 +49,11 @@ type SellerOrderRow = {
   gross: number;
   createdAt: string | null;
   firstImage: string | undefined;
+  // v1.0.247 — the seller-orders payload doesn't include product
+  // images, so the fallback icon was rendering for every row and
+  // looked broken. Surface the first item's name instead so the card
+  // has real product context (audit P2).
+  firstItemName: string;
 };
 
 export default function Orders() {
@@ -84,58 +91,114 @@ function OrdersImpl() {
   const [sellerTotalPages, setSellerTotalPages] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // v1.0.247 — requestId cancellation so a fast buyer↔seller toggle
+  // can't let the older request's response overwrite the newer view
+  // (audit P0). Separate begin/isCurrent used for load and loadMore
+  // means either can be superseded without stepping on the other.
+  const load1 = useLatestRequest();
+  const loadMoreRef = useRef(false);
+
+  // v1.0.247 — sync `mode` if the user's role finishes hydrating after
+  // mount. Previously `mode` was set once from `defaultMode`, so a
+  // seller who landed here while the auth context was still resolving
+  // would be stuck on the buyer tab even though the switcher appeared
+  // (audit P2).
+  useEffect(() => {
+    setMode(defaultMode);
+    // Intentionally re-syncs only when the derived defaultMode changes
+    // — not when the user manually toggles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultMode]);
+
   const load = useCallback(async () => {
+    const reqId = load1.begin();
     setErrorMsg(null);
     try {
       if (mode === "seller" && canSee.seller) {
         const res = await nest.getSellerOrders({ per_page: 50, page: 1 });
+        if (!load1.isCurrent(reqId)) return;
         setSellerOrders(res.orders.map(sellerRowFrom));
         setSellerPage(res.page ?? 1);
         setSellerTotalPages(res.total_pages ?? 1);
       } else {
         const res = await nest.getBuyerOrders({ per_page: 50, page: 1 });
+        if (!load1.isCurrent(reqId)) return;
         setBuyerOrders(res.orders.map(toOrder));
         setBuyerPage(res.page ?? 1);
         setBuyerTotalPages(res.total_pages ?? 1);
       }
     } catch (e) {
+      if (!load1.isCurrent(reqId)) return;
       setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load orders.");
       if (mode === "seller") setSellerOrders([]);
       else setBuyerOrders([]);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (load1.isCurrent(reqId)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
     // canSee.seller depends only on user.role which is stable across the
     // screen's lifetime; refetching when it flips would be misleading anyway.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, load1]);
 
   // v1.0.243 — append the next page when the buyer scrolls past the
-  // bottom of the visible list. Failures are intentionally silent so
-  // reaching the end of a long history isn't disrupted with a toast.
+  // bottom of the visible list.
+  // v1.0.247 — failures now toast (audit P1) and mode-switch mid-fetch
+  // discards the response (audit P0). loadMoreRef prevents overlapping
+  // pagination requests from racing each other.
   const loadMore = useCallback(async () => {
     if (loadingMore || loading) return;
-    if (mode === "seller") {
-      if (sellerPage >= sellerTotalPages) return;
+    if (loadMoreRef.current) return;
+    loadMoreRef.current = true;
+    // v1.0.247 — capture the mode the loadMore was fired against so a
+    // mode-switch mid-fetch can't append a page of "seller" rows to
+    // the buyer list (audit P0).
+    const modeAtStart = mode;
+    if (modeAtStart === "seller") {
+      if (sellerPage >= sellerTotalPages) {
+        loadMoreRef.current = false;
+        return;
+      }
       setLoadingMore(true);
       try {
         const res = await nest.getSellerOrders({ per_page: 50, page: sellerPage + 1 });
+        // If the user switched tabs while we were fetching, drop the response.
+        if (modeAtStart !== mode) return;
         setSellerOrders((prev) => [...prev, ...res.orders.map(sellerRowFrom)]);
         setSellerPage(res.page ?? sellerPage + 1);
         if (res.total_pages) setSellerTotalPages(res.total_pages);
-      } catch { /* silent */ }
-      finally { setLoadingMore(false); }
+      } catch (e) {
+        // v1.0.247 — surface loadMore failures with a low-noise toast
+        // rather than swallowing them. Previously the spinner would
+        // silently vanish and the seller had no idea their older
+        // orders were unreachable (audit P1).
+        toast.error(e instanceof ApiError ? e.friendly : "Couldn't load more orders.");
+      }
+      finally {
+        setLoadingMore(false);
+        loadMoreRef.current = false;
+      }
     } else {
-      if (buyerPage >= buyerTotalPages) return;
+      if (buyerPage >= buyerTotalPages) {
+        loadMoreRef.current = false;
+        return;
+      }
       setLoadingMore(true);
       try {
         const res = await nest.getBuyerOrders({ per_page: 50, page: buyerPage + 1 });
+        if (modeAtStart !== mode) return;
         setBuyerOrders((prev) => [...prev, ...res.orders.map(toOrder)]);
         setBuyerPage(res.page ?? buyerPage + 1);
         if (res.total_pages) setBuyerTotalPages(res.total_pages);
-      } catch { /* silent */ }
-      finally { setLoadingMore(false); }
+      } catch (e) {
+        toast.error(e instanceof ApiError ? e.friendly : "Couldn't load more orders.");
+      }
+      finally {
+        setLoadingMore(false);
+        loadMoreRef.current = false;
+      }
     }
   }, [mode, loading, loadingMore, buyerPage, buyerTotalPages, sellerPage, sellerTotalPages]);
 
@@ -167,7 +230,13 @@ function OrdersImpl() {
           data={sellerOrders}
           keyExtractor={(o) => o.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+            // v1.0.247 — no-op if a load is already in flight so
+            // hammering pull-to-refresh can't stack requests (audit P1).
+            if (loading) return;
+            setRefreshing(true);
+            load();
+          }} tintColor={colors.brand} />}
           onEndReachedThreshold={0.4}
           onEndReached={loadMore}
           ListFooterComponent={loadingMore ? <View style={{ padding: spacing.lg }}><ActivityIndicator color={colors.brand} /></View> : null}
@@ -191,14 +260,24 @@ function OrdersImpl() {
                 <StatusPill status={item.status} />
               </View>
               <Text style={styles.date}>{item.createdAt ? format(parseServerDate(item.createdAt) ?? new Date(0), "MMM d, yyyy") : ""}</Text>
-              <View style={{ flexDirection: "row", marginTop: spacing.md, alignItems: "center" }}>
-                <AppImage source={{ uri: item.firstImage }} style={styles.thumb} fallbackIcon="pricetag-outline" />
-                <View style={{ flex: 1, marginLeft: spacing.md }}>
-                  <Text style={styles.buyerName} numberOfLines={1}>{item.buyerName || "Buyer"}</Text>
+              {/* v1.0.247 — text-first seller row. Dropped the AppImage
+                  fallback (audit P2) so each row shows buyer, first item
+                  name, item count, and gross — which is what a seller
+                  actually scans for. */}
+              <View style={{ marginTop: spacing.md, gap: 2 }}>
+                <Text style={styles.buyerName} numberOfLines={1}>{item.buyerName || "Buyer"}</Text>
+                {item.firstItemName ? (
+                  <Text style={styles.itemFirstName} numberOfLines={1}>
+                    {item.firstItemName}
+                    {item.itemCount > 1 ? ` +${item.itemCount - 1} more` : ""}
+                  </Text>
+                ) : (
                   <Text style={styles.itemCount}>{item.itemCount} {item.itemCount === 1 ? "item" : "items"}</Text>
+                )}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.xs }}>
+                  <Text style={styles.total}>${item.gross.toFixed(2)}</Text>
+                  <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
                 </View>
-                <Text style={styles.total}>${item.gross.toFixed(2)}</Text>
-                <Ionicons name="chevron-forward" size={20} color={colors.onSurfaceMuted} />
               </View>
             </TouchableOpacity>
           )}
@@ -208,7 +287,11 @@ function OrdersImpl() {
           data={buyerOrders}
           keyExtractor={(o) => o.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+            if (loading) return;
+            setRefreshing(true);
+            load();
+          }} tintColor={colors.brand} />}
           onEndReachedThreshold={0.4}
           onEndReached={loadMore}
           ListFooterComponent={loadingMore ? <View style={{ padding: spacing.lg }}><ActivityIndicator color={colors.brand} /></View> : null}
@@ -240,6 +323,7 @@ function OrdersImpl() {
 
 function sellerRowFrom(r: NestSellerOrderRaw): SellerOrderRow {
   const itemCount = r.items.reduce((s, it) => s + (it.quantity || 0), 0);
+  const firstItemName = r.items[0]?.name || "";
   return {
     id: String(r.id),
     // Sellers care about their fulfillment status, not the buyer's payment
@@ -250,6 +334,7 @@ function sellerRowFrom(r: NestSellerOrderRaw): SellerOrderRow {
     gross: Number(r.gross || 0),
     createdAt: r.date_created,
     firstImage: undefined, // seller orders payload has no image; falls back to icon
+    firstItemName,
   };
 }
 
@@ -319,5 +404,6 @@ const styles = StyleSheet.create({
   thumb: { width: 42, height: 42, borderRadius: 21, borderWidth: 2, borderColor: colors.card, backgroundColor: colors.surfaceTertiary },
   buyerName: { ...typeTokens.body, fontWeight: "600" },
   itemCount: { ...typeTokens.caption, marginTop: 2 },
+  itemFirstName: { ...typeTokens.body, color: colors.onSurfaceMuted },
   total: { ...typeTokens.h3, marginRight: spacing.sm },
 });

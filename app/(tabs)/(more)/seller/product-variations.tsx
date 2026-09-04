@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +14,7 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { ErrorState } from "@/src/components/ErrorState";
 
 // v1.0.92 (Build #8) — Simple variations editor for sellers.
 // Adds/removes attributes (Size, Color, …) with option chips per attribute,
@@ -62,52 +63,69 @@ export default function ProductVariationsScreen() {
   const [saving, setSaving] = useState(false);
   const [attributes, setAttributes] = useState<AttrRow[]>([]);
   const [variations, setVariations] = useState<Record<string, VariRow>>({});
+  // v1.0.247 — track load outcome so Save can be gated (audit P1).
+  // Without this, a failed initial load leaves attributes=[] and Save
+  // would happily wipe the seller's variable-product configuration.
+  const [loadSucceeded, setLoadSucceeded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const doLoad = React.useCallback(async () => {
+    if (!Number.isFinite(productId) || productId <= 0) {
+      // v1.0.247 — explicit invalid-id surface instead of a stealthy
+      // empty form (audit P1).
+      setLoadError("Invalid product id. Go back and pick a product from your listings.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      // Reuse the product GET; it already returns attributes[] + variations[].
+      const raw = await nest.getProduct(productId);
+      const attrs: NestProductAttributeRaw[] = raw.attributes || [];
+      const vars: NestProductVariationRaw[] = raw.variations || [];
+      setAttributes(
+        attrs.length
+          ? attrs.map(a => ({
+              name: a.label || a.name || "",
+              options: (a.options || []).map(o => (typeof o === "string" ? o : o.label || o.slug)),
+            }))
+          : []
+      );
+      const map: Record<string, VariRow> = {};
+      for (const v of vars) {
+        const attrsMap: Record<string, string> = {};
+        for (const [k, val] of Object.entries(v.attributes || {})) {
+          attrsMap[slugify(k)] = slugify(String(val));
+        }
+        map[variationKey(attrsMap)] = {
+          variation_id: v.id,
+          attributes: attrsMap,
+          price: Number(v.price || 0),
+          stock: Number(v.stock_quantity || 0),
+        };
+      }
+      setVariations(map);
+      setLoadSucceeded(true);
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.friendly : "Could not load variations";
+      setLoadError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [productId]);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      if (!Number.isFinite(productId) || productId <= 0) {
-        setLoading(false);
-        return;
-      }
-      try {
-        // Reuse the product GET; it already returns attributes[] + variations[].
-        const raw = await nest.getProduct(productId);
-        if (cancelled) return;
-        const attrs: NestProductAttributeRaw[] = raw.attributes || [];
-        const vars: NestProductVariationRaw[] = raw.variations || [];
-        setAttributes(
-          attrs.length
-            ? attrs.map(a => ({
-                name: a.label || a.name || "",
-                options: (a.options || []).map(o => (typeof o === "string" ? o : o.label || o.slug)),
-              }))
-            : []
-        );
-        const map: Record<string, VariRow> = {};
-        for (const v of vars) {
-          const attrsMap: Record<string, string> = {};
-          for (const [k, val] of Object.entries(v.attributes || {})) {
-            attrsMap[slugify(k)] = slugify(String(val));
-          }
-          map[variationKey(attrsMap)] = {
-            variation_id: v.id,
-            attributes: attrsMap,
-            price: Number(v.price || 0),
-            stock: Number(v.stock_quantity || 0),
-          };
-        }
-        setVariations(map);
-      } catch (e) {
-        toast.error(e instanceof ApiError ? e.friendly : "Could not load variations");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    void (async () => {
+      await doLoad();
+      if (cancelled) return;
     })();
     return () => {
       cancelled = true;
     };
-  }, [productId]);
+  }, [doLoad]);
 
   const grid = useMemo(() => cartesian(attributes), [attributes]);
 
@@ -119,6 +137,26 @@ export default function ProductVariationsScreen() {
     haptics.tap();
     setAttributes(prev => prev.filter((_, i) => i !== idx));
   };
+  // v1.0.247 — slug collision detection (audit P1). Two attributes named
+  // "Size (US)" and "Size-US" both slugify to "size-us", and the
+  // Cartesian product silently collapses them into one column. Warn
+  // the seller inline so they can rename before saving.
+  const slugCollisions = useMemo(() => {
+    const seen = new Map<string, number>();
+    const dup = new Set<number>();
+    attributes.forEach((a, i) => {
+      const s = slugify(a.name.trim());
+      if (!s) return;
+      if (seen.has(s)) {
+        dup.add(i);
+        dup.add(seen.get(s) as number);
+      } else {
+        seen.set(s, i);
+      }
+    });
+    return dup;
+  }, [attributes]);
+
   const updateAttrName = (idx: number, name: string) => {
     setAttributes(prev => prev.map((a, i) => (i === idx ? { ...a, name } : a)));
   };
@@ -138,18 +176,25 @@ export default function ProductVariationsScreen() {
   };
 
   const setRowField = (rowKey: string, row: Record<string, string>, field: "price" | "stock", value: string) => {
+    // v1.0.247 — clamp negatives (Number("-3") passes through unchanged)
+    // so a hyphen keystroke doesn't quietly submit -3 stock (audit P1).
+    const parsed = Number(value);
+    const clamped = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
     setVariations(prev => ({
       ...prev,
       [rowKey]: {
         variation_id: prev[rowKey]?.variation_id,
         attributes: row,
-        price: field === "price" ? Number(value) || 0 : prev[rowKey]?.price ?? 0,
-        stock: field === "stock" ? Number(value) || 0 : prev[rowKey]?.stock ?? 0,
+        price: field === "price" ? clamped : prev[rowKey]?.price ?? 0,
+        stock: field === "stock" ? clamped : prev[rowKey]?.stock ?? 0,
       },
     }));
   };
 
-  const save = async () => {
+  // v1.0.247 — refactored save body so we can wrap it in an Alert.alert
+  // confirmation when a variable product is about to be flipped back to
+  // simple by an empty submission (audit P1).
+  const doSave = React.useCallback(async () => {
     if (!productId) return;
     setSaving(true);
     try {
@@ -179,6 +224,38 @@ export default function ProductVariationsScreen() {
     } finally {
       setSaving(false);
     }
+  }, [productId, attributes, grid, variations, router]);
+
+  const save = async () => {
+    // v1.0.247 — gate on successful load so we don't wipe a variable
+    // product's config on top of a failed GET (audit P1).
+    if (!loadSucceeded) {
+      toast.error("Couldn't load current variations. Try again before saving.");
+      return;
+    }
+    if (slugCollisions.size > 0) {
+      toast.error("Two attributes have the same slug. Rename them so each is unique.");
+      return;
+    }
+    // v1.0.247 — saving an empty grid demotes the product from variable
+    // to simple on the server. That's destructive, so gate it behind an
+    // explicit confirm (audit P1).
+    if (grid.length === 0) {
+      Alert.alert(
+        "Convert to simple product?",
+        "You've removed all attributes. Saving will turn this back into a simple product with one price and stock — all existing variations will be deleted. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Convert",
+            style: "destructive",
+            onPress: () => { void doSave(); },
+          },
+        ],
+      );
+      return;
+    }
+    await doSave();
   };
 
   return (
@@ -193,6 +270,18 @@ export default function ProductVariationsScreen() {
       </View>
       {loading ? (
         <View style={styles.loading}><ActivityIndicator color={colors.brand} /></View>
+      ) : loadError && !loadSucceeded ? (
+        // v1.0.247 — explicit load-failure surface with Retry, so a
+        // transient GET failure doesn't strand the seller on a stealthily
+        // empty form (audit P1).
+        <View style={{ padding: spacing.lg }}>
+          <ErrorState
+            title="Couldn't load variations"
+            message={loadError}
+            onRetry={() => { void doLoad(); }}
+            testID="variations-load-error"
+          />
+        </View>
       ) : (
         <KeyboardAwareScroll contentContainerStyle={{ padding: spacing.md, paddingBottom: 40 + insets.bottom }} keyboardShouldPersistTaps="handled">
           <Text style={styles.help}>Add attributes (like Size or Color), list the options, then set a price and stock for each combination.</Text>
@@ -212,6 +301,11 @@ export default function ProductVariationsScreen() {
                   <Ionicons name="trash-outline" size={18} color={colors.error} />
                 </TouchableOpacity>
               </View>
+              {slugCollisions.has(idx) ? (
+                <Text style={styles.collisionText} testID={`variations-collision-${idx}`}>
+                  This name collides with another attribute (same slug). Rename it so buyers see distinct options.
+                </Text>
+              ) : null}
               <View style={styles.chipRow}>
                 {attr.options.map(opt => (
                   <TouchableOpacity key={opt} onPress={() => removeOption(idx, opt)} style={styles.chip} accessibilityLabel={`Remove ${opt}`} accessibilityRole="button">
@@ -366,4 +460,5 @@ const styles = StyleSheet.create({
   varInputs: { flexDirection: "row", gap: spacing.sm },
   varInput: { flex: 1 },
   emptyHint: { ...typeTokens.caption, textAlign: "center", padding: spacing.md, lineHeight: 20 },
+  collisionText: { ...typeTokens.caption, color: colors.error, marginTop: spacing.xs },
 });

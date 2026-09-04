@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +17,8 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
+import { ErrorState } from "@/src/components/ErrorState";
 
 // v3.8.0 — the Stripe Connect flow has been retired. Sellers now save a
 // routing + account number directly on this screen; the platform ACHs
@@ -28,9 +30,21 @@ import { haptics } from "@/src/utils/haptics";
 // Redirect alias in this directory keeps older readiness payloads and
 // any lingering deep links working for one release.
 
-type UiState = "loading" | "empty" | "saved" | "editing";
+type UiState = "loading" | "empty" | "saved" | "editing" | "loadError";
 
 const digitsOnly = (v: string) => v.replace(/\D+/g, "");
+
+// v1.0.247 — ABA routing number checksum. The standard 3-7-1-3-7-1-3-7-1
+// weighted sum modulo 10 catches most single-digit typos before the
+// server round-trip. Length + all-digits is checked separately by the
+// caller (audit P1).
+const WEIGHTS = [3, 7, 1, 3, 7, 1, 3, 7, 1];
+function isValidAbaRouting(digits: string): boolean {
+  if (digits.length !== 9) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(digits[i]) * WEIGHTS[i];
+  return sum % 10 === 0;
+}
 
 export default function SellerBankAccount() {
   useBackFallback("/(tabs)/seller/dashboard");
@@ -49,10 +63,17 @@ export default function SellerBankAccount() {
   const [accountNumber, setAccountNumber] = useState("");
   const [confirmAccount, setConfirmAccount] = useState("");
 
+  // v1.0.247 — use latest-request pattern so a fast focus refire or a
+  // back-nav can't setState on an unmounted screen, and so overlapping
+  // loads converge on the fresher one (audit P0).
+  const { begin, isCurrent } = useLatestRequest();
+
   const load = useCallback(async () => {
     if (!isSeller) return;
+    const reqId = begin();
     try {
       const res = await nest.getSellerBank();
+      if (!isCurrent(reqId)) return;
       setBank(res);
       setUi(res.has_bank ? "saved" : "empty");
       setError(null);
@@ -63,19 +84,38 @@ export default function SellerBankAccount() {
         setHolderName(res.holder_name || "");
       }
     } catch (e) {
+      if (!isCurrent(reqId)) return;
+      // v1.0.247 — previously fell through to "empty" on error, which
+      // rendered the "Add your bank account" form. If the seller then
+      // typed new details and hit Save, we'd silently overwrite a
+      // perfectly good server-side bank record on what was actually a
+      // transient network hiccup. Now we surface an explicit retry
+      // state so the seller can distinguish "no bank on file" from
+      // "couldn't reach the server" (audit P1).
       setError(e instanceof ApiError ? e.friendly : "Could not load your bank account details.");
-      setUi("empty");
+      setUi("loadError");
     }
-  }, [isSeller]);
+  }, [isSeller, begin, isCurrent]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  useEffect(() => { if (!isSeller) setUi("empty"); }, [isSeller]);
+  // v1.0.247 — the previous `useEffect(() => { if (!isSeller) setUi("empty") })`
+  // was redundant: the non-seller branch is already short-circuited on
+  // the render path with a full Sellers-only EmptyState. Dropping the
+  // effect removes an extra setter on the unmount edge (audit P3).
 
   const missing = useMemo(() => {
     const m: string[] = [];
     if (!holderName.trim()) m.push("Account holder name");
-    if (digitsOnly(routingNumber).length !== 9) m.push("9-digit routing number");
+    const routing = digitsOnly(routingNumber);
+    if (routing.length !== 9) {
+      m.push("9-digit routing number");
+    } else if (!isValidAbaRouting(routing)) {
+      // v1.0.247 — ABA checksum catches single-digit typos client-side
+      // so the seller doesn't hit an opaque server rejection after Save
+      // (audit P1).
+      m.push("Routing number failed the bank checksum — double-check the digits");
+    }
     const acct = digitsOnly(accountNumber);
     if (acct.length < 4 || acct.length > 17) m.push("Account number (4–17 digits)");
     if (digitsOnly(confirmAccount) !== acct) m.push("Account number confirmation must match");
@@ -87,6 +127,7 @@ export default function SellerBankAccount() {
       toast.error("Please fix: " + missing.join(", "));
       return;
     }
+    const reqId = begin();
     setBusy(true);
     setError(null);
     try {
@@ -95,6 +136,7 @@ export default function SellerBankAccount() {
         routing_number: digitsOnly(routingNumber),
         account_number: digitsOnly(accountNumber),
       });
+      if (!isCurrent(reqId)) return;
       setBank(res);
       setUi("saved");
       setRoutingNumber("");
@@ -104,11 +146,12 @@ export default function SellerBankAccount() {
       // Notify anything watching (dashboard readiness card).
       haptics.success();
     } catch (e) {
+      if (!isCurrent(reqId)) return;
       const msg = e instanceof ApiError ? e.friendly : "Could not save your bank account. Please try again.";
       setError(msg);
       toast.error(msg);
     } finally {
-      setBusy(false);
+      if (isCurrent(reqId)) setBusy(false);
     }
   };
 
@@ -128,6 +171,24 @@ export default function SellerBankAccount() {
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top onBack={goBack} />
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+      </SafeAreaView>
+    );
+  }
+
+  // v1.0.247 — explicit load-failure state. Retry re-runs the load;
+  // does NOT fall through to the empty form.
+  if (ui === "loadError") {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={goBack} />
+        <View style={{ padding: spacing.lg }}>
+          <ErrorState
+            title="Couldn't load your bank details"
+            message={error || "Check your connection and try again."}
+            onRetry={() => { setUi("loading"); load(); }}
+            testID="bank-load-error"
+          />
+        </View>
       </SafeAreaView>
     );
   }

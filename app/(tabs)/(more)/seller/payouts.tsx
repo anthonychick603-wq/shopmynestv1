@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,7 +6,9 @@ import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
 import { nest, ApiError, type NestBalances, type NestPayoutRaw } from "@/src/api/nest";
-import { colors, radius, shadows, spacing, elevation, type as typeTokens } from "@/src/theme";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
+// v1.0.247 — dropped unused `shadows` and `elevation` imports (audit P3).
+import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
@@ -32,22 +34,43 @@ export default function Payouts() {
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // v1.0.247 — race guard + in-flight dedupe (audit P0/P1). `useLatestRequest`
+  // stamps every load with a monotonic id so a slow first load can't
+  // overwrite a fresher refresh; `loadingRef` blocks a second refresh
+  // starting on top of a pull-to-refresh already in flight.
+  const { begin, isCurrent } = useLatestRequest();
+  const loadingRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!isSeller) return;
+    if (loadingRef.current) {
+      // v1.0.247 — pull-to-refresh spammed while a load is already in
+      // flight would stack duplicate GETs; the second one wins the race
+      // and the spinner never clears cleanly. Short-circuit here so
+      // refresh becomes idempotent (audit P1).
+      setRefreshing(false);
+      return;
+    }
+    loadingRef.current = true;
+    const reqId = begin();
     try {
       const res = await nest.getSellerPayouts();
+      if (!isCurrent(reqId)) return;
       setBalances(res.balances);
       setPayouts(res.payouts || []);
       setMinimum(res.minimum ?? 25);
       setLoadError(null);
     } catch (e) {
+      if (!isCurrent(reqId)) return;
       setLoadError(e instanceof ApiError ? e.friendly : "Could not load your payout balance.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(reqId)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+      loadingRef.current = false;
     }
-  }, [isSeller]);
+  }, [isSeller, begin, isCurrent]);
 
   // v1.0.167 — load once on mount. Focus refetch removed so the
   // scroll position through the payout ledger survives return trips.
@@ -62,18 +85,34 @@ export default function Payouts() {
   const canRequest = available >= minimum && available > 0;
 
   const requestPayout = () => {
+    // v1.0.247 — flip busy synchronously as the Alert is shown so the
+    // "Request payout" button visibly disables before the user can
+    // double-tap through and open a second confirmation. Idempotency
+    // key ensures even if a duplicate request slips through (dropped
+    // reply, retry, background app), the server can dedupe on
+    // X-Idempotency-Key rather than creating two payout requests
+    // (audit P0).
+    if (busy) return;
+    setBusy(true);
+    // Simple UUID-ish key. Doesn't have to be crypto-random — it just
+    // needs to be unique per user-initiated request within a short
+    // window. Time + random suffix is plenty.
+    const idem = `payout-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     Alert.alert(
       "Request payout",
       `Request a payout of your full available balance ($${available.toFixed(2)})?`,
       [
-        { text: "Cancel", style: "cancel" },
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => setBusy(false),
+        },
         {
           text: "Request",
           onPress: async () => {
             haptics.press();
-            setBusy(true);
             try {
-              await nest.requestPayout();
+              await nest.requestPayout({}, { idempotencyKey: idem });
               haptics.success();
               toast.success("Payout requested");
               await load();
@@ -84,7 +123,10 @@ export default function Payouts() {
             }
           },
         },
-      ]
+      ],
+      // Handle iOS swipe-away on the Alert as an implicit cancel so
+      // busy doesn't stick on forever.
+      { onDismiss: () => setBusy(false) },
     );
   };
 

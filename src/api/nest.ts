@@ -133,6 +133,10 @@ type ReqOpts = {
   formData?: FormData;
   timeoutMs?: number;
   auth?: boolean;
+  // v1.0.247 — optional extra headers so callers can attach idempotency
+  // keys (e.g. payout requests). Content-Type/Authorization are set by
+  // the request helper and shouldn't be overridden by callers.
+  headers?: Record<string, string>;
 };
 
 async function readToken(): Promise<string | null> {
@@ -157,8 +161,9 @@ function makeUrl(ns: Namespace, path: string, query?: Record<string, unknown>): 
 }
 
 async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts = {}): Promise<T> {
-  const { method = "GET", query, body, formData, timeoutMs = DEFAULT_TIMEOUT_MS, auth = true } = opts;
+  const { method = "GET", query, body, formData, timeoutMs = DEFAULT_TIMEOUT_MS, auth = true, headers: extraHeaders } = opts;
   const headers: Record<string, string> = { Accept: "application/json" };
+  if (extraHeaders) Object.assign(headers, extraHeaders);
   if (auth) {
     const t = await readToken();
     if (t) {
@@ -904,8 +909,18 @@ export const nest = {
   getSellerEarnings: (query?: Record<string, unknown>) =>
     request<NestSellerEarningsRaw>("marketplace", "/seller/earnings", { query }),
   getSellerPayouts: () => request<NestSellerPayoutsRaw>("marketplace", "/seller/payouts"),
-  requestPayout: (payload: { amount?: number; method?: string; destination?: string } = {}) =>
-    request<{ success: boolean; payout: NestPayoutRaw }>("marketplace", "/seller/payouts", { method: "POST", body: payload }),
+  requestPayout: (
+    payload: { amount?: number; method?: string; destination?: string } = {},
+    opts: { idempotencyKey?: string } = {},
+  ) =>
+    request<{ success: boolean; payout: NestPayoutRaw }>("marketplace", "/seller/payouts", {
+      method: "POST",
+      body: payload,
+      // v1.0.247 — idempotency key so a double-tap or a retry after a
+      // dropped connection can't create duplicate payout requests
+      // (audit P1). Server can dedupe on this header.
+      headers: opts.idempotencyKey ? { "X-Idempotency-Key": opts.idempotencyKey } : undefined,
+    }),
 
   // -------------------------------------------------------------------------
   // v3.8.0 seller bank account (replaces Stripe Connect for payouts).

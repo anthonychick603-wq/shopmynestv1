@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
@@ -436,7 +436,12 @@ const SELLER_STATUS_LABELS: Record<string, string> = {
 function allowedSellerStatuses(currentRaw: string): string[] {
   const current = (currentRaw || "processing").toLowerCase();
   if (current === "completed" || current === "cancelled") return [current];
-  if (current === "shipped") return ["shipped"];
+  // v1.0.247 — a shipped order used to be terminal from the seller's
+  // side, so if the buyer never marked delivered the seller couldn't
+  // move to Completed themselves and couldn't roll it back to
+  // Cancelled if the shipment was scrapped (audit P1). Allow both
+  // forward and (reluctant) cancel transitions from Shipped.
+  if (current === "shipped") return ["shipped", "completed", "cancelled"];
   return ["processing", "shipped", "cancelled"];
 }
 
@@ -445,6 +450,12 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
   const [carrier, setCarrier] = useState("");
   const [tracking, setTracking] = useState(data.tracking_number || "");
   const [busy, setBusy] = useState(false);
+  // v1.0.247 — guard state setters after an unmount. The seller flow
+  // for this screen can be navigated away from while the PATCH is
+  // in flight (buyer pops the modal or hits back), leading to the
+  // classic RN warning and a wasted rerender (audit P2).
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // v1.0.222 — the actual write to the server. `save` is the tap handler;
   // it routes cancels through a confirm dialog first because cancellation
@@ -457,16 +468,24 @@ function SellerFulfillment({ orderId, data, onUpdated }: { orderId: string; data
     }
     setBusy(true);
     try {
-      const tracking_number = [carrier.trim(), tracking.trim()].filter(Boolean).join(" ");
+      // v1.0.247 — combine only when the seller actually typed a
+      // carrier this session; on a second Save the carrier field is
+      // blank (it was cleared after the first save) so we shouldn't
+      // prepend an empty token that yields a stray space (audit P1).
+      const carrierTrim = carrier.trim();
+      const trackingTrim = tracking.trim();
+      const tracking_number = carrierTrim ? [carrierTrim, trackingTrim].filter(Boolean).join(" ") : trackingTrim;
       const updated = await nest.updateSellerOrder(orderId, { status, tracking_number });
+      if (!mountedRef.current) return;
       onUpdated(updated);
       setCarrier("");
       setTracking(updated.tracking_number || "");
       toast.success("Fulfillment updated");
     } catch (e) {
+      if (!mountedRef.current) return;
       toast.error(e instanceof ApiError ? e.friendly : "Could not update this order.");
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   };
 
@@ -552,7 +571,14 @@ function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased
 
   const hasLabel = !!label && (!!label.label_url || !!label.transaction);
 
+  // v1.0.247 — shared mounted flag so every async setter below can
+  // no-op after unmount rather than fighting with the `alive` local
+  // in the initial effect (audit P2).
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   const applyLabel = useCallback((l: NestShippingLabel | null) => {
+    if (!mountedRef.current) return;
     if (l && (l.label_url || l.transaction)) setLabel(l);
   }, []);
 
@@ -577,6 +603,7 @@ function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased
     setLoadingRates(true);
     try {
       const res = await nest.getShippingRates(orderId);
+      if (!mountedRef.current) return;
       if (res.kind === "existing") {
         applyLabel(res.label);
         setRates(null);
@@ -587,9 +614,10 @@ function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased
       setSelectedRateId(sorted[0]?.object_id ?? null);
       if (sorted.length === 0) setError("No shipping rates were available for this package.");
     } catch (e) {
+      if (!mountedRef.current) return;
       setError(e instanceof ApiError ? e.friendly : "Could not fetch shipping rates.");
     } finally {
-      setLoadingRates(false);
+      if (mountedRef.current) setLoadingRates(false);
     }
   };
 
@@ -600,6 +628,7 @@ function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased
     setBuying(true);
     try {
       const res = await nest.buyShippingLabel(orderId, rate);
+      if (!mountedRef.current) return;
       applyLabel(res.label);
       setRates(null);
       // v1.0.222 — notify parent so the tracking field and seller-order
@@ -608,9 +637,10 @@ function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased
       if (res.label?.label_url) toast.success("Shipping label purchased");
       else toast.success("Label requested — it will be ready shortly");
     } catch (e) {
+      if (!mountedRef.current) return;
       setError(e instanceof ApiError ? e.friendly : "Could not purchase the label.");
     } finally {
-      setBuying(false);
+      if (mountedRef.current) setBuying(false);
     }
   };
 
@@ -618,7 +648,18 @@ function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased
     if (!label?.label_url) return;
     setSharing(true);
     try {
-      const target = `${FileSystem.cacheDirectory}label-${orderId}.pdf`;
+      // v1.0.247 — `FileSystem.cacheDirectory` is typed `string | null`
+      // in expo-file-system's legacy API. Falling through to the raw
+      // template previously produced a `null/label-<id>.pdf` target on
+      // platforms without a cache dir, and downloadAsync would throw a
+      // confusing error. Fall back to opening the hosted PDF directly
+      // in that (rare) case (audit P1).
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) {
+        await Linking.openURL(label.label_url);
+        return;
+      }
+      const target = `${cacheDir}label-${orderId}.pdf`;
       const { uri } = await FileSystem.downloadAsync(label.label_url, target);
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
@@ -636,7 +677,7 @@ function ShippingLabelSection({ orderId, platformKeepsShipping, onLabelPurchased
         toast.error("Could not open the label.");
       }
     } finally {
-      setSharing(false);
+      if (mountedRef.current) setSharing(false);
     }
   };
 

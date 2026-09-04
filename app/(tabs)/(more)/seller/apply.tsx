@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -51,20 +51,38 @@ export default function ApplySeller() {
   const [handmadeOnlyAcknowledged, setHandmadeOnlyAcknowledged] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
+  // v1.0.247 — track the categories fetch separately from the app-status
+  // fetch so we can surface a distinct banner when only the taxonomy
+  // failed to load (audit P2). Without it, a categories-endpoint blip
+  // silently drops the seller into a form with no picker options and
+  // no explanation why.
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        const [s, cs] = await Promise.all([nest.getSellerApplicationStatus(), nest.getCategories()]);
-        if (cancelled) return;
-        setStatus(s.status || "none");
-        setRejectionReason(s.rejection_reason || "");
-        setCanResubmit(s.can_resubmit !== false);
-        setCategories(cs.map(toHierarchicalCategory));
-      } catch {
-        if (cancelled) return;
+      // Fire in parallel but track outcomes independently so a failure
+      // on one doesn't hide the other.
+      const [sRes, csRes] = await Promise.allSettled([
+        nest.getSellerApplicationStatus(),
+        nest.getCategories(),
+      ]);
+      if (cancelled) return;
+      if (sRes.status === "fulfilled") {
+        setStatus(sRes.value.status || "none");
+        setRejectionReason(sRes.value.rejection_reason || "");
+        setCanResubmit(sRes.value.can_resubmit !== false);
+      } else {
+        // v1.0.247 — surface "none" so the form is at least reachable
+        // rather than looping the loading spinner forever.
         setStatus("none");
+      }
+      if (csRes.status === "fulfilled") {
+        setCategories(csRes.value.map(toHierarchicalCategory));
+        setCategoriesError(null);
+      } else {
+        const reason = csRes.reason;
+        setCategoriesError(reason instanceof ApiError ? reason.friendly : "Couldn't load categories. Some picker options may be unavailable.");
       }
     })();
     return () => { cancelled = true; };
@@ -142,7 +160,20 @@ export default function ApplySeller() {
     }
   };
 
-  if (status === "loading") return <SafeAreaView style={styles.safe}><View style={{ flex: 1 }} /></SafeAreaView>;
+  if (status === "loading") {
+    // v1.0.247 — previously rendered an empty <View>, so the seller
+    // saw a blank white screen while the two GETs ran. Now show the
+    // header + a spinner so it reads as "loading" instead of
+    // "something broke" (audit P2).
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="Application" />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color={colors.brand} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (status === "pending") {
     return (
@@ -156,7 +187,11 @@ export default function ApplySeller() {
     return (
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <Top onBack={() => safeBack(router, "/(tabs)/seller/dashboard")} title="Application" />
-        <EmptyState icon="checkmark-circle" title="You're approved!" message="Head to the seller dashboard to start listing." actionLabel="Open dashboard" onAction={() => router.replace("/seller/dashboard")} />
+        {/* v1.0.247 — route to the tabs seller dashboard path (audit
+            P2). `/seller/dashboard` is not a real route in this app
+            — the actual screen lives under `(tabs)/seller/dashboard`
+            — and expo-router silently swallowed the mismatch. */}
+        <EmptyState icon="checkmark-circle" title="You're approved!" message="Head to the seller dashboard to start listing." actionLabel="Open dashboard" onAction={() => router.replace("/(tabs)/seller/dashboard")} />
       </SafeAreaView>
     );
   }
@@ -224,6 +259,12 @@ export default function ApplySeller() {
 
           <Text style={styles.label}>Which categories will your shop sell in?</Text>
           <Text style={styles.hint}>Choose a major category, then choose the sub-category underneath it. Add another selection if your shop sells more than one type of product.</Text>
+          {categoriesError ? (
+            <View style={styles.errorBanner} testID="apply-categories-error">
+              <Ionicons name="warning-outline" size={16} color={colors.error} />
+              <Text style={styles.errorText}>{categoriesError}</Text>
+            </View>
+          ) : null}
           {categorySelections.map((selection, index) => (
             <View key={selection.key} style={styles.categoryCard} testID={`apply-category-row-${index}`}>
               <CategorySubcategoryPicker
@@ -354,4 +395,17 @@ const styles = StyleSheet.create({
   },
   addCategoryText: { ...typeTokens.body, color: colors.brand, fontWeight: "800" },
   terms: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md },
+  // v1.0.247 — inline banner for the categories-load-failed state.
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: colors.card,
+    marginBottom: spacing.md,
+  },
+  errorText: { ...typeTokens.caption, color: colors.error, flex: 1 },
 });

@@ -39,9 +39,22 @@ export default function ImportScreen() {
   const [upload, setUpload] = useState<UploadResult | null>(null);
   const [status, setStatus] = useState<StatusResult | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // v1.0.247 — track mounted-ness so the poll callback can bail out
+  // instead of setState-ing after unmount (audit P0).
+  const mountedRef = useRef(true);
+  // v1.0.247 — cap poll count so a stuck job can't loop forever if the
+  // server never returns a terminal status (audit P1). At 2s per tick,
+  // 450 ticks ≈ 15 minutes — plenty for any legitimate import, and
+  // long enough that a slow-but-progressing job won't be killed early.
+  const pollCountRef = useRef(0);
+  const MAX_POLL_TICKS = 450;
 
   useEffect(() => {
-    return () => { if (pollTimer.current) clearInterval(pollTimer.current); };
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (pollTimer.current) clearInterval(pollTimer.current);
+    };
   }, []);
 
   const pickAndUpload = useCallback(async () => {
@@ -79,13 +92,38 @@ export default function ImportScreen() {
     try {
       setPhase("running");
       await nest.runImport(upload.job_id);
+      pollCountRef.current = 0;
       pollTimer.current = setInterval(async () => {
+        // v1.0.247 — cap runaway polls (audit P1).
+        pollCountRef.current += 1;
+        if (pollCountRef.current > MAX_POLL_TICKS) {
+          if (pollTimer.current) clearInterval(pollTimer.current);
+          if (mountedRef.current) {
+            setError("Import is taking longer than expected. Check back later from your dashboard.");
+            setPhase("error");
+          }
+          return;
+        }
         try {
           const s = await nest.getImportStatus(upload.job_id);
+          // v1.0.247 — don't setState after unmount (audit P0).
+          if (!mountedRef.current) return;
           setStatus(s);
-          if (s.status === "complete") {
+          // v1.0.247 — treat failed/cancelled/error as terminal too so
+          // the poll loop actually stops (audit P1). Previously only
+          // "complete" cleared the interval, so a server-side failure
+          // left the CSV import poll running until the screen unmounted.
+          const terminal = s.status === "complete" || s.status === "failed" || s.status === "cancelled" || s.status === "error";
+          if (terminal) {
             if (pollTimer.current) clearInterval(pollTimer.current);
-            setPhase("done");
+            if (s.status === "complete") {
+              setPhase("done");
+            } else {
+              // v1.0.247 — surface a message even if the server didn't
+              // include a specific `error` string (audit P1).
+              setError((s as unknown as { error?: string }).error || `Import ended with status "${s.status}".`);
+              setPhase("error");
+            }
           }
         } catch { /* ignore transient poll errors */ }
       }, 2000);
