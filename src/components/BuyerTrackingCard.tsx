@@ -38,9 +38,12 @@ export function BuyerTrackingCard({ row }: { row: OrderTrackingRow }) {
           size={18}
           color={shipped ? colors.brand : colors.onSurfaceMuted}
         />
-        <Text style={styles.headerText}>
-          {delivered ? "Delivered" : shipped ? "Shipped" : "Preparing to ship"} · {row.seller_name || "Seller"}
-        </Text>
+        {/* v1.0.245 — was "Shipped · <seller>" (or Delivered/Preparing +
+            seller). The parent Order screen already shows the shipment
+            status in the timeline strip and the seller name at the top,
+            so repeating either here was redundant. Simplify to just
+            "Tracking" so the card reads as what it actually is. */}
+        <Text style={styles.headerText}>Tracking</Text>
         {row.label_source === "shippo" ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>Shippo label</Text>
