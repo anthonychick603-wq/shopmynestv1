@@ -11,6 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, type NestSellerListItem } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { AppImage } from "@/src/components/AppImage";
@@ -71,6 +72,10 @@ export default function AllShops() {
   }, [begin, isCurrent]);
 
   useEffect(() => { load(submitted); }, [load, submitted]);
+  // v1.0.254 — refetch when a seller signs up / a product is created
+  // or deleted (product_count on rows would otherwise be stale).
+  const reloadWithCurrentSearch = useCallback(() => load(submitted), [load, submitted]);
+  useInvalidateOnFocus(["sellers", "products"], reloadWithCurrentSearch);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>

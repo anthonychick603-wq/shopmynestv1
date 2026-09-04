@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerRaw, type NestSellerReviewRaw } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { toPost, toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Post, Product, SellerBadge as SellerBadgeType } from "@/src/types";
@@ -165,6 +166,11 @@ export default function SellerProfile() {
   }, [id, productPage, productTotalPages, productLoadingMore, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
+  // v1.0.254 — refetch when this seller’s product set, follower count,
+  // or reviews change. Follow toggles route via `sellers` and
+  // `following`; new reviews route via `reviews`; product edits/adds
+  // route via `products`.
+  useInvalidateOnFocus(["sellers", "products", "reviews", "following"], load);
 
   const onAdd = async (p: Product) => {
     if (!user) return router.push("/(auth)/login");

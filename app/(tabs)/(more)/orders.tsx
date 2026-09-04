@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
 import { nest, ApiError, type NestSellerOrderRaw } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { toOrder } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { Order } from "@/src/types";
@@ -206,6 +207,11 @@ function OrdersImpl() {
     setLoading(true);
     load();
   }, [load]);
+  // v1.0.254 — refetch when the seller ships an order, the buyer
+  // cancels, or a refund request is filed. Also fires after a
+  // successful checkout completes so the new order appears here on
+  // next focus without a manual pull-to-refresh.
+  useInvalidateOnFocus(["orders"], load);
 
   const showSwitcher = canSee.seller && (isAdmin || isSeller);
   const title = mode === "seller" ? "Sold orders" : "Your orders";

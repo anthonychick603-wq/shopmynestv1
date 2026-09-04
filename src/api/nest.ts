@@ -2,6 +2,16 @@
 // Mirrors the contracts used by the v1.0.7 mobile app (src/lib/api.js) so the
 // site's mynest-mobile-app-bridge + mynest-unified-marketplace plugins keep working.
 import { storage } from "@/src/utils/storage";
+import { bump, type DataClass } from "@/src/state/mutationBus";
+
+// v1.0.254 — tiny helper that pipes a mutation promise through bump()
+// so every subscriber to the given data classes gets invalidated when
+// the server confirms the write. Errors propagate unchanged — we only
+// bump on resolve so a failed mutation doesn't spuriously invalidate
+// caches. Type parameter preserves the mutation's return type.
+function bumped<T>(p: Promise<T>, ...classes: DataClass[]): Promise<T> {
+  return p.then((v) => { bump(...classes); return v; });
+}
 
 const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || "https://shopmynest.com").replace(/\/+$/, "");
 const NS = {
@@ -452,7 +462,7 @@ export const nest = {
     request<NestBlogPostsRaw>("marketplace", "/blog/posts", { query, auth: false, allowEdgeCache: true }),
   // Multipart: `caption` + optional `image` file part.
   createBlogPost: (formData: FormData) =>
-    request<NestBlogPostRaw>("marketplace", "/blog/posts", { method: "POST", formData, timeoutMs: 60000 }),
+    bumped(request<NestBlogPostRaw>("marketplace", "/blog/posts", { method: "POST", formData, timeoutMs: 60000 }), "blog"),
   // v1.0.76 — author edit + delete + non-author report. Server checks live
   // in class-mnu-blog.php (MNU 3.7.110); the mobile UI still gates the
   // menu items client-side so the sheet never offers actions the API will
@@ -461,17 +471,17 @@ export const nest = {
   // read-only preview during edit. A later patch can add multipart PUT if
   // we hear demand.
   updateBlogPost: (id: number | string, payload: { caption?: string; remove_image?: boolean }) =>
-    request<{ success: boolean; post: NestBlogPostRaw }>("marketplace", `/blog/posts/${id}`, { method: "PUT", body: payload }),
+    bumped(request<{ success: boolean; post: NestBlogPostRaw }>("marketplace", `/blog/posts/${id}`, { method: "PUT", body: payload }), "blog"),
   deleteBlogPost: (id: number | string) =>
-    request<{ success: boolean; id: number }>("marketplace", `/blog/posts/${id}`, { method: "DELETE" }),
+    bumped(request<{ success: boolean; id: number }>("marketplace", `/blog/posts/${id}`, { method: "DELETE" }), "blog"),
   reportBlogPost: (id: number | string, reason: string, details: string) =>
     request<{ success: boolean; report_id: number }>("marketplace", `/blog/posts/${id}/report`, { method: "POST", body: { reason, details } }),
   getBlogModerationPosts: (query?: { status?: "pending" | "approved" | "rejected"; page?: number; per_page?: number }) =>
     request<NestBlogPostsRaw>("marketplace", "/blog/moderation/posts", { query }),
   approveBlogPost: (id: number | string) =>
-    request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/approve`, { method: "POST" }),
+    bumped(request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/approve`, { method: "POST" }), "blog"),
   rejectBlogPost: (id: number | string) =>
-    request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/reject`, { method: "POST" }),
+    bumped(request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/reject`, { method: "POST" }), "blog"),
 
   // v1.0.86 — admin console (plugin v3.7.114). Owner-only surfaces powering
   // the in-app admin drawer; all four routes reject non-admins with 403.
@@ -576,18 +586,27 @@ export const nest = {
       { query, auth: false },
     ),
   createBlogPostComment: (id: number | string, content: string) =>
-    request<NestBlogCommentRaw>("marketplace", `/blog/posts/${id}/comments`, {
-      method: "POST",
-      body: { content },
-    }),
+    bumped(
+      request<NestBlogCommentRaw>("marketplace", `/blog/posts/${id}/comments`, {
+        method: "POST",
+        body: { content },
+      }),
+      "blogComments",
+      // A comment count change also shows on the blog card, so bump
+      // the blog list too so Home / Blog detail refresh their counts.
+      "blog",
+    ),
   // v1.0.81 — blog comment edit / delete / report (added server-side in MNU 3.7.112)
   updateBlogComment: (id: number | string, content: string) =>
-    request<NestBlogCommentRaw>("marketplace", `/blog/comments/${id}`, {
-      method: "PUT",
-      body: { content },
-    }),
+    bumped(
+      request<NestBlogCommentRaw>("marketplace", `/blog/comments/${id}`, {
+        method: "PUT",
+        body: { content },
+      }),
+      "blogComments",
+    ),
   deleteBlogComment: (id: number | string) =>
-    request<{ success: boolean; id: number }>("marketplace", `/blog/comments/${id}`, { method: "DELETE" }),
+    bumped(request<{ success: boolean; id: number }>("marketplace", `/blog/comments/${id}`, { method: "DELETE" }), "blogComments", "blog"),
   reportBlogComment: (id: number | string, reason: string, details: string) =>
     request<{ success: boolean; report_id: number }>("marketplace", `/blog/comments/${id}/report`, { method: "POST", body: { reason, details } }),
   // v1.0.55 — blog post favorites (added server-side in MNU 3.7.98). Mirrors
@@ -608,8 +627,8 @@ export const nest = {
   getSeller: (id: number | string) => request<NestSellerRaw>("marketplace", `/sellers/${id}`),
   getSellerProducts: (id: number | string, query?: Record<string, unknown>) =>
     request<NestPaginated<NestProductRaw>>("marketplace", `/sellers/${id}/products`, { query, auth: false }),
-  followSeller: (id: number | string) => request<{ ok: boolean }>("marketplace", `/sellers/${id}/follow`, { method: "POST" }),
-  unfollowSeller: (id: number | string) => request<{ ok: boolean }>("marketplace", `/sellers/${id}/follow`, { method: "DELETE" }),
+  followSeller: (id: number | string) => bumped(request<{ ok: boolean }>("marketplace", `/sellers/${id}/follow`, { method: "POST" }), "following", "sellers"),
+  unfollowSeller: (id: number | string) => bumped(request<{ ok: boolean }>("marketplace", `/sellers/${id}/follow`, { method: "DELETE" }), "following", "sellers"),
   // v1.0.93 (Build #13) — list of shops the current user follows. The server
   // returns a flat array (not paginated); we keep the raw shape here and
   // adapt in the screen so we can reuse the same avatar/name/rating fields
@@ -651,11 +670,11 @@ export const nest = {
   // v3.7.121 (Build #16) — buyer-initiated cancel. 409 means the order is
   // already shipped / paid / closed; 403 means the caller isn't the buyer.
   cancelBuyerOrder: (id: number | string, reason?: string) =>
-    request<NestOrderRaw>("marketplace", `/orders/${id}/cancel`, { method: "POST", body: reason ? { reason } : {} }),
+    bumped(request<NestOrderRaw>("marketplace", `/orders/${id}/cancel`, { method: "POST", body: reason ? { reason } : {} }), "orders"),
   getOrderRefund: (id: number | string) =>
     request<NestRefundStatus>("marketplace", `/orders/${id}/refund`),
   requestOrderRefund: (id: number | string, payload: { reason: string; details?: string }) =>
-    request<NestRefundStatus>("marketplace", `/orders/${id}/refund-request`, { method: "POST", body: payload }),
+    bumped(request<NestRefundStatus>("marketplace", `/orders/${id}/refund-request`, { method: "POST", body: payload }), "orders"),
 
   // Seller profile (v1.0.52 - shop settings screen for the "Add name"
   // readiness step + future banner/about edits from the app).
@@ -762,15 +781,18 @@ export const nest = {
   getConversation: (userId: number | string, limit = 100) =>
     request<NestMessageRaw[]>("marketplace", `/messages/${userId}`, { query: { limit } }),
   sendMessage: (payload: { recipient_id: number; message: string; product_id?: number; photo_ids?: number[] }) =>
-    request<{ success: boolean; message_id: number }>("marketplace", "/messages", {
-      method: "POST",
-      // photo_ids is serialized as a JSON string so it survives both
-      // JSON bodies and form-encoded transports on the WP side.
-      body: {
-        ...payload,
-        photo_ids: payload.photo_ids && payload.photo_ids.length ? JSON.stringify(payload.photo_ids) : undefined,
-      },
-    }),
+    bumped(
+      request<{ success: boolean; message_id: number }>("marketplace", "/messages", {
+        method: "POST",
+        // photo_ids is serialized as a JSON string so it survives both
+        // JSON bodies and form-encoded transports on the WP side.
+        body: {
+          ...payload,
+          photo_ids: payload.photo_ids && payload.photo_ids.length ? JSON.stringify(payload.photo_ids) : undefined,
+        },
+      }),
+      "messages",
+    ),
   // v3.7.86 — upload a single photo for a DM thread. FormData must carry
   // `file` (blob) and `recipient_id` (string). Server returns an attachment
   // id that the sender then passes into sendMessage({photo_ids}).
@@ -815,20 +837,23 @@ export const nest = {
     request<{ orders: NestSellerOrderRaw[]; page: number; total: number; total_pages: number }>("marketplace", "/seller/orders", { query }),
 
   // Seller product management (create/edit/delete) — the-nest/v1/seller/products.
+  // v1.0.254 — product mutations invalidate the products data class (used
+  // by home widgets, browse grid, seller listings, product detail) AND the
+  // sellers class (Discover Shops product_count depends on this).
   createProduct: (payload: NestProductWritePayload) =>
-    request<NestProductRaw>("marketplace", "/seller/products", { method: "POST", body: payload }),
+    bumped(request<NestProductRaw>("marketplace", "/seller/products", { method: "POST", body: payload }), "products", "sellers"),
   updateProduct: (id: number | string, payload: NestProductWritePayload) =>
-    request<NestProductRaw>("marketplace", `/seller/products/${id}`, { method: "PUT", body: payload }),
+    bumped(request<NestProductRaw>("marketplace", `/seller/products/${id}`, { method: "PUT", body: payload }), "products", "sellers"),
   // Reads a product's stored shipping meta (package_size + real dimensions) so the
   // edit form can pre-fill the size selector and dimension inputs accurately.
   getProductShipping: (id: number | string) =>
     request<{ shipping: NestProductShippingRaw }>("shipping", `/seller/products/${id}/shipping`),
   deleteProduct: (id: number | string) =>
-    request<{ success: boolean }>("marketplace", `/seller/products/${id}`, { method: "DELETE" }),
+    bumped(request<{ success: boolean }>("marketplace", `/seller/products/${id}`, { method: "DELETE" }), "products", "sellers"),
   // v1.0.64 (Build #3) — server-side clone. Returns the new draft product; the
   // UI navigates to its edit form so the seller can tweak variant fields.
   duplicateProduct: (id: number | string) =>
-    request<NestProductRaw>("marketplace", `/seller/products/${id}/duplicate`, { method: "POST" }),
+    bumped(request<NestProductRaw>("marketplace", `/seller/products/${id}/duplicate`, { method: "POST" }), "products", "sellers"),
   // Multipart image upload. Field name must be `file`. Returns the attachment id
   // to attach to a product via `image_id`.
   uploadMedia: (formData: FormData) =>
@@ -867,7 +892,7 @@ export const nest = {
 
   // Seller order fulfillment — PUT the-nest/v1/seller/orders/{id}.
   updateSellerOrder: (id: number | string, payload: { status: string; tracking_number?: string }) =>
-    request<NestSellerOrderRaw>("marketplace", `/seller/orders/${id}`, { method: "PUT", body: payload }),
+    bumped(request<NestSellerOrderRaw>("marketplace", `/seller/orders/${id}`, { method: "PUT", body: payload }), "orders"),
 
   // -------------------------------------------------------------------------
   // Shippo shipping labels (nest-labels/v1) — seller buys a real label and
@@ -1027,8 +1052,16 @@ export const nest = {
     request<NestPaymentIntentRaw>("checkout", "/checkout/create-intent", { method: "POST", body: payload, timeoutMs: 45000 }),
   // Best-effort confirmation after PaymentSheet succeeds. The Stripe webhook is
   // the source of truth, so callers should not block navigation on this.
+  // v1.0.254 — confirming a checkout is the moment the order transitions,
+  // so bump both orders (buyer + seller lists) and cart (cart context has
+  // already cleared locally but any lingering abandoned-cart banner needs
+  // to re-read).
   completeCheckout: (payload: { order_id: number; payment_intent_id: string }) =>
-    request<{ ok: boolean; status?: string; order_id: number; payment_status?: string }>("checkout", "/checkout/complete", { method: "POST", body: payload }),
+    bumped(
+      request<{ ok: boolean; status?: string; order_id: number; payment_status?: string }>("checkout", "/checkout/complete", { method: "POST", body: payload }),
+      "orders",
+      "cart",
+    ),
 
   // v3.7.119 (Build #8) — save attributes + per-variation price/stock for a product.
   saveProductVariations: (
@@ -1093,12 +1126,22 @@ export const nest = {
     review: string;
     photo_ids?: number[];
     variation_id?: number;
-  }) => request<ProductReview>("marketplace", `/products/${productId}/reviews`, { method: "POST", body }),
+  }) => bumped(
+    request<ProductReview>("marketplace", `/products/${productId}/reviews`, { method: "POST", body }),
+    "reviews",
+    // Product detail shows the review count + latest reviews; seller
+    // profile shows aggregate rating.
+    "products",
+    "sellers",
+  ),
   submitReviewResponse: (productId: number, reviewId: number, response: string) =>
-    request<ProductReview>("marketplace", `/products/${productId}/reviews/${reviewId}/response`, {
-      method: "POST",
-      body: { response },
-    }),
+    bumped(
+      request<ProductReview>("marketplace", `/products/${productId}/reviews/${reviewId}/response`, {
+        method: "POST",
+        body: { response },
+      }),
+      "reviews",
+    ),
   uploadReviewPhoto: (formData: FormData) =>
     request<{ id: number; url: string; thumbnail: string; mime_type: string }>("marketplace", "/media", {
       method: "POST", query: { context: "review" }, formData, timeoutMs: 60000,

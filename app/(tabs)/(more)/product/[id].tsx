@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { Product } from "@/src/types";
@@ -103,6 +104,9 @@ export default function ProductDetail() {
   }, [id, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
+  // v1.0.254 — refetch when the seller edits the product from the
+  // form or a new review lands. Also picks up review-response edits.
+  useInvalidateOnFocus(["products", "reviews"], load);
 
   // v1.0.243 — reset product state on id transition. When the buyer taps
   // a card in the similar-items rail, the [id] route re-mounts with a

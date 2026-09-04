@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { Product } from "@/src/types";
@@ -140,6 +141,9 @@ export default function SellerListings() {
   // Focus refetch removed so scroll position survives returning from
   // a pushed edit/detail screen.
   React.useEffect(() => { load(); }, [load]);
+  // v1.0.254 — refetch when a product is created / edited / deleted /
+  // duplicated from anywhere (including the product-form pushed screen).
+  useInvalidateOnFocus(["products"], load);
 
   // v1.0.148 — three-way partition of the seller's listings:
   //   drafts    = anything not yet published (fix required)

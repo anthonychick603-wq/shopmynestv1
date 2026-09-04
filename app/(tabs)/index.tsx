@@ -6,6 +6,8 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { nest, ApiError } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
+import { readSwr, writeSwr } from "@/src/state/swrCache";
 import { toBlogPost, toProduct, feedRowToProduct } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { BlogPost, Product } from "@/src/types";
@@ -114,10 +116,12 @@ export default function Blog() {
         .slice(0, 25);
       setHomeItems(items);
       setHasFollowed(res.has_followed);
+      // v1.0.254 — persist for next cold start.
+      void writeSwr(user?.id, "home_feed", { items, has_followed: res.has_followed });
     } catch {
       // Non-fatal; home feed just stays empty.
     }
-  }, [begin, isCurrent]);
+  }, [begin, isCurrent, user]);
 
   // v1.0.132 — Personalized ranker: recency + favorites + follows + badge +
   // sales + boost. We only show the row when the user is signed in AND the
@@ -136,7 +140,9 @@ export default function Blog() {
       const items = (res.items || [])
         .map(feedRowToProduct)
         .filter((p) => p.in_stock && p.stock > 0);
-      setForYouItems(items.length >= 6 ? items : []);
+      const visible = items.length >= 6 ? items : [];
+      setForYouItems(visible);
+      void writeSwr(user.id, "for_you", { items: visible });
     } catch {
       if (!isCurrent(_tok)) return;
       setForYouItems([]);
@@ -159,6 +165,7 @@ export default function Blog() {
         .map(toProduct)
         .filter((p) => p.in_stock && p.stock > 0);
       setRecentlyViewed(items);
+      void writeSwr(user.id, "recently_viewed", { items });
     } catch {
       if (!isCurrent(_tok)) return;
       setRecentlyViewed([]);
@@ -197,6 +204,8 @@ export default function Blog() {
             setPosts(items);
             setPage(res.page ?? nextPage);
             setTotalPages(res.total_pages ?? 1);
+            // v1.0.254 — SWR: cache blog page 1 for instant next-launch paint.
+            void writeSwr(user?.id, "blog_page1", { items, page: res.page ?? 1, total_pages: res.total_pages ?? 1 });
           } catch (e) {
             mark("blog(err)", bStart);
             if (!isCurrent(_tok)) return;
@@ -299,6 +308,59 @@ export default function Blog() {
   //      pull gesture.
   const mountedRef = useRef(false);
   const lastLoadRef = useRef(0);
+  // v1.0.254 — SWR-style instant paint. Read disk-cached page-1 payloads
+  // synchronously (well, on the next microtask) and set them BEFORE the
+  // network load resolves so a returning user sees the exact grid they
+  // saw yesterday within a frame. The `loading` flag also flips to false
+  // as soon as ANY cached widget hydrates — the network fan-out then
+  // overwrites each widget with fresh data.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    (async () => {
+      try {
+        const uid = user?.id;
+        const [blog, home, forYou, recents] = await Promise.all([
+          readSwr<{ items: BlogPost[]; page: number; total_pages: number }>(uid, "blog_page1"),
+          readSwr<{ items: Product[]; has_followed?: boolean }>(uid, "home_feed"),
+          readSwr<{ items: Product[] }>(uid, "for_you"),
+          readSwr<{ items: Product[] }>(uid, "recently_viewed"),
+        ]);
+        let anyHydrated = false;
+        if (blog?.body?.items?.length) {
+          // Only hydrate blog cache if the network hasn't already painted
+          // — avoids clobbering fresher data on a rehydration after a fast
+          // network response.
+          setPosts((prev) => (prev.length === 0 ? blog.body.items : prev));
+          setTotalPages((prev) => (prev === 1 ? blog.body.total_pages : prev));
+          anyHydrated = true;
+        }
+        if (home?.body?.items?.length) {
+          setHomeItems((prev) => (prev.length === 0 ? home.body.items : prev));
+          if (typeof home.body.has_followed === "boolean") {
+            setHasFollowed(home.body.has_followed);
+          }
+          anyHydrated = true;
+        }
+        if (forYou?.body?.items?.length) {
+          setForYouItems((prev) => (prev.length === 0 ? forYou.body.items : prev));
+          anyHydrated = true;
+        }
+        if (recents?.body?.items?.length) {
+          setRecentlyViewed((prev) => (prev.length === 0 ? recents.body.items : prev));
+          anyHydrated = true;
+        }
+        // If we hydrated any widget from cache, drop the top-level
+        // spinner immediately — the network fetch below is now the
+        // "revalidate" half of SWR and paints silently.
+        if (anyHydrated) setLoading(false);
+      } catch {
+        /* cache miss / parse error — fall through to the network path */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount
+  }, []);
   useEffect(() => {
     if (mountedRef.current) return;
     mountedRef.current = true;
@@ -313,6 +375,18 @@ export default function Blog() {
     return () => clearTimeout(watchdog);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount
   }, []);
+
+  // v1.0.254 — mutation-driven invalidation. When another screen creates
+  // or edits a blog post, product, or seller-visibility change, Home
+  // needs to reload page 1 on next focus regardless of the 5-min stale
+  // window. Fixes the reported bug: user submits a post from the
+  // composer, taps back to Home, and sees "No posts yet" because the
+  // 5-min stale guard suppressed the refetch.
+  const invalidateHome = useCallback(async () => {
+    await load(1);
+    lastLoadRef.current = Date.now();
+  }, [load]);
+  useInvalidateOnFocus(["blog", "products", "following"], invalidateHome);
   useFocusEffect(
     useCallback(() => {
       const STALE_MS = 5 * 60 * 1000;

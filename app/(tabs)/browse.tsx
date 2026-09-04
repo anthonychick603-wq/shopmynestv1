@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerListItem } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { addRecentSearch, loadRecentSearches, clearRecentSearches } from "@/src/utils/recent-searches";
 // v1.0.215 (P0 #9) — server-backed search dropdown (autocomplete + trending
 // + server-synced recent). Sits directly under the search input while the
@@ -138,27 +139,49 @@ export default function Browse() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [savingAlert, setSavingAlert] = useState(false);
 
+  // v1.0.254 — pull the shops + categories loaders out so mutation-driven
+  // invalidation can retrigger them without going through the products
+  // load path (which has its own filter-token gate).
+  const loadShops = useCallback(async () => {
+    try {
+      const res = await nest.getSellers({ per_page: 25, page: 1 });
+      const sorted = [...(res.items || [])].sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
+      setShops(sorted.slice(0, 25));
+    } catch {
+      setShops([]);
+    }
+  }, []);
+  const loadCategoriesData = useCallback(async () => {
+    try {
+      const cs = await nest.getCategories();
+      setCategories(cs.map(toHierarchicalCategory));
+    } catch { /* keep prior list */ }
+  }, []);
+
   useEffect(() => {
     // v1.0.163 — Guard every resolve with an `alive` flag so a fetch that
     // finishes after the tab is torn down (freezeOnBlur/lazy tore it down,
     // or the user backed out to another route) cannot call setState on an
     // unmounted native view. Fabric release builds could hard-close on this.
     let alive = true;
-    nest.getCategories().then((cs) => { if (alive) setCategories(cs.map(toHierarchicalCategory)); }).catch(() => {});
+    void loadCategoriesData();
     // v1.0.83 — show the first 25 shops here (sorted by product count desc);
     // "See all" opens the searchable directory. Fails silently — the row just
     // doesn't render if the endpoint errors or returns nothing.
-    nest
-      .getSellers({ per_page: 25, page: 1 })
-      .then((res) => {
-        if (!alive) return;
-        const sorted = [...(res.items || [])].sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0));
-        setShops(sorted.slice(0, 25));
-      })
-      .catch(() => { if (alive) setShops([]); });
+    void loadShops();
     loadRecentSearches().then((r) => { if (alive) setRecent(r); });
     return () => { alive = false; };
-  }, []);
+  }, [loadShops, loadCategoriesData]);
+
+  // v1.0.254 — when any screen creates/edits/deletes a product, the
+  // Discover Shops row's `product_count` badges are stale. Invalidate
+  // the shops fetch on next focus so counts stay honest. Fixes the
+  // reported bug: Daddy Chick shop shows "0 items" on Discover while
+  // the shop page itself shows 1 listing.
+  const refreshBrowseSideChannels = useCallback(async () => {
+    await Promise.all([loadShops(), loadCategoriesData()]);
+  }, [loadShops, loadCategoriesData]);
+  useInvalidateOnFocus(["sellers", "products"], refreshBrowseSideChannels);
 
   // v1.0.215 (P0 #9) — pull the server-synced recent list on mount and
   // whenever the sign-in state flips. Fails silently on error — the local

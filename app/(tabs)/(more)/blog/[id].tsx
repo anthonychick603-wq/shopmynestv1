@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestBlogCommentRaw } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { toBlogPost } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
@@ -166,6 +167,9 @@ export default function BlogPostDetail() {
   // fires on mount — that let the detail sit on stale 0 while the feed
   // showed 1 after a new comment landed.
   useFocusEffect(useCallback(() => { load(); }, [load]));
+  // v1.0.254 — refetch when a comment is added / edited / deleted or
+  // this post is updated from the composer.
+  useInvalidateOnFocus(["blogComments", "blog"], load);
 
   // v1.0.243 — append additional comment pages when the FlatList hits
   // its end. Dedupe by id so a mid-page insert during a refresh can't

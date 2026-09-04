@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 
 import { nest, ApiError, type NestFollowedShop } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { ErrorState } from "@/src/components/ErrorState";
@@ -57,6 +58,9 @@ export default function FollowingScreen() {
   }, [begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
+  // v1.0.254 — refetch when another screen (e.g. Seller profile,
+  // Discover Shops row) follows or unfollows a shop.
+  useInvalidateOnFocus(["following", "sellers"], load);
 
   const onUnfollow = async (shop: NestFollowedShop) => {
     // v1.0.243 — per-shop rollback. Fixes the P1 where each optimistic

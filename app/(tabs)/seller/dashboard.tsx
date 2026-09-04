@@ -6,6 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { nest, ApiError, type NestSellerReadiness } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing, type as typeTokens } from "@/src/theme";
 import type { Product, SellerBadge as SellerBadgeType } from "@/src/types";
@@ -158,6 +159,10 @@ export default function SellerDashboard() {
     const stale = Date.now() - lastLoadAt.current > 5 * 60_000;
     if (stale) load();
   }, [load]));
+  // v1.0.254 — mutation-driven refetch. Any product create/edit/delete
+  // (from the product-form) or seller-order state change bumps the
+  // dashboard so orders + listings + readiness reflect it.
+  useInvalidateOnFocus(["products", "orders", "sellers"], load);
 
   const confirmDelete = (p: Product) => {
     // v1.0.69 — warn haptic tells the user this is destructive before the

@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { nest, friendlyMessage, type NestConversationRaw } from "@/src/api/nest";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
 import { ErrorState } from "@/src/components/ErrorState";
@@ -79,6 +80,9 @@ export default function MessagesInbox() {
   // identity stays reference-stable across a refetch, and useAdminFocusRefetch
   // self-throttles so a rapid tab switch doesn't spam the endpoint.
   useEffect(() => { load(); }, [load]);
+  // v1.0.254 — refetch when a thread is opened + a new outbound message
+  // is sent from anywhere else in the app (e.g. Buy-again "Ask seller").
+  useInvalidateOnFocus(["messages"], load);
   useAdminFocusRefetch(load, { staleMs: 30_000 });
 
   if (!user) {
