@@ -42,6 +42,26 @@ export default function TwoFactorScreen() {
   const [info, setInfo] = useState<string | null>(null);
   const refs = useRef<Array<TextInput | null>>([]);
 
+  // v1.0.243 — track outstanding redirect timers so an unmount or a
+  // buyer-initiated navigation cancels the scheduled router.replace. Fixes
+  // the P1 where a stale setTimeout could fire after the buyer went back
+  // to /login themselves or started another auth action, hijacking the
+  // navigation.
+  const redirectTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const scheduleRedirect = React.useCallback((fn: () => void, ms: number) => {
+    const h = setTimeout(() => {
+      redirectTimersRef.current = redirectTimersRef.current.filter((x) => x !== h);
+      fn();
+    }, ms);
+    redirectTimersRef.current.push(h);
+  }, []);
+  useEffect(() => {
+    return () => {
+      redirectTimersRef.current.forEach(clearTimeout);
+      redirectTimersRef.current = [];
+    };
+  }, []);
+
   useEffect(() => { refs.current[0]?.focus(); }, []);
 
   // Countdown for the expiry hint and the resend cooldown.
@@ -81,7 +101,7 @@ export default function TwoFactorScreen() {
         // The best UX is to send them back to /login for a fresh attempt.
         if (e.status === 410 || e.status === 429) {
           setErr(e.friendly);
-          setTimeout(() => router.replace("/(auth)/login"), 1200);
+          scheduleRedirect(() => router.replace("/(auth)/login"), 1200);
         } else {
           setErr(e.friendly);
         }
@@ -134,7 +154,7 @@ export default function TwoFactorScreen() {
       if (e instanceof ApiError) {
         setErr(e.friendly);
         if (e.status === 410 || e.status === 429) {
-          setTimeout(() => router.replace("/(auth)/login"), 1500);
+          scheduleRedirect(() => router.replace("/(auth)/login"), 1500);
         }
       } else {
         setErr("Could not resend the code. Please try again.");

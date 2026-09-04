@@ -1,14 +1,15 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { haptics } from "@/src/utils/haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
+import { PasswordInput } from "@/src/components/PasswordInput";
 import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/api/nest";
@@ -19,11 +20,27 @@ export default function Login() {
   useBackFallback("/(tabs)");
   const router = useRouter();
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  // v1.0.243 — consume the ?email= prefill that the forgot-password reset
+  // flow (and the forgot-password screen) hand off, so buyers don't have to
+  // retype their address the moment after they set a new password. Fixes
+  // the P1 where forgot-password-reset navigated with ?email=... that
+  // login.tsx silently ignored.
+  const params = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(typeof params.email === "string" ? params.email : "");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const passwordRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (typeof params.email === "string" && params.email && !email) {
+      setEmail(params.email);
+      // Once we've consumed the prefill, jump the buyer to the password
+      // field — they already know their email.
+      requestAnimationFrame(() => passwordRef.current?.focus());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.email]);
 
   const submit = async () => {
     setErr(null);
@@ -80,13 +97,11 @@ export default function Login() {
             onSubmitEditing={() => passwordRef.current?.focus()}
             testID="login-email"
           />
-          <Input
+          <PasswordInput
             ref={passwordRef}
             label="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
-            autoComplete="password"
             textContentType="password"
             returnKeyType="go"
             onSubmitEditing={submit}

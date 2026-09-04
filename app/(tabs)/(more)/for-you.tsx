@@ -24,6 +24,7 @@ import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -47,6 +48,14 @@ export default function ForYouScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — dedicated error state so a failed load isn't disguised as
+  // "Nothing to recommend yet." Fixes the P1 where a network outage looked
+  // identical to a genuine empty recommendation list and offered no retry.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // v1.0.243 — track per-product add-in-progress so rapid taps on the
+  // same recommendation card can't spawn parallel fetches, add multiple
+  // units, or produce a false success toast.
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   // v1.0.242 — gate all post-await state writes with useLatestRequest
   // so pull-to-refresh, infinite scroll, and mount-load don't race
@@ -59,10 +68,16 @@ export default function ForYouScreen() {
   const load = useCallback(async (nextPage = 1) => {
     if (!user) { setLoading(false); setRefreshing(false); return; }
     const _tok = begin();
+    if (nextPage === 1) setErrorMsg(null);
     try {
       const res = await nest.trust.getPersonalizedFeed({ page: nextPage, per_page: PER_PAGE });
       if (!isCurrent(_tok)) return;
-      const rows = (res.items || []).map(feedRowToProduct);
+      // v1.0.243 — filter out unavailable recommendations before render.
+      // Matches Home discovery-feed behavior and stops the P1 where
+      // out-of-stock listings were surfaced as personalized picks.
+      const rows = (res.items || [])
+        .map(feedRowToProduct)
+        .filter((p) => p.in_stock !== false);
       setItems((prev) => (nextPage === 1 ? rows : [...prev, ...rows]));
       setPage(res.page ?? nextPage);
       const derivedTotalPages = res.total_pages
@@ -70,7 +85,9 @@ export default function ForYouScreen() {
       setTotalPages(derivedTotalPages);
     } catch (e) {
       if (!isCurrent(_tok)) return;
-      toast.error(e instanceof ApiError ? e.friendly : "Could not load your picks");
+      const msg = e instanceof ApiError ? e.friendly : "Could not load your picks";
+      if (nextPage === 1) setErrorMsg(msg);
+      else toast.error(msg);
     } finally {
       if (isCurrent(_tok)) {
         setLoading(false);
@@ -88,13 +105,20 @@ export default function ForYouScreen() {
   };
   const onAdd = async (p: Product) => {
     if (!user) return router.push("/(auth)/login");
+    // v1.0.243 — in-flight guard + honor the addProduct boolean so rapid
+    // taps can't add multiple units or produce a false success toast.
+    if (addingId != null) return;
+    setAddingId(p.id);
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
-      addProduct(fresh, 1);
-      toast.success("Added to cart");
+      const ok = await Promise.resolve(addProduct(fresh, 1));
+      if (ok) toast.success("Added to cart");
+      else toast.error("Couldn't add — please try again");
     } catch {
       toast.error("Could not add to cart");
+    } finally {
+      setAddingId(null);
     }
   };
 
@@ -123,6 +147,10 @@ export default function ForYouScreen() {
       ) : loading ? (
         <View style={{ padding: spacing.lg }}>
           <ProductGridSkeleton count={6} />
+        </View>
+      ) : errorMsg ? (
+        <View style={{ flex: 1, padding: spacing.lg }}>
+          <ErrorState message={errorMsg} onRetry={() => { setLoading(true); load(1); }} />
         </View>
       ) : items.length === 0 ? (
         <View style={{ flex: 1, padding: spacing.lg }}>

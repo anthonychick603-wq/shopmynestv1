@@ -29,6 +29,10 @@ export default function ProductReviewsScreen() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  // v1.0.243 — track pull-to-refresh separately so the spinner
+  // actually appears while the request is inflight. Previously
+  // hard-coded to `false` which made pull-to-refresh feel broken.
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewer, setViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
@@ -49,7 +53,7 @@ export default function ProductReviewsScreen() {
       setError(e instanceof ApiError ? e.friendly : "We couldn't load reviews.");
     } finally {
       if (isCurrent(_tok)) {
-        setLoading(false); setLoadingMore(false);
+        setLoading(false); setLoadingMore(false); setRefreshing(false);
       }
     }
   }, [id, begin, isCurrent]);
@@ -68,7 +72,7 @@ export default function ProductReviewsScreen() {
       data={items}
       keyExtractor={(item) => String(item.id)}
       contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + spacing.xl }}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={() => load(1)} tintColor={colors.brand} colors={[colors.brand]} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(1); }} tintColor={colors.brand} colors={[colors.brand]} />}
       ListHeaderComponent={<View style={styles.summary}><Text style={styles.summaryStars}>★ {average.toFixed(1)}</Text><Text style={styles.summaryText}>{total} {total === 1 ? "review" : "reviews"}</Text></View>}
       renderItem={({ item }) => <ReviewCard item={item} onPhoto={(photos, index) => setViewer({ photos, index })} />}
       ListEmptyComponent={<EmptyState icon="star-outline" title="No reviews yet" message="Verified buyers can review this product after their order is completed." />}

@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { nest, friendlyMessage, type NestConversationRaw } from "@/src/api/nest";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { AppImage } from "@/src/components/AppImage";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
@@ -97,7 +98,9 @@ export default function MessagesInbox() {
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       ) : error ? (
-        <EmptyState icon="alert-circle-outline" title="Something went wrong" message={error} testID="messages-error" />
+        // v1.0.243 — promote inline error to shared ErrorState primitive
+        // so it exposes a retry action, matching the rest of the app.
+        <ErrorState message={error} onRetry={() => { setLoading(true); load(); }} testID="messages-error" />
       ) : (
         <FlatList
           data={items}

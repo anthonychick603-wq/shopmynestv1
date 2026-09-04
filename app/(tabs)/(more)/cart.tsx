@@ -69,6 +69,9 @@ export default function Cart() {
   const favorites = useFavorites();
   const [savedProducts, setSavedProducts] = React.useState<Product[]>([]);
   const [sflLoading, setSflLoading] = React.useState(false);
+  // v1.0.243 — track the Saved-for-later row currently being moved so
+  // rapid taps on "Move to cart" cannot fire the mutation twice.
+  const [movingId, setMovingId] = React.useState<string | null>(null);
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { setPublishableKey } = useStripeKey();
   const [paying, setPaying] = React.useState(false);
@@ -178,7 +181,13 @@ export default function Cart() {
   const contactMissing = React.useMemo(() => {
     const missing: string[] = [];
     if (!user?.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) missing.push("an email");
-    if (!address?.first_name || !address?.last_name) missing.push("a recipient name");
+    // v1.0.243 — the plugin (v3.13.32+) requires first_name AND last_name
+    // on the shipping address for the label. Previously we bundled both
+    // into one "a recipient name" message which was ambiguous when only
+    // last_name was blank (e.g. a mononym typed into the first-name box).
+    // Split so the buyer sees exactly which field to fill in.
+    if (!address?.first_name) missing.push("a first name");
+    if (!address?.last_name) missing.push("a last name");
     if (!address?.address_1) missing.push("a street address");
     if (!address?.city) missing.push("a city");
     if (!address?.state) missing.push("a state");
@@ -868,17 +877,24 @@ export default function Cart() {
                   <View style={styles.sflActionsCol}>
                     <TouchableOpacity
                       onPress={() => {
+                        // v1.0.243 — per-row lock. Ignore a second tap
+                        // while the first is still resolving.
+                        if (movingId != null) return;
+                        setMovingId(sp.id);
                         haptics.tap();
                         // Move-to-cart: add first so a failure leaves the
                         // save intact, then remove from favorites so it
                         // vanishes from Saved for later.
                         const ok = addProduct(sp, 1);
-                        if (!ok) return;
-                        favorites.toggle(sp.id).catch(() => { /* silent; the section will refresh next focus */ });
+                        if (!ok) { setMovingId(null); return; }
+                        favorites.toggle(sp.id)
+                          .catch(() => { /* silent; the section will refresh next focus */ })
+                          .finally(() => setMovingId(null));
                         toast.success("Moved to cart");
                       }}
+                      disabled={movingId === sp.id}
                       testID={`cart-sfl-move-${sp.id}`}
-                      style={styles.sflMoveBtn}
+                      style={[styles.sflMoveBtn, movingId === sp.id && { opacity: 0.6 }]}
                       accessibilityLabel={`Move ${sp.title} to cart`}
                       accessibilityRole="button"
                     >
@@ -1033,9 +1049,12 @@ export default function Cart() {
               returnKeyType="done"
               onSubmitEditing={() => {
                 const code = couponInput.trim().toUpperCase();
-                if (!code || appliedCoupons.includes(code)) { setCouponInput(""); return; }
+                if (!code) { setCouponInput(""); return; }
                 haptics.press();
-                setAppliedCoupons((prev) => [...prev, code]);
+                // v1.0.243 — dedupe inside the functional update so a
+                // rapid Enter+Apply doesn't add the same code twice when
+                // the closure's `appliedCoupons` is still empty.
+                setAppliedCoupons((prev) => (prev.includes(code) ? prev : [...prev, code]));
                 setCouponInput("");
                 setFinalReview(null);
                 startNewCheckoutAttempt();
@@ -1044,9 +1063,10 @@ export default function Cart() {
             <TouchableOpacity
               onPress={() => {
                 const code = couponInput.trim().toUpperCase();
-                if (!code || appliedCoupons.includes(code)) { setCouponInput(""); return; }
+                if (!code) { setCouponInput(""); return; }
                 haptics.press();
-                setAppliedCoupons((prev) => [...prev, code]);
+                // v1.0.243 — same functional-dedupe as onSubmitEditing.
+                setAppliedCoupons((prev) => (prev.includes(code) ? prev : [...prev, code]));
                 setCouponInput("");
                 setFinalReview(null);
                 startNewCheckoutAttempt();

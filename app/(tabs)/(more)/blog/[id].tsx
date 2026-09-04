@@ -96,6 +96,11 @@ export default function BlogPostDetail() {
   // v1.0.81 — when set, the composer becomes an edit-in-place field targeting
   // the given comment id. Cancel resets it back to a new-comment composer.
   const [editingId, setEditingId] = useState<string | number | null>(null);
+  // v1.0.243 — pagination for the comments list. Previously fetched
+  // only the first 50 rows and hid the rest.
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // v1.0.242 — gate post-await state so useFocusEffect re-fires and
   // pull-to-refresh don't race and can't commit after unmount.
@@ -115,15 +120,32 @@ export default function BlogPostDetail() {
       // cached comment_count) is what closes the "feed shows 1, detail
       // shows 0" gap.
       setCommentTotal((res as { total?: number }).total ?? (res.comments?.length ?? 0));
+      setPage(1);
+      setTotalPages(Math.max(1, Number((res as { pages?: number }).pages) || 1));
       // Always refresh the post header from the feed on load. The feed
       // returns favorites_count / comment_count computed server-side, so
       // pulling on every focus keeps the header chips in sync with what
       // Blog and Fresh from the Nest show.
+      //
+      // v1.0.243 — there's no single-blog-post endpoint, so search the
+      // feed by paginating until we find the id or run out of pages.
+      // Previously we only looked on page 1, which meant deep-linking
+      // into an older post left the header stuck on either the
+      // param-decoded initial JSON (fine but stale counts) or empty.
       try {
-        const feed = await nest.getBlogPosts({ page: 1, per_page: 50 });
-        if (!isCurrent(_tok)) return;
-        const raw = (feed.items || []).find((p) => String(p.id) === String(id));
-        if (raw) setPost(toBlogPost(raw));
+        const PER = 50;
+        const MAX_PAGES = 20; // cap at ~1000 posts to avoid an unbounded walk
+        let feedPage = 1;
+        let found = false;
+        while (!found && feedPage <= MAX_PAGES) {
+          const feed = await nest.getBlogPosts({ page: feedPage, per_page: PER });
+          if (!isCurrent(_tok)) return;
+          const raw = (feed.items || []).find((p) => String(p.id) === String(id));
+          if (raw) { setPost(toBlogPost(raw)); found = true; break; }
+          const pages = Number((feed as { total_pages?: number }).total_pages) || 1;
+          if (feedPage >= pages) break;
+          feedPage += 1;
+        }
       } catch {
         // header is optional; comments still render
       }
@@ -144,6 +166,31 @@ export default function BlogPostDetail() {
   // fires on mount — that let the detail sit on stale 0 while the feed
   // showed 1 after a new comment landed.
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // v1.0.243 — append additional comment pages when the FlatList hits
+  // its end. Dedupe by id so a mid-page insert during a refresh can't
+  // duplicate a row.
+  const loadMore = useCallback(async () => {
+    if (!id || loadingMore || page >= totalPages) return;
+    const _tok = begin();
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const res = await nest.getBlogPostComments(id, { page: next, per_page: 50 });
+      if (!isCurrent(_tok)) return;
+      const rows = res.comments || [];
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => String(c.id)));
+        return [...prev, ...rows.filter((c) => !seen.has(String(c.id)))];
+      });
+      setPage(next);
+      setTotalPages(Math.max(next, Number((res as { pages?: number }).pages) || next));
+    } catch {
+      // Non-fatal.
+    } finally {
+      if (isCurrent(_tok)) setLoadingMore(false);
+    }
+  }, [id, loadingMore, page, totalPages, begin, isCurrent]);
 
   const submit = async () => {
     if (!user) return router.push("/(auth)/login");
@@ -316,6 +363,15 @@ export default function BlogPostDetail() {
                 onDeleted={removeCommentLocal}
               />
             )}
+            onEndReachedThreshold={0.4}
+            onEndReached={loadMore}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={{ paddingVertical: spacing.md, alignItems: "center" }}>
+                  <ActivityIndicator color={colors.brand} />
+                </View>
+              ) : null
+            }
             ListEmptyComponent={
               !loading ? (
                 <EmptyState

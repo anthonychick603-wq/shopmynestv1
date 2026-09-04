@@ -102,8 +102,22 @@ function NewCustomRequestImpl() {
 
   const submit = async () => {
     if (!productId || !title.trim() || !description.trim()) return;
+    // v1.0.243 — coerce and bound the budget and quantity to safe
+    // ranges. Previously a negative or absurdly large budget passed
+    // Number.isFinite() and reached the server; quantity used
+    // `parseInt(...) || 1` which passes NEGATIVE integers through
+    // because -N is truthy. Cap qty at 999 and require a positive
+    // integer; reject a negative or non-finite budget.
     const parsedBudget = Number(budget);
-    const parsedQuantity = Math.max(1, parseInt(quantity, 10) || 1);
+    const budgetOk = budget.trim().length === 0 || (
+      Number.isFinite(parsedBudget) && parsedBudget >= 0 && parsedBudget <= 1_000_000
+    );
+    if (!budgetOk) {
+      setError("Enter a budget between $0 and $1,000,000, or leave it blank.");
+      return;
+    }
+    const qtyRaw = parseInt(quantity, 10);
+    const parsedQuantity = Number.isFinite(qtyRaw) && qtyRaw > 0 ? Math.min(999, qtyRaw) : 1;
     setSubmitting(true);
     setError(null);
     try {
@@ -111,7 +125,9 @@ function NewCustomRequestImpl() {
         product_id: Number(productId),
         title: title.trim(),
         description: description.trim(),
-        budget_cents: budget.trim() && Number.isFinite(parsedBudget) ? Math.round(parsedBudget * 100) : undefined,
+        budget_cents: budget.trim() && Number.isFinite(parsedBudget) && parsedBudget >= 0
+          ? Math.round(parsedBudget * 100)
+          : undefined,
         quantity: parsedQuantity,
         reference_photo_ids: photos.map((photo) => photo.id),
       });
@@ -131,6 +147,42 @@ function NewCustomRequestImpl() {
 
   if (loadingProduct) {
     return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/product/" + productId)} /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
+  }
+
+  // v1.0.243 — when the product fetch failed we still rendered the
+  // whole form, and the buyer could try to submit a request for a
+  // product we never verified exists. Replace with an ErrorState so
+  // they can retry the fetch (or back out) before typing.
+  if (!product && error) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <Top onBack={() => safeBack(router, `/product/${productId}`)} />
+        <EmptyState
+          icon="cloud-offline-outline"
+          title="Couldn't load this product"
+          message={error}
+          actionLabel="Retry"
+          onAction={() => {
+            setError(null);
+            setLoadingProduct(true);
+            // Re-run the effect by re-toggling loading; the effect
+            // depends on `productId` so we can't retrigger by that.
+            // Do the fetch inline.
+            (async () => {
+              try {
+                const response = await nest.getProduct(productId);
+                setProduct(response);
+              } catch {
+                setError("We couldn't load this product.");
+              } finally {
+                setLoadingProduct(false);
+              }
+            })();
+          }}
+          testID="new-custom-request-load-error"
+        />
+      </SafeAreaView>
+    );
   }
 
   return (

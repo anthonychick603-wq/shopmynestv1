@@ -4,11 +4,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
-import { nest } from "@/src/api/nest";
+import { nest, ApiError } from "@/src/api/nest";
 import { toDispute } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Dispute } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { useAuth } from "@/src/context/AuthContext";
 import { statusStyle, statusLabel } from "@/src/utils/disputeStatus";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
@@ -34,14 +35,18 @@ function DisputesListImpl() {
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — promote failure to a retryable error state.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await nest.trust.listDisputes();
       const rows = Array.isArray(res) ? res : res.disputes || [];
       setDisputes(rows.map(toDispute));
-    } catch {
+    } catch (e) {
+      setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load disputes.");
       setDisputes([]);
     } finally {
       setLoading(false);
@@ -65,6 +70,8 @@ function DisputesListImpl() {
       <Top onBack={() => safeBack(router, "/(tabs)/account")} />
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+      ) : errorMsg ? (
+        <ErrorState message={errorMsg} onRetry={() => load()} />
       ) : (
         <FlatList
           data={disputes}

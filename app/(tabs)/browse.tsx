@@ -54,7 +54,30 @@ export default function Browse() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const push = usePushFromTab();
-  const { category: initialCat } = useLocalSearchParams<{ category?: string }>();
+  // v1.0.243 — accept the full saved-search deep-link contract so tapping
+  // a saved search actually replays the exact criteria that were saved.
+  // Fixes the P1 where only category was hydrated and sort, price range,
+  // condition, size, brand, and even the free-text search were silently
+  // discarded, giving buyers materially different results than they saved.
+  const {
+    category: initialCat,
+    search: initialSearch,
+    sort: initialSort,
+    min_price: initialMin,
+    max_price: initialMax,
+    pa_condition: initialCondition,
+    pa_size: initialSize,
+    pa_brand: initialBrand,
+  } = useLocalSearchParams<{
+    category?: string;
+    search?: string;
+    sort?: string;
+    min_price?: string;
+    max_price?: string;
+    pa_condition?: string;
+    pa_size?: string;
+    pa_brand?: string;
+  }>();
   // v1.0.187 — browse-side filter is multi-select: shoppers can pick any
   // number of categories AND drill in with sub-category checkboxes.
   // We preserve the deep-link `?category=<id>` shape by seeding the array
@@ -67,17 +90,29 @@ export default function Browse() {
   const { addProduct } = useCart();
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
 
-  const [search, setSearch] = useState("");
-  const [submitted, setSubmitted] = useState("");
+  // v1.0.243 — seed every filter from the deep-link params. Empty string
+  // and undefined stay behaviorally identical to "unset" so nothing changes
+  // for a plain /browse entry.
+  const _sortSeed: SortKey = (
+    initialSort === "popular" || initialSort === "price_asc" || initialSort === "price_desc"
+      ? initialSort
+      : ""
+  );
+  const [search, setSearch] = useState(initialSearch ?? "");
+  const [submitted, setSubmitted] = useState(initialSearch ?? "");
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(initialCategoryIds);
   const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<string[]>([]);
-  const [sort, setSort] = useState<SortKey>("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [condition, setCondition] = useState<string | undefined>();
-  const [size, setSize] = useState("");
-  const [brand, setBrand] = useState("");
-  const [appliedAttrs, setAppliedAttrs] = useState<{ condition?: string; size?: string; brand?: string }>({});
+  const [sort, setSort] = useState<SortKey>(_sortSeed);
+  const [minPrice, setMinPrice] = useState(initialMin ?? "");
+  const [maxPrice, setMaxPrice] = useState(initialMax ?? "");
+  const [condition, setCondition] = useState<string | undefined>(initialCondition);
+  const [size, setSize] = useState(initialSize ?? "");
+  const [brand, setBrand] = useState(initialBrand ?? "");
+  const [appliedAttrs, setAppliedAttrs] = useState<{ condition?: string; size?: string; brand?: string }>({
+    condition: initialCondition,
+    size: initialSize,
+    brand: initialBrand,
+  });
   const [categories, setCategories] = useState<HierarchicalCategory[]>([]);
   // v1.0.44 — Discover shops row. Sorted by product count descending so the
   // most active shops surface first. Fails silently — the row just doesn't
@@ -217,15 +252,24 @@ export default function Browse() {
     return () => { loadTokenRef.current++; };
   }, [load]);
 
+  // v1.0.243 — per-card add-in-progress guard so rapid taps on the
+  // grid card plus button cannot fire duplicate stock fetches or add
+  // multiple units.
+  const [addingId, setAddingId] = useState<string | null>(null);
   const onAdd = async (p: Product) => {
     if (!user) return push("/(auth)/login");
+    if (addingId != null) return;
+    setAddingId(p.id);
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
-      addProduct(fresh, 1);
-      toast.success("Added to cart");
+      const ok = await Promise.resolve(addProduct(fresh, 1));
+      if (ok) toast.success("Added to cart");
+      else toast.error("Couldn't add — please try again");
     } catch {
       toast.error("Could not add to cart");
+    } finally {
+      setAddingId(null);
     }
   };
 

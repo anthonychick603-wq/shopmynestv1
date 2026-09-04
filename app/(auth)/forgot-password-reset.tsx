@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
+import { PasswordInput } from "@/src/components/PasswordInput";
 import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { nest, ApiError } from "@/src/api/nest";
@@ -103,27 +104,24 @@ export default function ForgotPasswordReset() {
             Set a new password for <Text style={styles.emailBold}>{email}</Text>. You'll be signed in right after.
           </Text>
 
-          <Input
+          {/* v1.0.243 — reveal toggles on both new-password fields so
+              buyers can verify they are entering matching values before
+              committing a credential-changing action. */}
+          <PasswordInput
             label="New password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
             autoComplete="password-new"
             textContentType="newPassword"
             returnKeyType="next"
             onSubmitEditing={() => confirmRef.current?.focus()}
             testID="forgot-reset-password"
           />
-          <Input
+          <PasswordInput
             ref={confirmRef}
             label="Confirm new password"
             value={confirm}
             onChangeText={setConfirm}
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
             autoComplete="password-new"
             textContentType="newPassword"
             returnKeyType="go"

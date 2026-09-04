@@ -4,9 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
-import { nest, type NestCustomRequestRaw, type NestCustomRequestStatus } from "@/src/api/nest";
+import { nest, ApiError, type NestCustomRequestRaw, type NestCustomRequestStatus } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { AppImage } from "@/src/components/AppImage";
 import { useAuth } from "@/src/context/AuthContext";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
@@ -26,19 +27,41 @@ export default function CustomRequestsList() {
   const [requests, setRequests] = useState<NestCustomRequestRaw[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — dedicated error state and load-more pagination.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(async (nextRole: RequestRole = role) => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const response = await nest.custom.listRequests({ role: nextRole, page: 1, per_page: 50 });
       setRequests(response.items || []);
-    } catch {
+      setPage(response.page ?? 1);
+      setTotalPages(response.total_pages ?? 1);
+    } catch (e) {
+      setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load custom requests.");
       setRequests([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [role]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading || page >= totalPages) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await nest.custom.listRequests({ role, page: nextPage, per_page: 50 });
+      setRequests((prev) => [...prev, ...(res.items || [])]);
+      setPage(res.page ?? nextPage);
+      if (res.total_pages) setTotalPages(res.total_pages);
+    } catch { /* silent */ }
+    finally { setLoadingMore(false); }
+  }, [role, page, totalPages, loading, loadingMore]);
 
   useEffect(() => {
     if (user) void load();
@@ -70,12 +93,17 @@ export default function CustomRequestsList() {
       ) : null}
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+      ) : errorMsg ? (
+        <ErrorState message={errorMsg} onRetry={() => { void load(); }} />
       ) : (
         <FlatList
           data={requests}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
+          onEndReachedThreshold={0.4}
+          onEndReached={loadMore}
+          ListFooterComponent={loadingMore ? <View style={{ padding: spacing.lg }}><ActivityIndicator color={colors.brand} /></View> : null}
           renderItem={({ item }) => <RequestRow item={item} role={role} onPress={() => pushDetail(router, `/custom-request/${item.id}`)} />}
           ListEmptyComponent={<EmptyState icon="hammer-outline" title="No custom requests" message="Requests you send or receive appear here." testID="custom-requests-empty" />}
         />

@@ -62,6 +62,13 @@ export default function PostComments() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  // v1.0.243 — pagination for the comments list. The previous version
+  // fetched only page 1 (50 rows) and silently hid every comment past
+  // that cap. Now we track total pages and load additional pages when
+  // the buyer scrolls to the end.
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // v1.0.242 — gate post-await state against fast unmount + refresh.
   const { begin, isCurrent } = useLatestRequest();
@@ -74,6 +81,8 @@ export default function PostComments() {
       const res = await nest.getPostComments(id, { page: 1, per_page: 50 });
       if (!isCurrent(_tok)) return;
       setComments(res.comments || []);
+      setPage(1);
+      setTotalPages(Math.max(1, Number(res.pages) || 1));
     } catch (e) {
       if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load comments.");
@@ -84,6 +93,31 @@ export default function PostComments() {
       }
     }
   }, [id, begin, isCurrent]);
+
+  // v1.0.243 — fetch the next page and append. Uses `useLatestRequest`
+  // so a fast refresh while paging doesn't overwrite the fresh page 1
+  // with a stale page N.
+  const loadMore = useCallback(async () => {
+    if (!id || loadingMore || page >= totalPages) return;
+    const _tok = begin();
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const res = await nest.getPostComments(id, { page: next, per_page: 50 });
+      if (!isCurrent(_tok)) return;
+      const rows = res.comments || [];
+      setComments((prev) => {
+        const seen = new Set(prev.map((c) => String(c.id)));
+        return [...prev, ...rows.filter((c) => !seen.has(String(c.id)))];
+      });
+      setPage(next);
+      setTotalPages(Math.max(next, Number(res.pages) || next));
+    } catch {
+      // Non-fatal — buyer can pull to refresh or scroll again to retry.
+    } finally {
+      if (isCurrent(_tok)) setLoadingMore(false);
+    }
+  }, [id, loadingMore, page, totalPages, begin, isCurrent]);
 
   useEffect(() => {
     load();
@@ -133,6 +167,15 @@ export default function PostComments() {
               />
             }
             renderItem={({ item }) => <CommentRow comment={item} />}
+            onEndReachedThreshold={0.4}
+            onEndReached={loadMore}
+            ListFooterComponent={
+              loadingMore ? (
+                <View style={{ paddingVertical: spacing.md, alignItems: "center" }}>
+                  <ActivityIndicator color={colors.brand} />
+                </View>
+              ) : null
+            }
             ListEmptyComponent={
               <EmptyState
                 icon="chatbubble-outline"

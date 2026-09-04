@@ -76,7 +76,15 @@ function NewDisputeImpl() {
   };
 
   const submit = async () => {
-    if (!order) return toast.error("Missing order reference");
+    // v1.0.243 — validate the order param is a positive finite integer
+    // before we send it into any endpoint. Previously a malformed deep
+    // link (`/disputes/new?order=abc` or `?order=-1`) fell through to
+    // Number(order) which returns NaN or a negative, and the server
+    // rejected with a raw 422. Front-load the validation.
+    const orderNum = Number(order);
+    if (!order || !Number.isFinite(orderNum) || !Number.isInteger(orderNum) || orderNum <= 0) {
+      return toast.error("Missing or invalid order reference");
+    }
     if (description.trim().length < 10) return toast.error("Please describe the issue (at least 10 characters)");
     setSubmitting(true);
     try {
@@ -104,7 +112,7 @@ function NewDisputeImpl() {
 
       const evidenceUrls = await uploadEvidence();
       const res = await nest.trust.createDispute({
-        order_id: Number(order),
+        order_id: orderNum,
         reason,
         description: description.trim(),
         contacted_seller_at: contacted ? new Date().toISOString() : undefined,

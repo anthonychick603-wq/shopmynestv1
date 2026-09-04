@@ -49,25 +49,51 @@ export default function Favorites() {
   // effects can't race and can't commit after unmount.
   const { begin, isCurrent } = useLatestRequest();
 
+  // v1.0.243 — previously this useCallback had empty deps and captured
+  // `ids` from its initial closure, so after `refresh()` swapped the
+  // context to a newer favorites set the hydration step still fetched
+  // the ORIGINAL list. Result: pull-to-refresh appeared to do nothing
+  // when the buyer added a favorite on another device between mount
+  // and the refresh tap. Fetch the authoritative list from the network
+  // directly here so `load` never depends on stale context state.
   const load = useCallback(async () => {
     const _tok = begin();
     setLoading(true);
     try {
-      await refresh();
-      const idList = Array.from(ids);
+      // Kick the context refresh so `ids`, `isFavorite`, etc. downstream
+      // in the tree reflect the new list. We don't rely on its return
+      // value here.
+      const refreshPromise = refresh();
+      const raw = await nest.trust.listFavorites().catch(() => null);
+      const idList: string[] = (() => {
+        if (!raw) return Array.from(ids);
+        // Normalize the same way FavoritesContext does: pull numeric or
+        // string ids off the payload's `favorites` array.
+        const arr = (raw as { favorites?: unknown[] }).favorites || [];
+        return arr
+          .map((entry) => {
+            if (typeof entry === "string" || typeof entry === "number") return String(entry);
+            if (entry && typeof entry === "object" && "id" in entry) return String((entry as { id: unknown }).id);
+            return "";
+          })
+          .filter(Boolean);
+      })();
       const products = await Promise.all(
         idList.map((id) => nest.getProduct(id).then(toProduct).catch(() => null)),
       );
       if (!isCurrent(_tok)) return;
       setItems(products.filter((p): p is Product => !!p));
+      // Wait for the context to settle so downstream toggles work off
+      // the fresh set. Errors are swallowed — the context handles its
+      // own failure surfacing.
+      await refreshPromise.catch(() => {});
     } finally {
       if (isCurrent(_tok)) {
         setLoading(false);
         setRefreshing(false);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [begin, isCurrent]);
+  }, [begin, isCurrent, refresh, ids]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -101,14 +127,23 @@ export default function Favorites() {
     setItems((cur) => cur.filter((p) => ids.has(p.id)));
   }, [ids]);
 
+  // v1.0.243 — per-card add-in-progress guard so rapid taps on the
+  // plus button in the favorites grid cannot fire duplicate stock
+  // fetches or add multiple units to the cart.
+  const [addingId, setAddingId] = useState<string | null>(null);
   const onAdd = async (p: Product) => {
+    if (addingId != null) return;
+    setAddingId(p.id);
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
-      addProduct(fresh, 1);
-      toast.success("Added to cart");
+      const ok = await Promise.resolve(addProduct(fresh, 1));
+      if (ok) toast.success("Added to cart");
+      else toast.error("Couldn't add — please try again");
     } catch {
       toast.error("Could not add to cart");
+    } finally {
+      setAddingId(null);
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLatestRequest } from "@/src/hooks/use-latest-request";
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +16,7 @@ import { PostCard } from "@/src/components/PostCard";
 import { SellerBadge } from "@/src/components/SellerBadge";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { CategorySubcategoryPicker } from "@/src/components/CategorySubcategoryPicker";
 import { decodeEntities } from "@/src/utils/html";
 import { useAuth } from "@/src/context/AuthContext";
@@ -35,7 +36,11 @@ import { subcategoriesFor, toHierarchicalCategory, type HierarchicalCategory } f
 type ShopSort = "shop" | "price_asc" | "price_desc" | "name_asc";
 
 export default function SellerProfile() {
-  useBackFallback("/(tabs)/seller/dashboard");
+  // v1.0.243 — this is the public buyer-facing seller page. Cold deep
+  // links (share link with no history) previously fell through to the
+  // seller dashboard — a seller-only destination — which was hostile to
+  // buyers arriving from outside the app. Route them to Browse instead.
+  useBackFallback("/(tabs)/browse");
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -59,6 +64,20 @@ export default function SellerProfile() {
   const [reviewTotal, setReviewTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — dedicated error / not-found states. Fixes the P1 where
+  // request failures were disguised as an empty seller page and buyers
+  // could not tell whether the shop was missing or the network failed.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  // v1.0.243 — per-catalog paging. Replaces the silent 50-item cap so
+  // shops with more than 50 listings expose their full catalog through
+  // load-more instead of just being truncated.
+  const [productPage, setProductPage] = useState(1);
+  const [productTotalPages, setProductTotalPages] = useState(1);
+  const [productLoadingMore, setProductLoadingMore] = useState(false);
+  // v1.0.243 — per-card add-in-progress guard so rapid taps can't fire
+  // multiple stock checks and add multiple units.
+  const [addingId, setAddingId] = useState<string | null>(null);
   // v1.0.93 (Build #13) — follow state is derived from /sellers/{id} and
   // toggled optimistically so the button feels instant. On failure we roll
   // back and surface a toast, matching the pattern used by favorites.
@@ -72,11 +91,37 @@ export default function SellerProfile() {
   const load = useCallback(async () => {
     const _tok = begin();
     setLoading(true);
-    const [sellerRes, badgeRes, proRes, prodRes, reviewsRes, categoryRes] = await Promise.all([
-      nest.getSeller(id!).catch(() => null),
+    setErrorMsg(null);
+    setNotFound(false);
+    // v1.0.243 — the seller record itself is the primary must-have. If
+    // it 404s the page is not-found; if it errors for another reason the
+    // page is a retryable error. Everything else (products, reviews,
+    // categories) is still best-effort and shouldn't collapse the shell.
+    let sellerRes: NestSellerRaw | null = null;
+    let sellerErr: unknown = null;
+    try {
+      sellerRes = await nest.getSeller(id!);
+    } catch (e) {
+      sellerErr = e;
+    }
+    if (!isCurrent(_tok)) return;
+    if (sellerErr) {
+      if (sellerErr instanceof ApiError && sellerErr.status === 404) {
+        setNotFound(true);
+      } else {
+        setErrorMsg(sellerErr instanceof ApiError ? sellerErr.friendly : "Couldn't load this shop.");
+      }
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    const [badgeRes, proRes, prodRes, reviewsRes, categoryRes] = await Promise.all([
       nest.trust.getSellerBadge(id!).catch(() => null),
       nest.trust.getProStatus(id!).catch(() => null),
-      nest.getSellerProducts(id!, { per_page: 50 }).catch(() => ({ items: [], total: 0 })),
+      // v1.0.243 — request page 1; total_pages seeds the paginator so
+      // "load more" can walk older listings on demand.
+      nest.getSellerProducts(id!, { per_page: 50, page: 1 }).catch(() => ({ items: [], total: 0, total_pages: 1, page: 1 })),
       nest.getSellerReviews(id!, { per_page: 3 }).catch(() => ({ items: [], total: 0, average: 0, page: 1, total_pages: 0 })),
       nest.getCategories().catch(() => []),
     ]);
@@ -86,6 +131,10 @@ export default function SellerProfile() {
     setBadge(badgeRes as SellerBadgeType | null);
     setProSeller(!!proRes?.pro_seller);
     setProducts((prodRes.items || []).map(toProduct));
+    setProductPage(prodRes.page ?? 1);
+    setProductTotalPages(
+      prodRes.total_pages ?? (prodRes.total ? Math.max(1, Math.ceil(prodRes.total / 50)) : 1),
+    );
     setCategories(categoryRes.map(toHierarchicalCategory));
     setPosts((sellerRes?.posts || []).map(toPost));
     setReviews(reviewsRes.items || []);
@@ -94,17 +143,43 @@ export default function SellerProfile() {
     setRefreshing(false);
   }, [id, begin, isCurrent]);
 
+  // v1.0.243 — load-more page for the catalog. Called when infinite
+  // scroll reaches the end of the visible listings.
+  const loadMoreProducts = useCallback(async () => {
+    if (productLoadingMore) return;
+    if (productPage >= productTotalPages) return;
+    setProductLoadingMore(true);
+    const _tok = begin();
+    try {
+      const nextPage = productPage + 1;
+      const res = await nest.getSellerProducts(id!, { per_page: 50, page: nextPage });
+      if (!isCurrent(_tok)) return;
+      setProducts((prev) => [...prev, ...(res.items || []).map(toProduct)]);
+      setProductPage(res.page ?? nextPage);
+      if (res.total_pages) setProductTotalPages(res.total_pages);
+    } catch {
+      // silent: toast would be intrusive at the bottom of infinite scroll
+    } finally {
+      if (isCurrent(_tok)) setProductLoadingMore(false);
+    }
+  }, [id, productPage, productTotalPages, productLoadingMore, begin, isCurrent]);
+
   useEffect(() => { load(); }, [load]);
 
   const onAdd = async (p: Product) => {
     if (!user) return router.push("/(auth)/login");
+    if (addingId != null) return;
+    setAddingId(p.id);
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
-      addProduct(fresh, 1);
-      toast.success("Added to cart");
+      const ok = await Promise.resolve(addProduct(fresh, 1));
+      if (ok) toast.success("Added to cart");
+      else toast.error("Couldn't add — please try again");
     } catch {
       toast.error("Could not add to cart");
+    } finally {
+      setAddingId(null);
     }
   };
 
@@ -154,7 +229,7 @@ export default function SellerProfile() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.top}>
-        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/seller/dashboard"); }} style={styles.topBtn} testID="seller-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => { haptics.tap(); safeBack(router, "/(tabs)/browse"); }} style={styles.topBtn} testID="seller-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Ionicons name="chevron-back" size={22} color={colors.onSurface} /></TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>{storeName}</Text>
         <View style={styles.topRight}>
           {/* v1.0.56 - share the shop. */}
@@ -176,6 +251,15 @@ export default function SellerProfile() {
       </View>
       {loading ? (
         <ProductGridSkeleton count={4} />
+      ) : notFound ? (
+        <ErrorState
+          title="Shop not found"
+          message="This shop is no longer available. Try browsing marketplace listings."
+          onRetry={() => router.push("/(tabs)/browse")}
+          retryLabel="Browse"
+        />
+      ) : errorMsg ? (
+        <ErrorState message={errorMsg} onRetry={() => load()} />
       ) : (
         <FlatList
           data={visibleProducts}
@@ -183,6 +267,9 @@ export default function SellerProfile() {
           numColumns={2}
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+          onEndReachedThreshold={0.4}
+          onEndReached={loadMoreProducts}
+          ListFooterComponent={productLoadingMore ? <View style={{ padding: spacing.lg }}><ActivityIndicator color={colors.brand} /></View> : null}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} colors={[colors.brand]} />}
           ListHeaderComponent={
             <View style={styles.header}>

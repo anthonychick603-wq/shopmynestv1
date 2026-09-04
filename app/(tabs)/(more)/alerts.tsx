@@ -12,6 +12,7 @@ import { toNotification } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { NotificationItem } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
@@ -83,6 +84,15 @@ export default function Alerts() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — dedicated error state + load-more pagination + bulk
+  // mutation working flag. Fixes 3 P1s at once: silent-failure disguised
+  // as "caught up", 50-item hard cap on alert history, and rapid
+  // double-tap of mark-all/clear-all firing the mutation twice.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // v1.0.163 — Token so a resolve after unmount / user change can't stomp
   // fresher state or hard-close the app.
@@ -90,17 +100,23 @@ export default function Alerts() {
 
   const load = useCallback(async () => {
     const token = ++loadTokenRef.current;
+    setErrorMsg(null);
     if (!user) {
       setItems([]);
       setLoading(false);
       return;
     }
     try {
-      const data = await nest.getNotifications({ per_page: 50 });
+      const data = await nest.getNotifications({ per_page: 50, page: 1 });
       if (token !== loadTokenRef.current) return;
       setItems(data.items.map(toNotification));
-    } catch {
+      setPage(1);
+      // v1.0.243 — the notifications endpoint returns `total` but not
+      // `total_pages`, so derive it here to seed the paginator.
+      setTotalPages(data.total ? Math.max(1, Math.ceil(data.total / 50)) : 1);
+    } catch (e) {
       if (token !== loadTokenRef.current) return;
+      setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load alerts.");
       setItems([]);
     } finally {
       if (token === loadTokenRef.current) {
@@ -110,12 +126,33 @@ export default function Alerts() {
     }
   }, [user]);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading || page >= totalPages) return;
+    setLoadingMore(true);
+    const token = loadTokenRef.current;
+    try {
+      const nextPage = page + 1;
+      const data = await nest.getNotifications({ per_page: 50, page: nextPage });
+      if (token !== loadTokenRef.current) return;
+      setItems((prev) => [...prev, ...data.items.map(toNotification)]);
+      setPage(nextPage);
+      if (data.total) setTotalPages(Math.max(1, Math.ceil(data.total / 50)));
+    } catch { /* silent — don't disturb infinite scroll */ }
+    finally {
+      if (token === loadTokenRef.current) setLoadingMore(false);
+    }
+  }, [page, totalPages, loading, loadingMore]);
+
   useEffect(() => {
     load();
     return () => { loadTokenRef.current++; };
   }, [load]);
 
   const markAllRead = async () => {
+    // v1.0.243 — lock while inflight so rapid double-taps don't fire
+    // duplicate bulk mutations against the server.
+    if (bulkBusy) return;
+    setBulkBusy(true);
     // v1.0.107 — optimistic flip so the badge/count updates immediately even
     // if the server round-trip is slow. On failure we surface the error AND
     // reload from server, which will restore the true state.
@@ -135,6 +172,8 @@ export default function Alerts() {
       toast.error(e instanceof ApiError ? e.friendly : "Couldn’t mark alerts as read");
       load();
       refreshAlertsBadge();
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -206,6 +245,9 @@ export default function Alerts() {
   // wipe of the local list and badge; on failure we reload from server.
   const dismissAll = useCallback(() => {
     if (items.length === 0) return;
+    // v1.0.243 — lock while a prior bulk mutation is inflight to
+    // prevent double-firing the clear.
+    if (bulkBusy) return;
     haptics.tap();
     Alert.alert(
       "Clear all alerts?",
@@ -216,18 +258,21 @@ export default function Alerts() {
           text: "Clear all",
           style: "destructive",
           onPress: () => {
+            setBulkBusy(true);
             setItems([]);
             setUnreadCount(0);
-            nest.dismissAllNotifications().catch((e) => {
-              toast.error(e instanceof ApiError ? e.friendly : "Couldn’t clear alerts");
-              load();
-              refreshAlertsBadge();
-            });
+            nest.dismissAllNotifications()
+              .catch((e) => {
+                toast.error(e instanceof ApiError ? e.friendly : "Couldn’t clear alerts");
+                load();
+                refreshAlertsBadge();
+              })
+              .finally(() => setBulkBusy(false));
           },
         },
       ],
     );
-  }, [items.length, load, refreshAlertsBadge, setUnreadCount]);
+  }, [items.length, bulkBusy, load, refreshAlertsBadge, setUnreadCount]);
 
   if (!user) {
     return (
@@ -263,26 +308,32 @@ export default function Alerts() {
         <NestLogo compact title="Alerts" subtitle={unread > 0 ? `${unread} unread` : undefined} />
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
           {unread > 0 ? (
-            <TouchableOpacity onPress={() => { haptics.tap(); markAllRead(); }} testID="alerts-mark-all-read" accessibilityRole="button" accessibilityLabel="Mark all notifications as read">
-              <Text style={styles.markRead}>Mark all read</Text>
+            <TouchableOpacity onPress={() => { haptics.tap(); markAllRead(); }} disabled={bulkBusy} testID="alerts-mark-all-read" accessibilityRole="button" accessibilityLabel="Mark all notifications as read">
+              <Text style={[styles.markRead, bulkBusy && { opacity: 0.5 }]}>Mark all read</Text>
             </TouchableOpacity>
           ) : null}
           {/* v1.0.191 — Clear-all pill: destructive, so it confirms first. */}
           {items.length > 0 ? (
-            <TouchableOpacity onPress={dismissAll} testID="alerts-clear-all" accessibilityRole="button" accessibilityLabel="Clear all alerts" hitSlop={8}>
-              <Text style={styles.clearAll}>Clear all</Text>
+            <TouchableOpacity onPress={dismissAll} disabled={bulkBusy} testID="alerts-clear-all" accessibilityRole="button" accessibilityLabel="Clear all alerts" hitSlop={8}>
+              <Text style={[styles.clearAll, bulkBusy && { opacity: 0.5 }]}>Clear all</Text>
             </TouchableOpacity>
           ) : null}
           <CartHeaderButton />
         </View>
       </View>
+      {errorMsg && !loading ? (
+        <ErrorState message={errorMsg} onRetry={() => { setLoading(true); load(); }} />
+      ) : (
       <FlatList
         testID="alerts-list"
         data={items}
         keyExtractor={(n) => n.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: insets.bottom + 100 }}
-        ListEmptyComponent={<EmptyState icon="notifications-outline" title="You're all caught up" message="No notifications yet. New orders and updates will land here." testID="alerts-empty" />}
+        onEndReachedThreshold={0.4}
+        onEndReached={loadMore}
+        ListFooterComponent={loadingMore ? <View style={{ padding: spacing.lg }}><ActivityIndicator color={colors.brand} /></View> : null}
+        ListEmptyComponent={loading ? null : <EmptyState icon="notifications-outline" title="You're all caught up" message="No notifications yet. New orders and updates will land here." testID="alerts-empty" />}
         renderItem={({ item }) => {
           // v1.0.190 — One-tap inbox pattern. Tapping anywhere on the
           // row body marks-as-read AND navigates in a single gesture.
@@ -340,6 +391,7 @@ export default function Alerts() {
           );
         }}
       />
+      )}
     </SafeAreaView>
   );
 }

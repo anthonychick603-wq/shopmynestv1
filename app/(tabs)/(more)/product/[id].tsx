@@ -70,6 +70,9 @@ export default function ProductDetail() {
   // product is on screen so it doesn't block the first paint.
   const [similar, setSimilar] = useState<Product[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
+  // v1.0.243 — per-card add-in-progress guard for the similar-items
+  // rail so rapid taps on the same card can't add multiple units.
+  const [similarAddingId, setSimilarAddingId] = useState<string | null>(null);
 
   const onFav = () => {
     // v1.0.71 — haptic on every top-bar action so the buyer
@@ -100,6 +103,20 @@ export default function ProductDetail() {
   }, [id, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
+
+  // v1.0.243 — reset product state on id transition. When the buyer taps
+  // a card in the similar-items rail, the [id] route re-mounts with a
+  // new param but React keeps the same component instance, so without
+  // this we render the PREVIOUS product's header, gallery, and price
+  // for one frame while the new fetch resolves. Clear on every id
+  // change so the buyer sees the shared skeleton instead of stale
+  // details.
+  useEffect(() => {
+    setProduct(null);
+    setSimilar([]);
+    setErr(null);
+    setLoading(true);
+  }, [id]);
 
   // v1.0.234 — refetch the product on screen focus if the last load is more
   // than 5 seconds old. Fixes the “wp-admin edits don’t reflect in the app”
@@ -471,7 +488,14 @@ export default function ProductDetail() {
               <TouchableOpacity onPress={() => { haptics.tap(); setQty((q) => Math.max(1, q - 1)); }} style={styles.qtyBtn} testID="qty-decrement" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityLabel="Decrease quantity" accessibilityRole="button"><Ionicons name="remove" size={18} color={colors.onSurface} /></TouchableOpacity>
               <Text style={styles.qtyText} accessibilityLabel={`Quantity ${qty}`}>{qty}</Text>
               <TouchableOpacity onPress={() => { haptics.tap(); setQty((q) => {
-                const stockNum = Number(product?.stock);
+                // v1.0.243 — When a variation is selected use ITS stock,
+                // not the parent product's aggregate stock. Previously
+                // buyers could bump qty past a variation's real quota
+                // (e.g. 5-of-Blue when Blue only has 2 left).
+                const variationStock = matchedVariation && Number.isFinite(Number((matchedVariation as { stock_quantity?: unknown }).stock_quantity))
+                  ? Number((matchedVariation as { stock_quantity?: number }).stock_quantity)
+                  : null;
+                const stockNum = variationStock != null ? variationStock : Number(product?.stock);
                 const cap = Number.isFinite(stockNum) && stockNum > 0 ? Math.min(99, stockNum) : 99;
                 if (q + 1 > cap) {
                   toast.show(`Only ${cap} available.`);
@@ -519,7 +543,12 @@ export default function ProductDetail() {
                     onAddToCart={() => {
                       haptics.tap();
                       if (!user) return router.push("/(auth)/login");
-                      addProduct(item, 1);
+                      // v1.0.243 — short-circuit when the same card is
+                      // already resolving so a double-tap doesn't add twice.
+                      if (similarAddingId != null) return;
+                      setSimilarAddingId(item.id);
+                      try { addProduct(item, 1); }
+                      finally { setSimilarAddingId(null); }
                     }}
                     onToggleFavorite={() => {
                       haptics.tap();
@@ -577,15 +606,27 @@ export default function ProductDetail() {
                 )}
               </TouchableOpacity>
             ) : null}
-            <View style={styles.purchaseRow}>
-              <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-add-cart" accessibilityRole="button">
-                <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
-                <Text style={styles.actionSecondaryText}>Add to cart</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-buy-now" accessibilityRole="button">
-                {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
-              </TouchableOpacity>
-            </View>
+            {/* v1.0.243 — Sellers can't buy their own listing. Previously
+                Add to cart / Buy now were shown when isOwnListing was
+                true but the item was out of stock (which suppressed the
+                restock-alert branch), leaving the buttons live for the
+                seller. Replace with an inline note in that case. */}
+            {isOwnListing ? (
+              <View style={styles.ownListingNote}>
+                <Ionicons name="information-circle-outline" size={18} color={colors.onSurfaceMuted} />
+                <Text style={styles.ownListingNoteText}>This is your listing. You can’t buy your own items.</Text>
+              </View>
+            ) : (
+              <View style={styles.purchaseRow}>
+                <TouchableOpacity onPress={() => doAdd(false)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionSecondary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-add-cart" accessibilityRole="button">
+                  <Ionicons name="bag-add-outline" size={20} color={colors.onSurface} />
+                  <Text style={styles.actionSecondaryText}>Add to cart</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => doAdd(true)} disabled={adding || !product.in_stock || !variationAvailable || !allPicked} style={[styles.actionPrimary, (!product.in_stock || !variationAvailable || !allPicked || adding) && styles.actionDisabled]} testID="product-buy-now" accessibilityRole="button">
+                  {adding ? <ActivityIndicator color={colors.onBrand} /> : <Text style={styles.actionPrimaryText}>Buy now</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
             {product.customizable === true && user?.id !== product.seller?.id ? (
               <TouchableOpacity
                 style={styles.requestCustomization}
@@ -746,6 +787,9 @@ const styles = StyleSheet.create({
   },
   purchaseActions: { width: "100%" },
   purchaseRow: { flexDirection: "row", gap: spacing.sm },
+  // v1.0.243 — own-listing purchase-guard note replaces the buttons.
+  ownListingNote: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary },
+  ownListingNoteText: { flex: 1, ...typeTokens.body, color: colors.onSurfaceMuted },
   actionExpress: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.brand, borderRadius: radius.pill, marginBottom: spacing.sm },
   actionExpressText: { color: colors.onBrand, fontWeight: "800", fontSize: 15 },
   actionSecondary: {

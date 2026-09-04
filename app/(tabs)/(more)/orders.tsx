@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { format } from "date-fns";
 
-import { nest, type NestSellerOrderRaw } from "@/src/api/nest";
+import { nest, ApiError, type NestSellerOrderRaw } from "@/src/api/nest";
 import { toOrder } from "@/src/api/adapters";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import type { Order } from "@/src/types";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { AppImage } from "@/src/components/AppImage";
@@ -72,17 +73,33 @@ function OrdersImpl() {
   const [sellerOrders, setSellerOrders] = useState<SellerOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — dedicated error state and load-more pagination. Fixes
+  // the P1 where a failed order fetch was silently displayed as "no
+  // orders yet", and the P1 where the buyer/seller list was capped at
+  // 50 rows with no way to reach older orders.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [buyerPage, setBuyerPage] = useState(1);
+  const [buyerTotalPages, setBuyerTotalPages] = useState(1);
+  const [sellerPage, setSellerPage] = useState(1);
+  const [sellerTotalPages, setSellerTotalPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(async () => {
+    setErrorMsg(null);
     try {
       if (mode === "seller" && canSee.seller) {
-        const res = await nest.getSellerOrders({ per_page: 50 });
+        const res = await nest.getSellerOrders({ per_page: 50, page: 1 });
         setSellerOrders(res.orders.map(sellerRowFrom));
+        setSellerPage(res.page ?? 1);
+        setSellerTotalPages(res.total_pages ?? 1);
       } else {
-        const res = await nest.getBuyerOrders({ per_page: 50 });
+        const res = await nest.getBuyerOrders({ per_page: 50, page: 1 });
         setBuyerOrders(res.orders.map(toOrder));
+        setBuyerPage(res.page ?? 1);
+        setBuyerTotalPages(res.total_pages ?? 1);
       }
-    } catch {
+    } catch (e) {
+      setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load orders.");
       if (mode === "seller") setSellerOrders([]);
       else setBuyerOrders([]);
     } finally {
@@ -93,6 +110,34 @@ function OrdersImpl() {
     // screen's lifetime; refetching when it flips would be misleading anyway.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
+
+  // v1.0.243 — append the next page when the buyer scrolls past the
+  // bottom of the visible list. Failures are intentionally silent so
+  // reaching the end of a long history isn't disrupted with a toast.
+  const loadMore = useCallback(async () => {
+    if (loadingMore || loading) return;
+    if (mode === "seller") {
+      if (sellerPage >= sellerTotalPages) return;
+      setLoadingMore(true);
+      try {
+        const res = await nest.getSellerOrders({ per_page: 50, page: sellerPage + 1 });
+        setSellerOrders((prev) => [...prev, ...res.orders.map(sellerRowFrom)]);
+        setSellerPage(res.page ?? sellerPage + 1);
+        if (res.total_pages) setSellerTotalPages(res.total_pages);
+      } catch { /* silent */ }
+      finally { setLoadingMore(false); }
+    } else {
+      if (buyerPage >= buyerTotalPages) return;
+      setLoadingMore(true);
+      try {
+        const res = await nest.getBuyerOrders({ per_page: 50, page: buyerPage + 1 });
+        setBuyerOrders((prev) => [...prev, ...res.orders.map(toOrder)]);
+        setBuyerPage(res.page ?? buyerPage + 1);
+        if (res.total_pages) setBuyerTotalPages(res.total_pages);
+      } catch { /* silent */ }
+      finally { setLoadingMore(false); }
+    }
+  }, [mode, loading, loadingMore, buyerPage, buyerTotalPages, sellerPage, sellerTotalPages]);
 
   useEffect(() => {
     setLoading(true);
@@ -115,12 +160,17 @@ function OrdersImpl() {
 
       {loading ? (
         <OrderListSkeleton count={4} />
+      ) : errorMsg ? (
+        <ErrorState message={errorMsg} onRetry={() => { setLoading(true); load(); }} />
       ) : mode === "seller" ? (
         <FlatList
           data={sellerOrders}
           keyExtractor={(o) => o.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
+          onEndReachedThreshold={0.4}
+          onEndReached={loadMore}
+          ListFooterComponent={loadingMore ? <View style={{ padding: spacing.lg }}><ActivityIndicator color={colors.brand} /></View> : null}
           ListEmptyComponent={
             <EmptyState
               icon="receipt-outline"
@@ -159,6 +209,9 @@ function OrdersImpl() {
           keyExtractor={(o) => o.id}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.brand} />}
+          onEndReachedThreshold={0.4}
+          onEndReached={loadMore}
+          ListFooterComponent={loadingMore ? <View style={{ padding: spacing.lg }}><ActivityIndicator color={colors.brand} /></View> : null}
           ListEmptyComponent={<EmptyState icon="receipt-outline" title="No orders yet" message="Once you place an order it will show up here." testID="orders-empty" />}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => { haptics.tap(); pushDetail(router, `/order/${item.id}`); }} style={styles.card} testID={`order-${item.id}`} accessibilityLabel={`Open order ${item.id}, status ${item.status}`} accessibilityRole="button">

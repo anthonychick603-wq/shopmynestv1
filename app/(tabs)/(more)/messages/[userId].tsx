@@ -435,6 +435,33 @@ export default function MessageThread() {
     );
   }
 
+  // v1.0.243 — reject a malformed conversation route (`.../messages/abc`
+  // or a missing userId). Previously `Number(params.userId)` produced
+  // NaN, load() bailed on `!otherId`, and the screen sat forever in the
+  // loading spinner with no way to recover. Show an ErrorState with a
+  // path back to the inbox instead.
+  if (!Number.isFinite(otherId) || !Number.isInteger(otherId) || otherId <= 0) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <View style={styles.top}>
+          <TouchableOpacity onPress={() => safeBack(router, "/(tabs)/(more)/messages")} style={styles.topBtn} testID="thread-back" accessibilityRole="button" accessibilityLabel="Go back" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+          </TouchableOpacity>
+          <Text style={styles.topTitle} numberOfLines={1}>Conversation</Text>
+          <AlertsBellButton />
+        </View>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Conversation not found"
+          message="That link doesn't point to a valid conversation."
+          actionLabel="Back to messages"
+          onAction={() => safeBack(router, "/(tabs)/(more)/messages")}
+          testID="thread-bad-route"
+        />
+      </SafeAreaView>
+    );
+  }
+
   const winWidth = Dimensions.get("window").width;
   const bubbleMaxWidth = Math.min(320, winWidth * 0.72);
 

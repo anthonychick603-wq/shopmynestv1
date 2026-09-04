@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { nest, ApiError } from "@/src/api/nest";
 import { colors, radius, spacing } from "@/src/theme";
 import { Button } from "@/src/components/Button";
+import { ErrorState } from "@/src/components/ErrorState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";

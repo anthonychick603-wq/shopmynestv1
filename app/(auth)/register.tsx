@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
 import { Input } from "@/src/components/Input";
+import { PasswordInput } from "@/src/components/PasswordInput";
 import { NestLogo } from "@/src/components/NestLogo";
 import { useAuth } from "@/src/context/AuthContext";
 import { ApiError } from "@/src/api/nest";
@@ -122,12 +123,14 @@ export default function Register() {
             hint="You'll get a code to verify this address"
             testID="register-email"
           />
-          <Input
+          {/* v1.0.243 — password reveal toggle. Fixes P1 where the create-account
+              field was permanently masked and buyers could accidentally lock
+              themselves out of accounts they just made. */}
+          <PasswordInput
             ref={passwordRef}
             label="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             autoComplete="password-new"
             textContentType="newPassword"
             returnKeyType="go"

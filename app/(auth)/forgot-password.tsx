@@ -14,11 +14,14 @@ import { haptics } from "@/src/utils/haptics";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 
-// v1.0.133 — Step 1 of the password-reset flow. Asks for the email or
-// username on the account, calls /auth/password-reset/request, and
-// pushes to /forgot-password/verify. The server is deliberately
-// oblivious to whether the account exists (always returns sent:true)
-// so we can display the same "code sent" copy either way.
+// v1.0.133 — Step 1 of the password-reset flow. Asks for the email on
+// the account, calls /auth/password-reset/request, and pushes to
+// /forgot-password/verify. The server is deliberately oblivious to
+// whether the account exists (always returns sent:true) so we can
+// display the same "code sent" copy either way.
+//
+// v1.0.243 — stale comment cleanup. Older revisions accepted email or
+// username; the input, API contract, and copy are all email-only now.
 export default function ForgotPassword() {
   useBackFallback("/(auth)/login");
   const router = useRouter();

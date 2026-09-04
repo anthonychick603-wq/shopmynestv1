@@ -17,6 +17,7 @@ import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -36,17 +37,21 @@ export default function RecentlyViewedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [clearing, setClearing] = useState(false);
+  // v1.0.243 — promote failure to a retryable error state instead of a
+  // fleeting toast + empty grid.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // v1.0.95 — signed-out users used to hit /me/recently-viewed and get a
   // 401 toast on mount. Gate the fetch on `user` and render the same auth-
   // required empty state that favorites.tsx uses.
   const load = useCallback(async () => {
     if (!user) { setLoading(false); setRefreshing(false); return; }
+    setErrorMsg(null);
     try {
       const res = await nest.getRecentlyViewed(20);
       setItems((res.items || []).map(toProduct));
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.friendly : "Could not load recently viewed");
+      setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load recently viewed");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -144,6 +149,8 @@ export default function RecentlyViewedScreen() {
         <View style={{ padding: spacing.lg }}>
           <ProductGridSkeleton count={6} />
         </View>
+      ) : errorMsg ? (
+        <ErrorState message={errorMsg} onRetry={() => { setLoading(true); load(); }} />
       ) : items.length === 0 ? (
         <View style={{ flex: 1, padding: spacing.lg }}>
           <EmptyState

@@ -66,15 +66,24 @@ export default function Blog() {
     if (!user) return push("/(auth)/login");
     toggleFavorite(p.id);
   };
+  // v1.0.243 — per-card add-in-progress guard. Prevents rapid taps on
+  // the plus button from firing two /products/{id} fetches and adding
+  // multiple units when only one was intended.
+  const [addingId, setAddingId] = useState<string | null>(null);
   const onAdd = async (p: Product) => {
     if (!user) return push("/(auth)/login");
+    if (addingId != null) return;
+    setAddingId(p.id);
     try {
       const fresh = toProduct(await nest.getProduct(p.id));
       if (!fresh.in_stock) return toast.error("Out of stock");
-      addProduct(fresh, 1);
-      toast.success("Added to cart");
+      const ok = await Promise.resolve(addProduct(fresh, 1));
+      if (ok) toast.success("Added to cart");
+      else toast.error("Couldn't add — please try again");
     } catch {
       toast.error("Could not add to cart");
+    } finally {
+      setAddingId(null);
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -10,6 +10,7 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { Fab } from "@/src/components/Fab";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { toast } from "@/src/components/Toast";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -35,13 +36,19 @@ function AddressBookScreenImpl() {
   const [items, setItems] = useState<NestAddressBookEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — dedicated error state so a failed initial load can be
+  // retried instead of showing a blank "no saved addresses" screen with
+  // a fleeting toast the buyer probably missed.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setErrorMsg(null);
     try {
       const res = await nest.listAddressBook();
       setItems(res.items || []);
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.friendly : "Could not load addresses");
+      const msg = e instanceof ApiError ? e.friendly : "Could not load addresses";
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -50,17 +57,32 @@ function AddressBookScreenImpl() {
 
   useEffect(() => { load(); }, [load]);
 
+  // v1.0.243 — confirmation prompt before delete. Fixes P1 where a
+  // single tap on the trash icon permanently removed the address with
+  // no confirm and no undo path.
   const onDelete = (a: NestAddressBookEntry) => {
     haptics.tap();
-    (async () => {
-      try {
-        await nest.deleteAddress(a.id);
-        setItems(prev => prev.filter(x => x.id !== a.id));
-        toast.success("Address removed");
-      } catch (e) {
-        toast.error(e instanceof ApiError ? e.friendly : "Delete failed");
-      }
-    })();
+    const label = a.label || (a.first_name && a.last_name ? `${a.first_name} ${a.last_name}` : "this address");
+    Alert.alert(
+      "Remove address?",
+      `"${label}" will be removed from your saved addresses. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await nest.deleteAddress(a.id);
+              setItems(prev => prev.filter(x => x.id !== a.id));
+              toast.success("Address removed");
+            } catch (e) {
+              toast.error(e instanceof ApiError ? e.friendly : "Delete failed");
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -76,6 +98,8 @@ function AddressBookScreenImpl() {
 
       {loading ? (
         <View style={styles.loading}><ActivityIndicator color={colors.brand} /></View>
+      ) : errorMsg ? (
+        <ErrorState message={errorMsg} onRetry={() => { setLoading(true); load(); }} />
       ) : (
         <FlatList
           data={items}

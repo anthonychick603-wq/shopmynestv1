@@ -12,6 +12,7 @@ import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Dispute } from "@/src/types";
 import { Button } from "@/src/components/Button";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { statusStyle, statusLabel, isResolved } from "@/src/utils/disputeStatus";
@@ -42,12 +43,25 @@ function DisputeDetailImpl() {
   const [note, setNote] = useState("");
   const [partialAmount, setPartialAmount] = useState("");
   const [working, setWorking] = useState(false);
+  // v1.0.243 — distinguish "not found" (real 404) from "couldn't load"
+  // (transient error). Failing dispute detail loads previously all
+  // rendered as "not found", making network hiccups look permanent.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    setNotFound(false);
     try {
       const raw = await nest.trust.getDispute(id!);
       setDispute(toDispute(raw));
-    } catch {
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
+        setNotFound(true);
+      } else {
+        setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load this dispute.");
+      }
       setDispute(null);
     } finally {
       setLoading(false);
@@ -114,7 +128,8 @@ function DisputeDetailImpl() {
   };
 
   if (loading) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
-  if (!dispute) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><EmptyState icon="alert-circle-outline" title="Not found" message="This dispute could not be loaded." /></SafeAreaView>;
+  if (errorMsg) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><ErrorState message={errorMsg} onRetry={() => load()} /></SafeAreaView>;
+  if (notFound || !dispute) return <SafeAreaView style={styles.safe} edges={["top"]}><Top onBack={() => safeBack(router, "/(tabs)/account")} /><EmptyState icon="alert-circle-outline" title="Not found" message="This dispute could not be loaded." /></SafeAreaView>;
 
   const s = statusStyle(dispute.status);
   const isAdmin = user?.role === "admin";

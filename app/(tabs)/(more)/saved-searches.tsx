@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { nest, ApiError, type NestSavedSearchRaw } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { toast } from "@/src/components/Toast";
 import { useAuth } from "@/src/context/AuthContext";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
@@ -32,6 +33,19 @@ export default function SavedSearchesScreen() {
   const [items, setItems] = useState<NestSavedSearchRaw[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.243 — dedicated error state (retryable) so failed loads aren't
+  // disguised as "No saved searches yet." Plus per-row pending set to lock
+  // toggle/delete against each other and stop stale-snapshot rollbacks
+  // from restoring a search the buyer just deleted.
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [busyIds, setBusyIds] = useState<Set<number>>(() => new Set());
+  const setBusy = React.useCallback((id: number, on: boolean) => {
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
 
   // v1.0.242 — gate post-await state with useLatestRequest.
   const { begin, isCurrent } = useLatestRequest();
@@ -43,13 +57,14 @@ export default function SavedSearchesScreen() {
       return;
     }
     const _tok = begin();
+    setErrorMsg(null);
     try {
       const res = await nest.getSavedSearches();
       if (!isCurrent(_tok)) return;
       setItems(res.items || []);
     } catch (e) {
       if (!isCurrent(_tok)) return;
-      if (e instanceof ApiError) toast.error(e.friendly);
+      setErrorMsg(e instanceof ApiError ? e.friendly : "Couldn't load your saved searches.");
     } finally {
       if (isCurrent(_tok)) {
         setLoading(false);
@@ -61,34 +76,63 @@ export default function SavedSearchesScreen() {
   useEffect(() => { load(); }, [load]);
 
   const onToggle = async (row: NestSavedSearchRaw, next: boolean) => {
-    // Optimistic — flip locally, roll back on error.
+    // v1.0.243 — per-row lock + rollback-by-id. Fixes the P1 where a stale
+    // rollback could restore a row that had already been deleted, or where
+    // rapid toggles could leave the notify state out of sync.
+    if (busyIds.has(row.id)) return;
+    setBusy(row.id, true);
     setItems((cur) => cur.map((r) => (r.id === row.id ? { ...r, notify: next } : r)));
     try {
       await nest.updateSavedSearch(row.id, { notify: next });
     } catch (e) {
       setItems((cur) => cur.map((r) => (r.id === row.id ? { ...r, notify: !next } : r)));
       toast.error(e instanceof ApiError ? e.friendly : "Could not update");
+    } finally {
+      setBusy(row.id, false);
     }
   };
 
   const onDelete = async (row: NestSavedSearchRaw) => {
-    const prev = items;
-    setItems((cur) => cur.filter((r) => r.id !== row.id));
+    if (busyIds.has(row.id)) return;
+    setBusy(row.id, true);
+    // v1.0.243 — capture only this row and its original position; roll
+    // back against the *latest* list by id instead of restoring a whole
+    // snapshot that could resurrect a concurrently-modified row.
+    let restoreIndex = -1;
+    setItems((cur) => {
+      restoreIndex = cur.findIndex((r) => r.id === row.id);
+      return cur.filter((r) => r.id !== row.id);
+    });
     try {
       await nest.deleteSavedSearch(row.id);
     } catch (e) {
-      setItems(prev);
+      setItems((current) => {
+        if (current.some((r) => r.id === row.id)) return current;
+        const idx = restoreIndex >= 0 && restoreIndex <= current.length ? restoreIndex : current.length;
+        const next = current.slice();
+        next.splice(idx, 0, row);
+        return next;
+      });
       toast.error(e instanceof ApiError ? e.friendly : "Could not delete");
+    } finally {
+      setBusy(row.id, false);
     }
   };
 
   const onOpen = (row: NestSavedSearchRaw) => {
-    // Replay the search on Browse. Only pass params Browse understands; the
-    // stored query is a superset (server-side pa_condition/pa_size/pa_brand
-    // aren't yet plumbed as URL params on Browse, but category + text are).
+    // v1.0.243 — hydrate the full saved-search contract onto Browse, not
+    // just search+category. Pairs with browse.tsx accepting sort, price
+    // range, condition/size/brand as deep-link params.
     const params: Record<string, string> = {};
-    if (row.query.search) params.search = row.query.search;
-    if (row.query.category) params.category = String(row.query.category);
+    const q = row.query || {};
+    if (q.search) params.search = q.search;
+    if (q.category) params.category = String(q.category);
+    if (q.sort) params.sort = q.sort;
+    if (q.min_price) params.min_price = q.min_price;
+    if (q.max_price) params.max_price = q.max_price;
+    if (q.pa_condition) params.pa_condition = q.pa_condition;
+    if (q.pa_size) params.pa_size = q.pa_size;
+    if (q.pa_brand) params.pa_brand = q.pa_brand;
     const search = new URLSearchParams(params).toString();
     router.push(`/(tabs)/browse${search ? `?${search}` : ""}` as never);
   };
@@ -107,11 +151,20 @@ export default function SavedSearchesScreen() {
         <Switch
           value={item.notify}
           onValueChange={(v) => onToggle(item, v)}
+          disabled={busyIds.has(item.id)}
           trackColor={{ true: colors.brand, false: colors.border }}
           thumbColor={colors.surface}
           testID={`saved-search-toggle-${item.id}`}
         />
-        <TouchableOpacity onPress={() => { haptics.warning(); onDelete(item); }} style={styles.delBtn} testID={`saved-search-delete-${item.id}`} accessibilityRole="button" accessibilityLabel={`Delete saved search ${item.label}`} hitSlop={10}>
+        <TouchableOpacity
+          onPress={() => { haptics.warning(); onDelete(item); }}
+          disabled={busyIds.has(item.id)}
+          style={[styles.delBtn, busyIds.has(item.id) && { opacity: 0.5 }]}
+          testID={`saved-search-delete-${item.id}`}
+          accessibilityRole="button"
+          accessibilityLabel={`Delete saved search ${item.label}`}
+          hitSlop={10}
+        >
           <Ionicons name="trash-outline" size={18} color={colors.onSurfaceMuted} />
         </TouchableOpacity>
       </View>
@@ -140,6 +193,8 @@ export default function SavedSearchesScreen() {
         />
       ) : loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
+      ) : errorMsg ? (
+        <ErrorState message={errorMsg} onRetry={() => { setLoading(true); load(); }} />
       ) : items.length === 0 ? (
         <EmptyState
           icon="notifications-circle-outline"

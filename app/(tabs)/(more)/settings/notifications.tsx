@@ -2,7 +2,7 @@
 // per category, backed by /me/preferences (see class-tnm-rest.php).
 // Toggling a switch does an optimistic UI flip + PUT; on failure we
 // revert the local state and surface the error via toast.
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -79,21 +79,54 @@ function NotificationsPreferencesScreenImpl() {
     return () => { cancelled = true; };
   }, []);
 
+  // v1.0.243 — per-key monotonic sequence + in-flight marker so a fast
+  // double-tap on the same switch can't (a) fire overlapping PUTs whose
+  // arrival order differs from tap order and (b) let an earlier reply's
+  // authoritative snapshot overwrite the latest tap's optimistic state.
+  // We accept the server snapshot only when the reply's sequence still
+  // matches the latest local intent for that key.
+  const toggleSeqRef = useRef<Record<string, number>>({});
+  const busyKeysRef = useRef<Set<string>>(new Set());
   const toggle = useCallback(async (key: PrefKey, next: boolean) => {
     if (!prefs) return;
+    // If a PUT for this key is still resolving, drop the extra tap.
+    // The Switch will visually revert on its own since we don't flip.
+    if (busyKeysRef.current.has(key)) return;
+    busyKeysRef.current.add(key);
     haptics.tap();
     const prev = prefs;
+    const seq = (toggleSeqRef.current[key] ?? 0) + 1;
+    toggleSeqRef.current[key] = seq;
     // Optimistic flip so the switch feels instant.
     setPrefs({ ...prefs, [key]: next });
     try {
       const server = await nest.setPreferences({ [key]: next });
-      setPrefs(withDefaults(server));
+      // Only accept the reply if no newer tap for this key has occurred.
+      if (toggleSeqRef.current[key] === seq) {
+        setPrefs(withDefaults(server));
+      }
     } catch (e) {
-      setPrefs(prev);
+      if (toggleSeqRef.current[key] === seq) setPrefs(prev);
       haptics.error();
       toast.error(e instanceof ApiError ? e.friendly : "Could not save that change");
+    } finally {
+      busyKeysRef.current.delete(key);
     }
   }, [prefs]);
+
+  // v1.0.243 — same guard for the back-in-stock toggle so two rapid taps
+  // don't fire overlapping mutations.
+  const restockBusyRef = useRef(false);
+  const toggleRestock = useCallback(async (v: boolean) => {
+    if (restockBusyRef.current) return;
+    restockBusyRef.current = true;
+    haptics.tap();
+    try {
+      await setRestockAlertsEnabled(v);
+    } finally {
+      restockBusyRef.current = false;
+    }
+  }, [setRestockAlertsEnabled]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -139,10 +172,7 @@ function NotificationsPreferencesScreenImpl() {
               </View>
               <Switch
                 value={restockAlertsEnabled}
-                onValueChange={async (v) => {
-                  haptics.tap();
-                  await setRestockAlertsEnabled(v);
-                }}
+                onValueChange={toggleRestock}
                 trackColor={{ true: colors.brand, false: colors.surfaceTertiary }}
                 thumbColor={colors.surfaceSecondary}
                 ios_backgroundColor={colors.surfaceTertiary}

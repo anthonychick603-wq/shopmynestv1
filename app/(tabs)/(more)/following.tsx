@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { nest, ApiError, type NestFollowedShop } from "@/src/api/nest";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import { EmptyState } from "@/src/components/EmptyState";
+import { ErrorState } from "@/src/components/ErrorState";
 import { AppImage } from "@/src/components/AppImage";
 import { RatingBadge } from "@/src/components/RatingBadge";
 import { safeBack } from "@/src/utils/nav";
@@ -56,14 +57,30 @@ export default function FollowingScreen() {
   useEffect(() => { load(); }, [load]);
 
   const onUnfollow = async (shop: NestFollowedShop) => {
+    // v1.0.243 — per-shop rollback. Fixes the P1 where each optimistic
+    // unfollow captured the entire shops array; overlapping operations on
+    // different shops could rollback-resurrect one that had already been
+    // unfollowed successfully. Now we snapshot only the removed row and
+    // re-insert it by id against the *latest* state on failure.
+    if (busyId != null) return; // audit: also prevents concurrent unfollows on the same tick
     haptics.press();
-    const prev = shops;
-    setShops((rows) => rows.filter((r) => r.id !== shop.id));
+    let restoreIndex = -1;
+    setShops((rows) => {
+      restoreIndex = rows.findIndex((r) => r.id === shop.id);
+      return rows.filter((r) => r.id !== shop.id);
+    });
     setBusyId(shop.id);
     try {
       await nest.unfollowSeller(shop.id);
     } catch (e) {
-      setShops(prev);
+      setShops((current) => {
+        // If the shop was re-added elsewhere (unlikely but safe), don't dupe.
+        if (current.some((r) => r.id === shop.id)) return current;
+        const insertAt = restoreIndex >= 0 && restoreIndex <= current.length ? restoreIndex : current.length;
+        const next = current.slice();
+        next.splice(insertAt, 0, shop);
+        return next;
+      });
       toast.error(e instanceof ApiError ? e.friendly : "Couldn't unfollow.");
     } finally {
       setBusyId(null);
@@ -83,7 +100,12 @@ export default function FollowingScreen() {
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={colors.brand} /></View>
       ) : error ? (
-        <View style={styles.center}><Text style={styles.errorText}>{error}</Text></View>
+        // v1.0.243 — wrap the error in a retryable ErrorState so buyers
+        // can recover from a transient outage in place instead of having
+        // to leave the screen and come back.
+        <View style={{ flex: 1 }}>
+          <ErrorState message={error} onRetry={() => { setLoading(true); load(); }} />
+        </View>
       ) : (
         <FlatList
           data={shops}

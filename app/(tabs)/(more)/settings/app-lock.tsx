@@ -6,7 +6,7 @@
 // the buyer out on next launch.
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -57,10 +57,29 @@ export default function AppLockSettingsScreen() {
     toast.info(next ? "App lock is on" : "App lock is off");
   }, [busy, settings, capability, biometricName, setEnabled]);
 
+  // v1.0.243 — grace-period picker previously fired setGrace() on every
+  // tap with no guard against overlapping writes. Rapid taps between two
+  // options could settle in reverse order, leaving the wrong option
+  // "selected" on disk. A monotonic sequence + latest-wins check keeps
+  // the final persisted value in sync with the last tap.
+  const graceSeqRef = useRef(0);
   const onPickGrace = useCallback(async (g: AppLockGrace) => {
     if (!settings) return;
+    // No-op when the buyer taps the same option again.
+    if (settings.grace === g) return;
     haptics.tap();
-    await setGrace(g);
+    const seq = graceSeqRef.current + 1;
+    graceSeqRef.current = seq;
+    try {
+      await setGrace(g);
+    } finally {
+      // If a newer tap superseded this one, its own await will overwrite;
+      // otherwise this write is the authoritative one and we're done.
+      if (graceSeqRef.current !== seq) {
+        // A later selection is in flight; nothing to do here — that
+        // call will win.
+      }
+    }
   }, [settings, setGrace]);
 
   const enabled = !!settings?.enabled;
