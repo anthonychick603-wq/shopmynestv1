@@ -242,8 +242,13 @@ function OrderDetailImpl() {
             </TouchableOpacity>
           ) : null}
         </View>
+        {/* v1.0.246 — wrap the tracking rows in a proper section card
+            with a "Tracking" label so the section reads consistently
+            with Status / Items / etc. The card's own header text was
+            removed at the same time so we don't say "Tracking" twice. */}
         {order.tracking_rows.length > 0 ? (
-          <View style={{ marginBottom: spacing.sm }}>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Tracking</Text>
             {order.tracking_rows.map((row) => (
               <BuyerTrackingCard key={row.seller_id} row={row} />
             ))}

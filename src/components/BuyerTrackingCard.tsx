@@ -41,9 +41,13 @@ export function BuyerTrackingCard({ row }: { row: OrderTrackingRow }) {
         {/* v1.0.245 — was "Shipped · <seller>" (or Delivered/Preparing +
             seller). The parent Order screen already shows the shipment
             status in the timeline strip and the seller name at the top,
-            so repeating either here was redundant. Simplify to just
-            "Tracking" so the card reads as what it actually is. */}
-        <Text style={styles.headerText}>Tracking</Text>
+            so repeating either here was redundant.
+            v1.0.246 — dropped the inner "Tracking" text entirely, since
+            the parent order screen now wraps this card in a section card
+            with its own "Tracking" label; saying it twice was noise.
+            The status icon on the left is kept so the card still telegraphs
+            shipment state at a glance. */}
+        <View style={{ flex: 1 }} />
         {row.label_source === "shippo" ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>Shippo label</Text>
