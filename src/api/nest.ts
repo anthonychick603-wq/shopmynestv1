@@ -418,9 +418,11 @@ export const nest = {
   addPostComment: (id: number | string, content: string) =>
     request<NestPostCommentRaw>("marketplace", `/posts/${id}/comments`, { method: "POST", body: { content } }),
   // -------------------------------------------------------------------------
-  // Blog (the-nest/v1/blog) — any logged-in user may submit a caption + photo;
-  // posts stay pending until an admin approves them, so the public feed only
-  // ever returns approved posts.
+  // Blog (the-nest/v1/blog) — any logged-in user may submit a caption + photo.
+  // v1.0.252 (plugin ≥ v3.7.109): posts auto-approve on submit and land in the
+  // public feed immediately; admins can still hide/reject via the moderation
+  // endpoints below. The public feed returns every post with WP status
+  // `publish` (no author or role filter).
   // -------------------------------------------------------------------------
   getBlogPosts: (query?: { page?: number; per_page?: number }) =>
     request<NestBlogPostsRaw>("marketplace", "/blog/posts", { query, auth: false }),

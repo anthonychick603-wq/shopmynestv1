@@ -161,15 +161,29 @@ export default function Blog() {
     const _tok = begin();
     setError(null);
     try {
+      // v1.0.252 — parallelize page-1: kick the blog fetch AT THE SAME TIME
+      // as the three home widgets, not after. The prior serialize pattern
+      // blocked first paint on the slowest of home/recently-viewed/for-you
+      // even though none of them feed the blog list itself.
       if (nextPage === 1) {
-        await Promise.all([loadHomeFeed(), loadRecentlyViewed(), loadForYouFeed()]);
+        const blogPromise = nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
+        // Fire the three home carousels in parallel; they set their own
+        // state and swallow their own errors, so we don't need to await.
+        void Promise.all([loadHomeFeed(), loadRecentlyViewed(), loadForYouFeed()]);
+        const res = await blogPromise;
+        if (!isCurrent(_tok)) return;
+        const items = (res.items || []).map(toBlogPost);
+        setPosts(items);
+        setPage(res.page ?? nextPage);
+        setTotalPages(res.total_pages ?? 1);
+      } else {
+        const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
+        if (!isCurrent(_tok)) return;
+        const items = (res.items || []).map(toBlogPost);
+        setPosts((prev) => [...prev, ...items]);
+        setPage(res.page ?? nextPage);
+        setTotalPages(res.total_pages ?? 1);
       }
-      const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
-      if (!isCurrent(_tok)) return;
-      const items = (res.items || []).map(toBlogPost);
-      setPosts((prev) => (nextPage === 1 ? items : [...prev, ...items]));
-      setPage(res.page ?? nextPage);
-      setTotalPages(res.total_pages ?? 1);
     } catch (e) {
       if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load the blog.");
