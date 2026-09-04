@@ -37,6 +37,14 @@ export default function Blog() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  // v1.0.253 — blog fetch is now decoupled from the outer `loading` flag.
+  // The Home tab now paints the widgets (home feed, recently viewed, for-you)
+  // as soon as they resolve, and shows an inline skeleton at the top of the
+  // blog list while `blogLoading` is true. Prior to this the entire Home tab
+  // stayed on the skeleton grid until blog resolved, so a slow blog fetch
+  // (or the 12 s watchdog) was the perceived Home load time even when the
+  // widgets were ready in 1 s.
+  const [blogLoading, setBlogLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -161,22 +169,84 @@ export default function Blog() {
     const _tok = begin();
     setError(null);
     try {
-      // v1.0.252 — parallelize page-1: kick the blog fetch AT THE SAME TIME
-      // as the three home widgets, not after. The prior serialize pattern
-      // blocked first paint on the slowest of home/recently-viewed/for-you
-      // even though none of them feed the blog list itself.
+      // v1.0.253 — truly independent fetch fan-out on page 1. Each of the
+      // four fetches (home widgets × 3, blog) resolves and clears its own
+      // spinner without waiting on the others. The outer `loading` flag
+      // clears as soon as *any* of the widgets settles — the perceived
+      // Home-tab load is now bounded by the fastest widget, not the
+      // slowest fetch. The blog list gets an inline skeleton via
+      // `blogLoading`; it stays true until getBlogPosts resolves or fails.
+      //
+      // Timing logs (dev-only) let us confirm on-device wall-clock times
+      // for each fetch when triaging slow-Home reports. Metro / adb
+      // logcat shows the labels.
       if (nextPage === 1) {
-        const blogPromise = nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
-        // Fire the three home carousels in parallel; they set their own
-        // state and swallow their own errors, so we don't need to await.
-        void Promise.all([loadHomeFeed(), loadRecentlyViewed(), loadForYouFeed()]);
-        const res = await blogPromise;
-        if (!isCurrent(_tok)) return;
-        const items = (res.items || []).map(toBlogPost);
-        setPosts(items);
-        setPage(res.page ?? nextPage);
-        setTotalPages(res.total_pages ?? 1);
+        setBlogLoading(true);
+        const t0 = Date.now();
+        const mark = (label: string, tStart: number) => {
+          if (__DEV__) console.log(`[home:timing] ${label} took ${Date.now() - tStart}ms`);
+        };
+        // Blog gets its own tracking so `loading` can settle on widgets alone.
+        const blogPromise = (async () => {
+          const bStart = Date.now();
+          try {
+            const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
+            mark("blog", bStart);
+            if (!isCurrent(_tok)) return;
+            const items = (res.items || []).map(toBlogPost);
+            setPosts(items);
+            setPage(res.page ?? nextPage);
+            setTotalPages(res.total_pages ?? 1);
+          } catch (e) {
+            mark("blog(err)", bStart);
+            if (!isCurrent(_tok)) return;
+            setError(e instanceof ApiError ? e.friendly : "Could not load the blog.");
+          } finally {
+            if (isCurrent(_tok)) setBlogLoading(false);
+          }
+        })();
+        // Wrap each widget so we can log its wall-clock time. Each widget's
+        // loader already updates its own state + swallows errors, so all we
+        // do here is time it and hook first-resolution to clear `loading`.
+        // The Promise-per-widget is created ONCE and reused for both the
+        // race (first-in unblocks the skeleton grid) and the all (final
+        // "widgets done" timing log). Do not call these twice or we
+        // double-fire the fetches.
+        const timedWidget = (label: string, fn: () => Promise<void>): Promise<void> => {
+          const s = Date.now();
+          return fn().then(
+            () => { mark(label, s); },
+            () => { mark(`${label}(err)`, s); },
+          );
+        };
+        const widgetPromises = [
+          timedWidget("home", loadHomeFeed),
+          timedWidget("recentlyViewed", loadRecentlyViewed),
+          timedWidget("forYou", loadForYouFeed),
+        ];
+        // As soon as ANY widget resolves, unblock the skeleton grid and
+        // dismiss the pull-to-refresh spinner. Blog and the remaining
+        // widgets continue in the background. `timedWidget` never rejects
+        // (it swallows errors above), so Promise.race here is effectively
+        // "first to settle".
+        void Promise.race(widgetPromises).then(() => {
+          if (!isCurrent(_tok)) return;
+          setLoading(false);
+          setRefreshing(false);
+        });
+        // NOTE: we deliberately don't `await` blogPromise or widgetPromises
+        // here. The blog list paints when blogLoading flips, the widgets
+        // paint when their own state setters fire, and the refresh
+        // control clears in the finally block below on the first
+        // widget race. If the user pulls to refresh while blog is still
+        // pending, `refreshing` clears with the widgets — the inline blog
+        // skeleton keeps them informed.
+        void Promise.all(widgetPromises).finally(() => {
+          if (__DEV__) mark("widgets(all)", t0);
+        });
+        void blogPromise;
       } else {
+        setBlogLoading(true);
         const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
         if (!isCurrent(_tok)) return;
         const items = (res.items || []).map(toBlogPost);
@@ -185,13 +255,25 @@ export default function Blog() {
         setTotalPages(res.total_pages ?? 1);
       }
     } catch (e) {
+      // Only page 2+ reaches here now; page 1 handles its own errors inside
+      // the fan-out above.
       if (!isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load the blog.");
     } finally {
+      // v1.0.253 — loading + refreshing now clear on the first widget race
+      // (page 1) or after the page-2+ blog fetch resolves in the try block.
+      // We still clear loadingMore here since it's tied to the page-2+ path
+      // and page 1 never sets it. For page 2+ we also need to belt-and-
+      // suspenders clear setLoading / setRefreshing in case the caller
+      // set them (e.g. mount effect never fires setRefreshing but a stale
+      // refresh path might). Idempotent setState calls are cheap.
       if (isCurrent(_tok)) {
-        setLoading(false);
         setLoadingMore(false);
-        setRefreshing(false);
+        if (nextPage !== 1) {
+          setLoading(false);
+          setRefreshing(false);
+          setBlogLoading(false);
+        }
       }
     }
   }, [loadHomeFeed, loadRecentlyViewed, loadForYouFeed, begin, isCurrent]);
@@ -545,12 +627,24 @@ export default function Blog() {
             </View>
           }
           ListEmptyComponent={
-            <EmptyState
-              icon="newspaper-outline"
-              title="No posts yet"
-              message="Approved posts from the My Nest community will show up here."
-              testID="blog-empty"
-            />
+            // v1.0.253 — while blog is still fetching (but the widgets have
+            // already painted so we're past the outer skeleton), show a
+            // small inline skeleton so the section doesn't flash "No posts
+            // yet" and then flip to a full list a second later. When blog
+            // truly returns zero items, blogLoading is false and the empty
+            // state paints as before.
+            blogLoading ? (
+              <View testID="blog-inline-skeleton">
+                <ProductGridSkeleton count={2} />
+              </View>
+            ) : (
+              <EmptyState
+                icon="newspaper-outline"
+                title="No posts yet"
+                message="Approved posts from the My Nest community will show up here."
+                testID="blog-empty"
+              />
+            )
           }
           ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: spacing.lg }} color={colors.onSurface} /> : null}
         />

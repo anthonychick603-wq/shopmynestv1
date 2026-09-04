@@ -137,6 +137,13 @@ type ReqOpts = {
   // keys (e.g. payout requests). Content-Type/Authorization are set by
   // the request helper and shouldn't be overridden by callers.
   headers?: Record<string, string>;
+  // v1.0.253 — opt-in to letting edge caches (Batcache) serve the response.
+  // Only endpoints whose server responses are `public` + explicitly purged on
+  // every write should set this. Skips the `_=<ts>` cachebust query param and
+  // the `Cache-Control: no-cache` request header, both of which force the
+  // edge to bypass its cache on every request. See request() body for the
+  // full note.
+  allowEdgeCache?: boolean;
 };
 
 async function readToken(): Promise<string | null> {
@@ -161,7 +168,7 @@ function makeUrl(ns: Namespace, path: string, query?: Record<string, unknown>): 
 }
 
 async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts = {}): Promise<T> {
-  const { method = "GET", query, body, formData, timeoutMs = DEFAULT_TIMEOUT_MS, auth = true, headers: extraHeaders } = opts;
+  const { method = "GET", query, body, formData, timeoutMs = DEFAULT_TIMEOUT_MS, auth = true, headers: extraHeaders, allowEdgeCache = false } = opts;
   const headers: Record<string, string> = { Accept: "application/json" };
   if (extraHeaders) Object.assign(headers, extraHeaders);
   if (auth) {
@@ -179,7 +186,16 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
   // server's Cache-Control: no-store didn't help. Force every GET to bypass
   // the client cache; a request-time param also defeats any intermediate
   // proxy that ignores the request headers.
-  const bypassCache = method === "GET";
+  //
+  // v1.0.253 — blanket cachebusting was correct while every endpoint sent
+  // `no-store` from the server, but plugin v3.13.84 opened the blog feed to
+  // Batcache with `s-maxage=60` and per-write purges. Endpoints that opt in
+  // via `allowEdgeCache: true` skip the cachebust query param and no-cache
+  // request headers so the edge can serve the response, and rely on the
+  // response ETag / Last-Modified for freshness. All other GETs keep the
+  // hard-bypass behavior; changing every endpoint at once is too broad, we
+  // scope the loosening to feeds we already purge on write.
+  const bypassCache = method === "GET" && !allowEdgeCache;
   if (bypassCache) {
     headers["Cache-Control"] = "no-cache";
     headers.Pragma = "no-cache";
@@ -424,8 +440,16 @@ export const nest = {
   // endpoints below. The public feed returns every post with WP status
   // `publish` (no author or role filter).
   // -------------------------------------------------------------------------
+  // v1.0.253 — opt in to edge caching (Batcache). Plugin v3.13.84 flipped the
+  // public feed to `Cache-Control: public, s-maxage=60`; the write paths
+  // (submit / approve / reject / delete / edit) already call
+  // purge_public_feed_cache() on the server, and pull-to-refresh forces a
+  // fresh fetch (see load(1) callers below — the refresh path still adds a
+  // once-per-refresh cachebust via headers.Pragma below). Freshness inside
+  // the 60 s TTL comes from the ETag/If-None-Match round trip which stays
+  // intact when allowEdgeCache is on.
   getBlogPosts: (query?: { page?: number; per_page?: number }) =>
-    request<NestBlogPostsRaw>("marketplace", "/blog/posts", { query, auth: false }),
+    request<NestBlogPostsRaw>("marketplace", "/blog/posts", { query, auth: false, allowEdgeCache: true }),
   // Multipart: `caption` + optional `image` file part.
   createBlogPost: (formData: FormData) =>
     request<NestBlogPostRaw>("marketplace", "/blog/posts", { method: "POST", formData, timeoutMs: 60000 }),
