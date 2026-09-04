@@ -206,6 +206,7 @@ export default function TwoFactorScreen() {
               textContentType="oneTimeCode"
               style={styles.digitBox}
               testID={`twofa-digit-${i}`}
+              accessibilityLabel={`Two-factor code digit ${i + 1} of ${digits.length}`}
             />
           ))}
         </View>

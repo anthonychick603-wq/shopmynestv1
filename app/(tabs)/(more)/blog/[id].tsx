@@ -232,12 +232,15 @@ export default function BlogPostDetail() {
     setDraft("");
   };
   const removeCommentLocal = useCallback((commentId: string | number) => {
-    setComments((prev) => {
-      const next = prev.filter((c) => String(c.id) !== String(commentId));
-      // v1.0.115 — keep total in sync with the visible list.
-      setCommentTotal(next.length);
-      return next;
-    });
+    // v1.0.244 — previously `setCommentTotal(next.length)` was called
+    // INSIDE the functional updater passed to setComments, which is
+    // supposed to be pure. Under React strict-mode the updater runs
+    // twice, so the count-update side effect fired twice per removal.
+    // Now the updater is pure (returns the new list only) and the
+    // total is updated with its OWN functional updater on the next
+    // line — both setStates are batched into one render.
+    setComments((prev) => prev.filter((c) => String(c.id) !== String(commentId)));
+    setCommentTotal((prev) => Math.max(0, prev - 1));
     if (editingId !== null && String(editingId) === String(commentId)) {
       setEditingId(null);
       setDraft("");

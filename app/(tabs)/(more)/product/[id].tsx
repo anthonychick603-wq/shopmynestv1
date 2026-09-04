@@ -522,7 +522,22 @@ export default function ProductDetail() {
 
         {/* v1.0.210 (P0 #4) — similar items rail. Only render when we
             actually have results; skeletons here would just be noise
-            because the rail is below the fold. */}
+            because the rail is below the fold.
+            v1.0.244 — render a small "Loading..." placeholder while
+            similar products are fetching so the section either shows
+            something or nothing (previously `similarLoading` was set
+            but never read in JSX, so the state was orphaned). */}
+        {similar.length === 0 && similarLoading ? (
+          <View style={styles.similarSection}>
+            <View style={styles.similarHeader}>
+              <Text style={styles.similarTitle}>You might also like</Text>
+            </View>
+            <View style={[styles.similarRow, { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, flexDirection: "row", alignItems: "center", gap: spacing.sm }]} testID="product-similar-loading">
+              <ActivityIndicator color={colors.brand} />
+              <Text style={{ color: colors.onSurfaceMuted }}>Finding similar items…</Text>
+            </View>
+          </View>
+        ) : null}
         {similar.length > 0 ? (
           <View style={styles.similarSection}>
             <View style={styles.similarHeader}>

@@ -94,13 +94,32 @@ export default function RecentlyViewedScreen() {
     Alert.alert("Remove from recently viewed?", p.title, [
       { text: "Cancel", style: "cancel" },
       { text: "Remove", style: "destructive", onPress: async () => {
-        setItems((prev) => prev.filter((r) => r.id !== p.id));
+        // v1.0.244 — restore the row on API failure. Previously we
+        // optimistically hid the row and, on failure, only showed a
+        // toast; the row then stayed hidden from the on-screen history
+        // until the next reload, so the buyer's view diverged silently
+        // from the server. Snapshot the index so we can put the row
+        // back in the same spot on rollback.
+        let prevIndex = -1;
+        setItems((prev) => {
+          prevIndex = prev.findIndex((r) => r.id === p.id);
+          return prev.filter((r) => r.id !== p.id);
+        });
         try {
           await nest.removeRecentlyViewed(p.id);
           haptics.success();
         } catch (e) {
           haptics.error();
           toast.error(e instanceof ApiError ? e.friendly : "Could not remove");
+          // Rollback: reinsert at the original position (or the end
+          // if we can't recover the index).
+          setItems((prev) => {
+            if (prev.some((r) => r.id === p.id)) return prev;
+            const next = prev.slice();
+            const at = prevIndex >= 0 && prevIndex <= next.length ? prevIndex : next.length;
+            next.splice(at, 0, p);
+            return next;
+          });
         }
       } },
     ]);

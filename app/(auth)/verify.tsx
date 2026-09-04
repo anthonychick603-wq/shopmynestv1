@@ -152,6 +152,7 @@ export default function Verify() {
                 textContentType="oneTimeCode"
                 style={styles.digitBox}
                 testID={`verify-digit-${i}`}
+                accessibilityLabel={`Verification code digit ${i + 1} of ${digits.length}`}
               />
             ))}
           </View>

@@ -122,7 +122,7 @@ export default function AllShops() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 40, paddingTop: spacing.md, gap: spacing.md }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(submitted); }} tintColor={colors.brand} />}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.card} onPress={() => { haptics.tap(); router.push(`/(tabs)/(more)/seller/${item.id}`); }} testID={`shop-full-${item.id}`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Share">
+            <TouchableOpacity style={styles.card} onPress={() => { haptics.tap(); router.push(`/(tabs)/(more)/seller/${item.id}`); }} testID={`shop-full-${item.id}`} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={`Open ${item.store_name || item.display_name || "shop"}`}>
               {/* v1.0.56 - share icon in the corner opens the share sheet with
                   the shop's tagline + public shop URL. Stops propagation so
                   tapping it doesn't also navigate into the shop. */}

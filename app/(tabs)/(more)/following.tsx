@@ -1,8 +1,10 @@
 // v1.0.93 (Build #13) — "Following" screen. Lists every shop the current
-// user follows. Row tap → shop profile. Long-press or the small "Unfollow"
-// chip removes the shop from the list optimistically. Reached from
+// user follows. Row tap → shop profile. The small "Unfollow" chip on
+// each row removes the shop from the list optimistically. Reached from
 // account.tsx and (when we add price-drop alerts in Build #14) from the
 // alerts inbox as the "manage your shops" entry.
+// v1.0.244 — removed a stale note about long-press-to-unfollow that
+// was never wired up. Only the chip removes a shop.
 import React, { useCallback, useEffect, useState } from "react";
 import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";

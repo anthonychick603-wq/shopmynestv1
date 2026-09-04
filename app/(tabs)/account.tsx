@@ -223,7 +223,12 @@ export default function Account() {
 
         <SectionEyebrow>Preferences</SectionEyebrow>
         <Card variant="flat" padding="none">
-          <ListRow icon="notifications-outline" title="Notifications" onPress={() => router.push("/(tabs)/alerts")} />
+          {/* v1.0.244 — was titled "Notifications" with the same bell icon
+              as the Shopping row that opens notification preferences,
+              which made the two rows indistinguishable in the list. This
+              one opens the buyer's alert history / inbox, so rename it
+              "Marketplace alerts" and swap to a distinct megaphone icon. */}
+          <ListRow icon="megaphone-outline" title="Marketplace alerts" onPress={() => router.push("/(tabs)/alerts")} />
         </Card>
 
         <SectionEyebrow>Legal</SectionEyebrow>
@@ -255,7 +260,10 @@ export default function Account() {
 }
 
 function Header({ admin }: { admin?: boolean }) {
-  const router = useRouter();
+  // v1.0.244 — removed an unused `const router = useRouter()` here; the
+  // Header only navigates through `push` (which handles the tab → more
+  // stack root correctly). Leaving the extra router hook around obscured
+  // the component's actual dependencies.
   const push = usePushFromTab();
   return (
     <View style={styles.header}>

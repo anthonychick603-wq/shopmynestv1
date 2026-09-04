@@ -148,6 +148,7 @@ export default function ForgotPasswordVerify() {
                 textContentType="oneTimeCode"
                 style={styles.digitBox}
                 testID={`forgot-verify-digit-${i}`}
+                accessibilityLabel={`Reset code digit ${i + 1} of ${digits.length}`}
               />
             ))}
           </View>
