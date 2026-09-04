@@ -49,6 +49,23 @@ export default function SellerDashboard() {
   const [boostProduct, setBoostProduct] = useState<Product | null>(null);
   const [readiness, setReadiness] = useState<NestSellerReadiness | null>(null);
 
+  // v1.0.251 — hoisted above every early return. Was declared just below
+  // `if (loading) return DashboardSkeleton`, which meant the first render
+  // (loading=true, early return) skipped this hook entirely and the
+  // second render (loading=false) invoked it for the first time. That
+  // violates the Rules of Hooks and crashes the screen with
+  // "Rendered more hooks than during the previous render" — caught by
+  // the top-level ErrorBoundary as "Something went wrong" on the My Nest
+  // tab. Bug was introduced in v1.0.247's dedupe of oosCount.
+  //
+  // v1.0.153 — drafts have stock=0 while waiting on ship-from / package
+  // details; excluding them keeps this count aligned with the listings
+  // screen's Out of stock tab.
+  const oosCount = React.useMemo(
+    () => products.filter((p) => p.status !== "draft" && (!p.in_stock || p.stock <= 0)).length,
+    [products],
+  );
+
   const lastLoadAt = useRef(0);
   // v1.0.247 — gate every post-await setter on this dashboard through
   // useLatestRequest. Without it, fast focus-blur cycles or a
@@ -195,17 +212,6 @@ export default function SellerDashboard() {
   }
 
   const earnings = totals.earnings ?? totals.revenue ?? 0;
-  // v1.0.153 — drafts have stock=0 while waiting on ship-from / package
-  // details; excluding them keeps this count aligned with the listings
-  // screen's Out of stock tab.
-  // v1.0.247 — was computed twice (once here, once in an IIFE inside the
-  // section header at L332). Hoisted once and reused so a future rule
-  // change to what counts as "out of stock" can't drift between the
-  // stats tile and the section header link.
-  const oosCount = React.useMemo(
-    () => products.filter((p) => p.status !== "draft" && (!p.in_stock || p.stock <= 0)).length,
-    [products],
-  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
