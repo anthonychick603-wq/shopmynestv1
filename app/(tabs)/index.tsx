@@ -211,7 +211,17 @@ export default function Blog() {
             if (!isCurrent(_tok)) return;
             setError(e instanceof ApiError ? e.friendly : "Could not load the blog.");
           } finally {
-            if (isCurrent(_tok)) setBlogLoading(false);
+            // v1.0.258 — always clear blogLoading, even for a superseded
+            // token. Previously this was `if (isCurrent(_tok))`, which meant
+            // that when a second `load(1)` invalidated the first one
+            // (e.g. via useInvalidateOnFocus firing on mount), the first
+            // load's blog finally would skip clearing the flag. If the
+            // second load then errored or was itself superseded, the
+            // skeleton stuck forever. A superseded fetch should still
+            // clear its own loading flag; a newer load will re-set it to
+            // true when it starts. Fixes stuck blog skeleton reported in
+            // the v1.0.257 build video.
+            setBlogLoading(false);
           }
         })();
         // Wrap each widget so we can log its wall-clock time. Each widget's

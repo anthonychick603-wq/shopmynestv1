@@ -177,13 +177,26 @@ export function useInvalidateOnFocus(
   // Track the revision each class was at when the caller last marked
   // itself loaded. A focus event with any class > loadedAt[class]
   // triggers a refetch.
+  //
+  // v1.0.258 — SYNCHRONOUS seeding. Previously this was initialized to
+  // `{}` and a post-mount `useEffect` snapshotted current revisions.
+  // But `useFocusEffect` fires on mount BEFORE effects run, so the very
+  // first focus saw `loadedAt.<cls> ?? -1 === -1` and compared it to
+  // `revisions.<cls> ?? 0 === 0` — `-1 < 0` is always true, so every
+  // subscribed screen spuriously refetched on its first focus. On the
+  // Home tab that meant `load(1)` fired TWICE concurrently (once from
+  // the mount effect, once from useInvalidateOnFocus's first focus).
+  // The first load's token was invalidated by `begin()` in the second,
+  // so its blog `finally` block skipped `setBlogLoading(false)` and the
+  // skeleton stayed forever. Seeding synchronously via useRef's lazy
+  // initializer closes the race — first focus sees a matching snapshot
+  // and does not refetch.
+  const seededRef = useRef(false);
   const loadedAtRef = useRef<Partial<Record<DataClass, number>>>({});
-  // Ensure the mount-time markLoaded snapshots the CURRENT revisions,
-  // so the first focus doesn't spuriously refetch.
-  useEffect(() => {
+  if (!seededRef.current) {
+    seededRef.current = true;
     for (const cls of classes) loadedAtRef.current[cls] = revisions[cls];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   const markLoaded = useCallback(() => {
     for (const cls of classes) loadedAtRef.current[cls] = revisions[cls];
