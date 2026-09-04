@@ -13,6 +13,7 @@ import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 const PAGE_SIZE = 20;
 
@@ -27,19 +28,28 @@ export default function SellerReviewsInbox() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<ProductReview | null>(null);
+  // v1.0.247 — useLatestRequest so pull-to-refresh chased by a Load-more
+  // (or a back-nav) can't setState on a stale response, and so two
+  // overlapping refreshes converge on the fresher one (audit P0).
+  const { begin, isCurrent } = useLatestRequest();
 
   const load = useCallback(async (next = 1) => {
+    const reqId = begin();
     setError(null);
     try {
       const res = await nest.getSellerProductReviews({ page: next, per_page: PAGE_SIZE });
+      if (!isCurrent(reqId)) return;
       setItems((current) => next === 1 ? res.items || [] : [...current, ...(res.items || [])]);
       setPage(next); setTotalPages(res.total_pages || 1);
     } catch (e) {
+      if (!isCurrent(reqId)) return;
       setError(e instanceof ApiError ? e.friendly : "We couldn't load product reviews.");
     } finally {
-      setLoading(false); setLoadingMore(false);
+      if (isCurrent(reqId)) {
+        setLoading(false); setLoadingMore(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
   useEffect(() => { load(1); }, [load]);
 
   if (loading) return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
@@ -69,15 +79,23 @@ function ReviewRow({ item, onRespond }: { item: ProductReview; onRespond: () => 
 function ResponseModal({ item, onClose, onSaved }: { item: ProductReview; onClose: () => void; onSaved: (updated: ProductReview) => void }) {
   const [response, setResponse] = useState("");
   const [saving, setSaving] = useState(false);
+  // v1.0.247 — mount ref so we skip setState if the seller closed the
+  // modal mid-request. Prevents the yellow warning + prevents the
+  // "Response posted" toast from stomping a fresh state after unmount
+  // (audit P1).
+  const mounted = React.useRef(true);
+  React.useEffect(() => () => { mounted.current = false; }, []);
   const submit = async () => {
     if (!response.trim() || saving) return;
     setSaving(true);
     try {
       const updated = await nest.submitReviewResponse(item.product_id, item.id, response.trim());
+      if (!mounted.current) return;
       toast.success("Response posted"); haptics.success(); onSaved({ ...updated, product_name: item.product_name });
     } catch (e) {
+      if (!mounted.current) return;
       toast.error(e instanceof ApiError ? e.friendly : "Couldn't post your response.");
-    } finally { setSaving(false); }
+    } finally { if (mounted.current) setSaving(false); }
   };
   return <Modal transparent animationType="fade" visible onRequestClose={onClose}><View style={styles.backdrop}><View style={styles.sheet}><View style={styles.sheetTop}><Text style={styles.sheetTitle}>Respond to review</Text><TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={22} color={colors.onSurface} /></TouchableOpacity></View><TextInput style={styles.input} value={response} onChangeText={(value) => setResponse(value.slice(0, 2000))} multiline maxLength={2000} placeholder="Write a helpful response…" placeholderTextColor={colors.onSurfaceMuted} /><Text style={styles.counter}>{response.length}/2000</Text><Button title="Post response" onPress={submit} loading={saving} disabled={!response.trim() || saving} /></View></View></Modal>;
 }

@@ -26,6 +26,7 @@ import { haptics } from "@/src/utils/haptics";
 import { SellerReadinessCard } from "@/src/components/SellerReadinessCard";
 import { StatusPill } from "@/src/components/StatusPill";
 import { useRedirectAdmins } from "@/src/hooks/use-redirect-admins";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 export default function SellerDashboard() {
   const insets = useSafeAreaInsets();
@@ -49,11 +50,21 @@ export default function SellerDashboard() {
   const [readiness, setReadiness] = useState<NestSellerReadiness | null>(null);
 
   const lastLoadAt = useRef(0);
+  // v1.0.247 — gate every post-await setter on this dashboard through
+  // useLatestRequest. Without it, fast focus-blur cycles or a
+  // pull-to-refresh chased by a back nav fire setState on an unmounted
+  // component (seller-flow audit P0). Also protects against a stale
+  // response from an earlier focus overwriting a fresh one — the
+  // full-catalog `getMyProducts({ per_page: 200 })` .then() at the
+  // bottom of the happy path is now gated on the SAME request id as
+  // its outer load, so it can no longer race the dashboard slice.
+  const { begin, isCurrent } = useLatestRequest();
   const load = useCallback(async () => {
     // v1.0.237 — admins are separated from sellers; they don't have a
     // seller dashboard payload at all. The screen redirects to /admin
     // above; make sure no seller-scoped requests fire in the meantime.
     if (!user || user.role !== "seller") return;
+    const reqId = begin();
     try {
       // Fire all requests in parallel. Trust the dashboard endpoint as primary
       // and only fall back to list endpoints if dashboard is missing sections.
@@ -72,6 +83,7 @@ export default function SellerDashboard() {
         // if the plugin isn't upgraded yet we silently skip the card.
         nest.getSellerReadiness().catch(() => null),
       ]);
+      if (!isCurrent(reqId)) return;
       setReadiness(r);
 
       if (dashboard) {
@@ -81,7 +93,12 @@ export default function SellerDashboard() {
         // up in the seller's product list. Always fetch the seller's full list
         // in parallel so the OOS section header link (and the dedicated OOS
         // screen) can count and surface every affected item.
+        // v1.0.247 — gate the inner setter on the SAME request id as the
+        // outer load so the two setProducts calls can't fight each other
+        // (they used to; the .then() commonly resolved after the outer
+        // dashboard.products setter and flickered the recent-products strip).
         nest.getMyProducts({ per_page: 200 }).then((full) => {
+          if (!isCurrent(reqId)) return;
           if (full?.items?.length) setProducts(full.items.map(toProduct));
         }).catch(() => { /* fall back to the dashboard slice below */ });
         if (dashboard.products) setProducts(dashboard.products.map(toProduct));
@@ -101,6 +118,7 @@ export default function SellerDashboard() {
           nest.getMyProducts({ per_page: 50 }).catch(() => ({ items: [], total: 0 })),
           nest.getSellerOrders({ per_page: 20 }).catch(() => ({ orders: [], total: 0 })),
         ]);
+        if (!isCurrent(reqId)) return;
         if (p.items?.length) setProducts(p.items.map(toProduct));
         if (o.orders?.length) setOrders(o.orders.map((r) => ({ id: String(r.id), status: r.status, total: Number(r.gross ?? 0) })));
       }
@@ -109,10 +127,12 @@ export default function SellerDashboard() {
       setProSeller(!!(pro && (pro as { pro_seller?: boolean }).pro_seller));
       lastLoadAt.current = Date.now();
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(reqId)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [user]);
+  }, [user, begin, isCurrent]);
 
   // v1.0.167 — only reload on focus if data is older than 5 minutes.
   // Preserves scroll position when returning from a pushed edit or
@@ -132,11 +152,18 @@ export default function SellerDashboard() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          // v1.0.247 — snapshot the mount status via isCurrent(reqId) so
+          // that if the seller backs out of the dashboard between the
+          // Delete tap and the API response, we don't try to mutate the
+          // products list or fire the error Alert on an unmounted screen.
+          const reqId = begin();
           try {
             await nest.deleteProduct(p.id);
+            if (!isCurrent(reqId)) { haptics.success(); return; }
             setProducts((cur) => cur.filter((x) => x.id !== p.id));
             haptics.success();
           } catch (e) {
+            if (!isCurrent(reqId)) return;
             haptics.error();
             Alert.alert("Could not delete", e instanceof ApiError ? e.friendly : "Please try again.");
           }
@@ -171,7 +198,14 @@ export default function SellerDashboard() {
   // v1.0.153 — drafts have stock=0 while waiting on ship-from / package
   // details; excluding them keeps this count aligned with the listings
   // screen's Out of stock tab.
-  const oosCount = products.filter((p) => p.status !== "draft" && (!p.in_stock || p.stock <= 0)).length;
+  // v1.0.247 — was computed twice (once here, once in an IIFE inside the
+  // section header at L332). Hoisted once and reused so a future rule
+  // change to what counts as "out of stock" can't drift between the
+  // stats tile and the section header link.
+  const oosCount = React.useMemo(
+    () => products.filter((p) => p.status !== "draft" && (!p.in_stock || p.stock <= 0)).length,
+    [products],
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -182,9 +216,11 @@ export default function SellerDashboard() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => {
-              // v1.0.70 — manual pull-to-refresh; the on-focus 60s freshness
-              // gate stays in place, this just lets a seller force a reload
-              // after taking an action outside the app.
+              // v1.0.70 — manual pull-to-refresh; the on-focus 5-minute
+              // freshness gate stays in place, this just lets a seller
+              // force a reload after taking an action outside the app.
+              // (v1.0.247 note: the earlier "60s" comment was stale;
+              // the freshness constant at L121 is 5 * 60_000.)
               // v1.0.240 — also re-fetch /me so role changes (approved
               // seller, admin) reflect immediately without a cold start.
               setRefreshing(true);
@@ -223,7 +259,13 @@ export default function SellerDashboard() {
           />
           <Stat
             label="Orders"
-            value={String(orders.length || totals.orders || 0)}
+            // v1.0.247 — was `String(orders.length || totals.orders || 0)`,
+            // which picked the paginated slice length whenever it was
+            // non-zero. A seller with 200 sold orders saw "8" on this
+            // tile because the dashboard slice is 8. Prefer the server
+            // total (which counts every order); fall back to the slice
+            // length only when the server didn't return a totals block.
+            value={String(totals.orders ?? orders.length ?? 0)}
             icon="bag-check-outline"
             onPress={() => push("/orders")}
             testID="dash-stat-orders"
@@ -329,7 +371,8 @@ export default function SellerDashboard() {
             it routes to a dedicated /seller/out-of-stock page. Only rendered
             when the count is > 0 so a healthy shop sees no red text. */}
         {(() => {
-          const oosCount = products.filter((p) => p.status !== "draft" && (!p.in_stock || p.stock <= 0)).length;
+          // v1.0.247 — was recomputing oosCount here; now reads the hoisted
+          // memo above.
           return (
             <View style={[styles.sectionHeader, styles.productsHeaderRow]}>
               <Text style={styles.sectionTitle}>Your products</Text>

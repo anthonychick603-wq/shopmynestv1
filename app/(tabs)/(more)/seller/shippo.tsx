@@ -15,6 +15,13 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
+// v1.0.247 — use the shared ship-from source of truth so this screen
+// and product-form.tsx agree on which fields are mandatory. Previously
+// this file's REQUIRED_FIELDS omitted `ship_from_country`, letting a
+// seller mark their address "complete" here and still hit the silent
+// publish→draft path in product-form (audit P1).
+import { SHIP_FROM_REQUIRED, missingShipFromFields } from "@/src/utils/ship";
 
 /**
  * Seller-side ship-from address form.
@@ -35,17 +42,10 @@ import { CartHeaderButton } from "@/src/components/CartHeaderButton";
  *   POST /seller/profile → { profile: NestSellerShippingProfile }
  */
 
-// Fields that must be non-empty for the ship-from address to be considered
-// complete. Matches mnu_seller_ship_from_missing_field() on the server, minus
-// the package-default dimensions (those live on the seller's shipping-defaults
-// screen — this screen is address-only to stay focused).
-const REQUIRED_FIELDS: Array<keyof NestSellerShippingProfile> = [
-  "ship_from_name",
-  "ship_from_street1",
-  "ship_from_city",
-  "ship_from_state",
-  "ship_from_zip",
-];
+// v1.0.247 — REQUIRED_FIELDS moved to `@/src/utils/ship` (SHIP_FROM_REQUIRED)
+// and is imported at the top. Alias it locally so the rest of this file
+// reads the same.
+const REQUIRED_FIELDS = SHIP_FROM_REQUIRED;
 
 // v1.0.198 — default country is USA; state is intentionally left blank so
 // sellers outside a single default region don't have to correct it every
@@ -60,12 +60,22 @@ export default function SellerShipFromAddress() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // v1.0.247 — gate Save on a successful load so a network hiccup on
+  // mount can't be followed by a Save that writes an empty profile over
+  // real data. Only flip to true after we've loaded the seller's real
+  // profile from the server (audit P1).
+  const [loadSucceeded, setLoadSucceeded] = useState(false);
+  // v1.0.247 — useLatestRequest so a pull-to-refresh chased by a Save
+  // or a back-nav can't setState on a stale response (audit P0).
+  const { begin, isCurrent } = useLatestRequest();
 
   const load = useCallback(async () => {
+    const reqId = begin();
     setLoading(true);
     setError(null);
     try {
       const res = await nest.getSellerShippingProfile();
+      if (!isCurrent(reqId)) return;
       // Backfill only the country default. Leaving state blank means the
       // seller enters their own two-letter code instead of overwriting a
       // wrong-region default.
@@ -74,12 +84,15 @@ export default function SellerShipFromAddress() {
         ship_from_country: res.profile.ship_from_country || COUNTRY_DEFAULT,
       };
       setProfile(merged);
+      setLoadSucceeded(true);
     } catch (e) {
+      if (!isCurrent(reqId)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load your ship-from address.");
+      setLoadSucceeded(false);
     } finally {
-      setLoading(false);
+      if (isCurrent(reqId)) setLoading(false);
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   useEffect(() => {
     load();
@@ -91,31 +104,40 @@ export default function SellerShipFromAddress() {
 
   const missingField = useMemo(() => {
     if (!profile) return null;
-    for (const key of REQUIRED_FIELDS) {
-      const v = String(profile[key] ?? "").trim();
-      if (v === "") return key;
-    }
-    return null;
+    // v1.0.247 — uses the shared helper so this stays in sync with
+    // product-form's isShipFromComplete().
+    return missingShipFromFields(profile)[0] ?? null;
   }, [profile]);
 
   const save = async () => {
     if (!profile) return;
+    // v1.0.247 — refuse to save if the initial load didn't succeed
+    // (audit P1). Without this, a mount-time load failure left `profile`
+    // hydrated only from local edits, and Save would overwrite the
+    // server's real profile with a partial one.
+    if (!loadSucceeded) {
+      setError("Couldn't load your address yet. Try Retry before saving.");
+      return;
+    }
     if (missingField) {
       setError("Please complete every required field before saving.");
       return;
     }
+    const reqId = begin();
     setSaving(true);
     setError(null);
     try {
       const res = await nest.saveSellerShippingProfile(profile);
+      if (!isCurrent(reqId)) return;
       setProfile(res.profile);
       haptics.success();
       toast.success("Ship-from address saved");
     } catch (e) {
+      if (!isCurrent(reqId)) return;
       haptics.warning();
       setError(e instanceof ApiError ? e.friendly : "Could not save your ship-from address.");
     } finally {
-      setSaving(false);
+      if (isCurrent(reqId)) setSaving(false);
     }
   };
 

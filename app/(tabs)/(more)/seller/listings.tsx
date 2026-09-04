@@ -18,8 +18,17 @@ import { decodeEntities } from "@/src/utils/html";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
+import { ErrorState } from "@/src/components/ErrorState";
 
 const PER_PAGE = 50;
+// v1.0.247 — hard cap on the seller-listings pagination loop. Without
+// a cap, a misbehaving backend that returned items with a stale total
+// would spin forever, filling memory and battery. 20 pages × 50/page
+// = 1000 rows, which is well beyond any active seller today; if a
+// seller ever crosses it we'll surface the truncation warning rather
+// than silently drop items or lock up (audit P2).
+const MAX_PAGES = 20;
 
 // v1.0.145 — filter chip modes for the listings screen. Mirrors the
 // Sold/Bought segmented control on the orders screen so the pattern is
@@ -51,20 +60,44 @@ export default function SellerListings() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // v1.0.247 — distinguish "loaded empty" (server returned zero) from
+  // "failed to load" so a network hiccup doesn't render the friendly
+  // "You're fully stocked" empty state and make the seller think their
+  // listings vanished (audit P1).
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>(() => {
     const q = String(params.filter || "").toLowerCase();
     return q === "oos" || q === "draft" ? (q as Filter) : "in";
   });
 
+  // v1.0.247 — use useLatestRequest so pull-to-refresh chased by a back
+  // nav can't setState on an unmounted component and so two overlapping
+  // pull-to-refreshes converge on the fresher payload (audit P0).
+  const { begin, isCurrent } = useLatestRequest();
+
   // Fetch the seller's full inventory (not a capped page) by walking pages
   // until we've collected every listing the API reports.
   const load = useCallback(async () => {
+    const reqId = begin();
+    let failed = false;
     try {
       const all: Product[] = [];
       let page = 1;
       for (;;) {
-        const res = await nest.getMyProducts({ per_page: PER_PAGE, page }).catch(() => ({ items: [], total: 0, total_pages: 0 }));
-        const items = res.items || [];
+        // v1.0.247 — previously swallowed all errors into an empty
+        // payload, then the caller couldn't tell "seller has zero
+        // listings" from "the request failed". Track the failure locally
+        // and surface an error state; only render the empty state on a
+        // clean zero-item response.
+        let res: { items?: unknown[]; total?: number; total_pages?: number };
+        try {
+          res = await nest.getMyProducts({ per_page: PER_PAGE, page });
+        } catch {
+          failed = true;
+          break;
+        }
+        if (!isCurrent(reqId)) return;
+        const items = (res.items as Parameters<typeof toProduct>[0][] | undefined) || [];
         all.push(...items.map(toProduct));
         const done =
           items.length < PER_PAGE ||
@@ -72,13 +105,36 @@ export default function SellerListings() {
           (res.total != null && all.length >= res.total);
         if (done) break;
         page += 1;
+        // v1.0.247 — hard ceiling per MAX_PAGES; log + toast so a real
+        // regression is visible instead of spinning forever.
+        if (page > MAX_PAGES) {
+          if (__DEV__) console.warn("seller/listings: pagination hit MAX_PAGES; truncating");
+          toast.error(`Showing first ${MAX_PAGES * PER_PAGE} listings. Contact support if this is wrong.`);
+          break;
+        }
       }
-      setProducts(all);
+      if (!isCurrent(reqId)) return;
+      if (failed) {
+        // Only surface an error if we didn't manage to load anything.
+        // If page 1 succeeded and only page 2 failed, keep what we have
+        // and toast the partial failure.
+        if (all.length === 0) {
+          setLoadError("Couldn't load your listings. Check your connection and try again.");
+        } else {
+          setProducts(all);
+          toast.error("Couldn't load all pages. Pull to retry.");
+        }
+      } else {
+        setLoadError(null);
+        setProducts(all);
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(reqId)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   // v1.0.167 — load once on mount. Pull to refresh to force reload.
   // Focus refetch removed so scroll position survives returning from
@@ -128,16 +184,21 @@ export default function SellerListings() {
           onPress: async () => {
             haptics.press();
             setDuplicatingId(p.id);
+            // v1.0.247 — clear the busy state BEFORE the router.push so
+            // the setter runs while we're still mounted. The old shape
+            // (`finally { setDuplicatingId(null) }`) always fired after
+            // navigation, which meant the state update landed on an
+            // unmounted component (audit P1).
             try {
               const raw = await nest.duplicateProduct(p.id);
               const copy = toProduct(raw);
               haptics.success();
               toast.success("Draft copy created");
+              setDuplicatingId(null);
               router.push(`/seller/product-form?id=${copy.id}`);
             } catch (e) {
-              toast.error(e instanceof ApiError ? e.friendly : "Could not duplicate");
-            } finally {
               setDuplicatingId(null);
+              toast.error(e instanceof ApiError ? e.friendly : "Could not duplicate");
             }
           },
         },
@@ -205,6 +266,18 @@ export default function SellerListings() {
       {loading ? (
         <View style={{ padding: spacing.lg }}>
           <ProductGridSkeleton count={6} />
+        </View>
+      ) : loadError ? (
+        // v1.0.247 — render the error state on load failure so the seller
+        // sees "couldn't load your listings" with a Retry, not the friendly
+        // "You're fully stocked" empty state (audit P1).
+        <View style={{ padding: spacing.lg }}>
+          <ErrorState
+            title="Couldn't load your listings"
+            message={loadError}
+            onRetry={() => { setLoading(true); load(); }}
+            testID="listings-load-error"
+          />
         </View>
       ) : (
         <FlatList

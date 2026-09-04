@@ -43,22 +43,15 @@ const PACKAGE_SIZES: { value: PackageSize; label: string }[] = [
 // seller's profile, the readiness endpoint marks the ship_from_complete
 // step incomplete and the platform's label buy fails on the first order.
 // Keep this list in lock-step with the plugin.
-const SHIP_FROM_REQUIRED: Array<keyof NestSellerShippingProfile> = [
-  "ship_from_name",
-  "ship_from_street1",
-  "ship_from_city",
-  "ship_from_state",
-  "ship_from_zip",
-  "ship_from_country",
-];
+// v1.0.247 — hoisted into `@/src/utils/ship` so shippo.tsx and this
+// screen share ONE source of truth. Previously shippo.tsx maintained
+// its own copy that omitted `ship_from_country`, so a seller could
+// mark their profile "complete" on shippo.tsx and still get a silent
+// publish→draft downgrade here.
+import { missingShipFromFields } from "@/src/utils/ship";
 
 function isShipFromComplete(profile: NestSellerShippingProfile | null | undefined): boolean {
-  if (!profile) return false;
-  for (const key of SHIP_FROM_REQUIRED) {
-    const v = String((profile as Record<string, unknown>)[key] ?? "").trim();
-    if (v === "") return false;
-  }
-  return true;
+  return missingShipFromFields(profile).length === 0;
 }
 
 export default function ProductForm() {
@@ -494,6 +487,20 @@ export default function ProductForm() {
       // instead of accidentally clearing them on save.
       if (category_ids.length === 0 && isEdit && existingCategoryIds.length > 0) {
         category_ids = existingCategoryIds;
+      }
+
+      // v1.0.247 — stock validation was `Math.max(0, parseInt(stock, 10) || 0)`
+      // which silently coerced negatives (`-5`) and non-numeric input to 0.
+      // A seller typing `-5` (typo of `5`) expected an error, got a silent
+      // save with zero stock (audit P1). Reject early so the seller can
+      // fix the input.
+      const rawStock = stock.trim();
+      if (rawStock !== "") {
+        const stockNum = Number(rawStock);
+        if (!Number.isFinite(stockNum) || stockNum < 0 || !Number.isInteger(stockNum)) {
+          if (mode === "draft") setSavingDraft(false); else setBusy(false);
+          return toast.error("Stock must be a whole number of 0 or more.");
+        }
       }
 
       const payload: NestProductWritePayload & { customizable: boolean } = {
