@@ -458,8 +458,19 @@ export const nest = {
   // once-per-refresh cachebust via headers.Pragma below). Freshness inside
   // the 60 s TTL comes from the ETag/If-None-Match round trip which stays
   // intact when allowEdgeCache is on.
+  // v1.0.256 — removed `allowEdgeCache: true`. The v1.0.253 opt-in was
+  // intended to let plugin v3.13.84's Cache-Control: max-age=30 serve
+  // from Batcache, but on Android RN's `cache: "default"` behavior with
+  // s-maxage responses has been unreliable: fresh fetches occasionally
+  // hang until the 25s abort timeout, producing the reported "blog won't
+  // load" symptom (inline skeleton stays up forever, widgets paint
+  // fine because they still use the cache-bypass path). The mobile app
+  // has SWR disk-cache (instant paint on relaunch) + mutation-bus
+  // invalidation (fresh on new post), so the edge cache adds risk
+  // without meaningfully improving perceived latency. Reverted to the
+  // standard cachebust GET path.
   getBlogPosts: (query?: { page?: number; per_page?: number }) =>
-    request<NestBlogPostsRaw>("marketplace", "/blog/posts", { query, auth: false, allowEdgeCache: true }),
+    request<NestBlogPostsRaw>("marketplace", "/blog/posts", { query, auth: false }),
   // Multipart: `caption` + optional `image` file part.
   createBlogPost: (formData: FormData) =>
     bumped(request<NestBlogPostRaw>("marketplace", "/blog/posts", { method: "POST", formData, timeoutMs: 60000 }), "blog"),
