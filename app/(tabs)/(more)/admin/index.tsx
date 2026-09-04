@@ -155,7 +155,7 @@ export default function AdminDashboard() {
                 value={stats?.products_total ?? 0}
                 icon="cube-outline"
                 tint={colors.brand}
-                onPress={() => router.replace("/(tabs)/browse" as Href)}
+                onPress={() => router.push("/(tabs)/browse" as Href)}
                 testID="admin-tile-products"
               />
             </View>

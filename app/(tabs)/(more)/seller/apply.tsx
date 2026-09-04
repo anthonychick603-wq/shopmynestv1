@@ -152,7 +152,8 @@ export default function ApplySeller() {
       });
       await refresh();
       toast.success("Application submitted!");
-      router.replace("/(tabs)/account");
+      // v1.0.255 — push (was replace) so back returns to the apply form.
+      router.push("/(tabs)/account");
     } catch (e) {
       toast.error(e instanceof ApiError ? e.friendly : "Could not submit application");
     } finally {
@@ -191,7 +192,7 @@ export default function ApplySeller() {
             P2). `/seller/dashboard` is not a real route in this app
             — the actual screen lives under `(tabs)/seller/dashboard`
             — and expo-router silently swallowed the mismatch. */}
-        <EmptyState icon="checkmark-circle" title="You're approved!" message="Head to the seller dashboard to start listing." actionLabel="Open dashboard" onAction={() => router.replace("/(tabs)/seller/dashboard")} />
+        <EmptyState icon="checkmark-circle" title="You're approved!" message="Head to the seller dashboard to start listing." actionLabel="Open dashboard" onAction={() => router.push("/(tabs)/seller/dashboard")} />
       </SafeAreaView>
     );
   }

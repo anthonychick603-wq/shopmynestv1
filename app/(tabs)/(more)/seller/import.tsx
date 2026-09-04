@@ -147,7 +147,10 @@ export default function ImportScreen() {
       `Import finished: ${status?.created ?? 0} created, ${status?.updated ?? 0} updated, ${status?.failed ?? 0} failed.`,
       (status?.failed ?? 0) > 0 ? "error" : "success",
     );
-    router.replace("/(tabs)/seller/dashboard" as never);
+    // v1.0.255 — push so the seller can back out of the dashboard to
+    // return to the import screen (e.g. to re-check the summary or
+    // start another import). The old replace() erased that history.
+    router.push("/(tabs)/seller/dashboard" as never);
   }, [status, router]);
 
   const percent = status && status.total > 0 ? Math.round((status.processed / status.total) * 100) : 0;

@@ -440,7 +440,7 @@ export default function Cart() {
     return (
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <Top title="Cart" />
-        <EmptyState icon="bag-outline" title="Your cart is empty" message="Add some handmade goodness from the marketplace." actionLabel="Start Browsing" onAction={() => router.replace("/(tabs)/browse")} testID="cart-empty" />
+        <EmptyState icon="bag-outline" title="Your cart is empty" message="Add some handmade goodness from the marketplace." actionLabel="Start Browsing" onAction={() => router.push("/(tabs)/browse")} testID="cart-empty" />
       </SafeAreaView>
     );
   }

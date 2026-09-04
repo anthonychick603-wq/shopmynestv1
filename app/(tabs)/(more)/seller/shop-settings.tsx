@@ -113,7 +113,10 @@ export default function ShopSettings() {
       toast.success("Shop settings saved");
       // Land the seller back on the dashboard so the readiness card
       // re-fetches with the new name marked complete.
-      router.replace("/(tabs)/seller/dashboard");
+      // v1.0.255 — push (was replace); strict back rule means back from
+      // the dashboard should return here, not to whatever was behind
+      // shop-settings.
+      router.push("/(tabs)/seller/dashboard");
     } catch (e) {
       toast.error(e instanceof ApiError ? e.friendly : "Couldn't save your shop settings.");
     } finally {

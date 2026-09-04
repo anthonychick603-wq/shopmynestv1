@@ -1,26 +1,28 @@
 /**
- * useHardwareBack — v1.0.232
+ * useHardwareBack — v1.0.255
  *
- * Bridges the Android hardware / gesture back button to the same navigation
- * semantics as the in-app chevron (safeBack). Since v1.0.232 the fallback
- * path is read from the BackFallback registry, which every screen with a
- * chevron declares via useBackFallback("…"). That guarantees the chevron
- * and hardware back go to the SAME place on cold-start deep links.
+ * Strict back-history contract for every non-tab-root screen: back
+ * (whether the hardware button, the gesture, or the chevron) pops
+ * exactly one entry off the navigation stack. It never jumps to a
+ * hard-coded ancestor when there is real history to pop.
  *
- * If the current screen didn't register a fallback (older / unmigrated
- * screen, or a route we didn't know about), we fall back to a segment
- * guess so the hook still degrades gracefully.
+ * Tab roots (Home, Browse, Account, Create, Seller Dashboard) keep
+ * Android's default behavior — back exits the app or switches tabs —
+ * because bottom tabs are peer navigations in React Navigation, not
+ * stack pushes, and forcing a peer-tab tap into the back stack would
+ * require rewriting the tab bar. Users expecting "back returns me to
+ * the previous tab" have the tab bar itself as the affordance.
  *
  * Rules:
  *   • Any non-tab-root screen with history → router.back() (pop one entry).
- *   • Any non-tab-root screen with no history → replace to the registered
- *     fallback, or the segment guess if none was registered:
+ *   • Any non-tab-root screen with no history → the fallback the screen
+ *     registered via useBackFallback(...), or a segment-based guess:
  *       - admin/*   → /(tabs)/(more)/admin
  *       - seller/*  → /(tabs)/seller/dashboard
  *       - (auth)/*  → /(auth)/login
  *       - other     → /(tabs)/account
- *   • Tab-root screen → do nothing, let Android handle it (tab switch or
- *     exit the app as expected).
+ *   • Tab-root screen → return false so Android handles it (tab switch
+ *     or app exit).
  */
 import { useEffect } from "react";
 import { BackHandler, Platform } from "react-native";

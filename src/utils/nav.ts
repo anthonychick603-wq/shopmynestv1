@@ -24,15 +24,16 @@
 //   Back → pops Seller, reveals Product A.
 //   Back → pops Product A, reveals Home Feed at its previous scroll.
 //
-// And this is why Alerts + Cart moved out of Tabs.Screen and into
-// (more)/: the header bell / cart button on any screen used to be a
-// peer tab switch, not a stack push, so router.back() had nothing to
-// pop. Now the header buttons push onto the same (more) stack the
-// current screen is already on, and router.back() returns the user to
-// where they tapped from — no tracker required.
+// v1.0.255 — Strict back-history contract. Every navigation is now a
+// plain router.push, including tab-root → (more) entries. The
+// pre-v1.0.255 usePushFromTab() dismissed the (more) stack when a
+// tab-root screen pushed into (more), which erased history the user
+// expected to be able to back through. Under the strict rule the tab
+// bar itself is the affordance for jumping to a tab root; back is
+// reserved for "the screen immediately before this one."
 
 import { useCallback } from "react";
-import { router as globalRouter, useRouter, useSegments, type Router } from "expo-router";
+import { router as globalRouter, useRouter, type Router } from "expo-router";
 
 // -----------------------------------------------------------------------
 // Back.
@@ -81,18 +82,10 @@ function _push(
     router.push(path as never);
   }
 }
-// v1.0.239 — pushFromTab now behaves like a real "enter the (more) stack
-// from outside it" primitive. When the caller is on a tab-root screen
-// (Blog, Browse, Account, Seller Dashboard, Create) and pushes a route
-// that lives under (more), we FIRST clear any lingering (more) history
-// so back returns cleanly to the tab root instead of revealing whatever
-// screen the (more) tab happened to be sitting on. When the caller is
-// already inside (more) — admin/*.tsx, cart, alerts — we plain-push so
-// their own back stack keeps working.
-//
-// Legacy signature kept for compatibility: passing a raw Router still
-// works and behaves like the pre-v1.0.239 plain push. New callers
-// should use usePushFromTab() so the segment check runs.
+
+// v1.0.255 — plain push, no dismissAll. See file-top comment for the
+// rationale. Kept as a named export so tab-root header buttons (Cart,
+// Alerts) don't need to be touched.
 export function pushFromTab(
   router: Router,
   path: string,
@@ -102,38 +95,21 @@ export function pushFromTab(
 }
 
 /**
- * Hook version of pushFromTab that runs the segment-aware reset.
- * Returns a stable function; safe to call from onPress handlers.
+ * Hook version of pushFromTab. Under the strict back-history contract
+ * (v1.0.255) this is identical to router.push(); the segment-aware
+ * dismissAll was removed because it erased (more)-stack history the
+ * user expected to be able to back through.
  */
 export function usePushFromTab() {
   const router = useRouter();
-  const segments = useSegments();
-  const insideMore = segments.some((s) => s === "(more)");
-
   return useCallback(
     (path: string, params?: Record<string, unknown>) => {
-      // Callers already on a (more)-stack screen just push normally;
-      // dismissing here would nuke their own back history.
-      if (insideMore) {
-        _push(router, path, params);
-        return;
-      }
-      // Tab-root caller entering (more). Clear any prior (more) history
-      // so back from the target returns to the tab root instead of
-      // whatever screen (more) was sitting on from an earlier flow.
-      // dismissAll() is a no-op when the stack is already at root.
-      try {
-        // dismissAll exists on router in expo-router 6. It's a no-op
-        // when the current stack is already at its root.
-        router.dismissAll?.();
-      } catch {
-        // Ignore — push still works even if dismiss fails.
-      }
       _push(router, path, params);
     },
-    [router, insideMore],
+    [router],
   );
 }
+
 export function pushFromCard(
   router: Router,
   path: string,
