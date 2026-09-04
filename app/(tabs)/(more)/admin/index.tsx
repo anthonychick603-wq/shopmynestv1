@@ -16,6 +16,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { safeBack, pushFromTab } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { useLoadOnce } from "@/src/hooks/use-load-once";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -31,29 +32,38 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
 
   // v1.0.196 — hydrate both the stat counts and the 7-day analytics
   // snapshot in parallel so the redesigned overview can render its
   // revenue chart alongside the existing tiles without a second visible
   // spinner. Failure of the analytics call is non-fatal — the stats
   // section still renders.
+  // v1.0.249 — guard every post-await setter with useLatestRequest so a
+  // rapid pull-to-refresh + focus-refetch collision can't overwrite the
+  // newer response with the older one.
   const load = useCallback(async () => {
+    const id = begin();
     setError(null);
     try {
       const [statsRes, analyticsRes] = await Promise.allSettled([
         nest.adminStats(),
         nest.adminAnalytics(7),
       ]);
+      if (!isCurrent(id)) return;
       if (statsRes.status === "fulfilled") setStats(statsRes.value);
       else throw statsRes.reason;
       if (analyticsRes.status === "fulfilled") setAnalytics(analyticsRes.value);
     } catch (e) {
+      if (!isCurrent(id)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load admin stats.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(id)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   // v1.0.167 — load once on mount, refetch when the screen has been out
   // of focus long enough that the tiles could be stale.
@@ -61,9 +71,10 @@ export default function AdminDashboard() {
   // tiles show live counts (pending refunds, unpaid payouts, seller apps,
   // reports); five minutes was too long. The plugin‑side no-store and
   // cache-purge changes make this cheap.
+  // v1.0.249 — call markLoaded on manual pull-to-refresh so the stale
+  // timer restarts against the fresh data rather than piling another
+  // fetch on top.
   const { markLoaded } = useLoadOnce(load, { staleMs: 30_000 });
-  // markLoaded exposed for pull-to-refresh handlers.
-  void markLoaded;
 
   if (user?.role !== "admin") {
     return (
@@ -88,7 +99,11 @@ export default function AdminDashboard() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); load(); }}
+            onRefresh={() => {
+              if (loading || refreshing) return; // v1.0.249 dedupe
+              setRefreshing(true);
+              void load().then(() => markLoaded());
+            }}
             tintColor={colors.brand}
             colors={[colors.brand]}
           />

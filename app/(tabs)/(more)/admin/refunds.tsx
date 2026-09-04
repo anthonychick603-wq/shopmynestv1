@@ -24,6 +24,7 @@ import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
 import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -56,7 +57,14 @@ export default function AdminRefundsScreen() {
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [working, setWorking] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const reload = useCallback(() => setReloadToken((t) => t + 1), []);
+  const { begin, isCurrent } = useLatestRequest();
+  const reload = useCallback(() => {
+    // v1.0.249 — GC any accumulated per-row notes on every reload so a
+    // long admin session doesn't leak a `notes` map that grows across
+    // hundreds of processed refunds.
+    setNotes({});
+    setReloadToken((t) => t + 1);
+  }, []);
   // v1.0.236 — admin console focus refetch. Refunds queue moves through
   // status quickly (requested → processing → completed) and other admins
   // may act on the same item, so always re-hit the server on focus.
@@ -88,26 +96,38 @@ export default function AdminRefundsScreen() {
         {
           text: "Refund",
           onPress: async () => {
+            const id = begin();
             setWorking(r.order_id);
             try {
               await nest.adminProcessRefund(r.order_id, {
                 amount: r.requested_amount,
                 note: (notes[r.order_id] || "").trim() || "Approved by MyNest operations.",
               });
+              if (!isCurrent(id)) return;
               toast.success("Refund submitted");
               reload();
             } catch (e) {
+              if (!isCurrent(id)) return;
               toast.error(e instanceof ApiError ? e.friendly : "Could not process refund");
             } finally {
-              setWorking(null);
+              if (isCurrent(id)) setWorking(null);
             }
           },
         },
       ],
     );
-  }, [notes, reload]);
+  }, [notes, reload, begin, isCurrent]);
 
   const denyRefund = useCallback((r: AdminRefund) => {
+    // v1.0.249 — require a non-empty deny reason before firing the API,
+    // so the buyer isn't left with a decision message that reads "Refund
+    // request denied after review." with zero context. The row-level
+    // note textarea is the input; if it's empty we toast and short-circuit.
+    const reason = (notes[r.order_id] || "").trim();
+    if (!reason) {
+      toast.error("Add a short deny reason in the note field first.");
+      return;
+    }
     Alert.alert(
       "Deny refund?",
       "The buyer will receive the decision and can use buyer protection as the escalation path.",
@@ -117,21 +137,24 @@ export default function AdminRefundsScreen() {
           text: "Deny",
           style: "destructive",
           onPress: async () => {
+            const id = begin();
             setWorking(r.order_id);
             try {
-              await nest.adminDenyRefund(r.order_id, (notes[r.order_id] || "").trim() || "Refund request denied after review.");
+              await nest.adminDenyRefund(r.order_id, reason);
+              if (!isCurrent(id)) return;
               toast.success("Refund denied");
               reload();
             } catch (e) {
+              if (!isCurrent(id)) return;
               toast.error(e instanceof ApiError ? e.friendly : "Could not deny refund");
             } finally {
-              setWorking(null);
+              if (isCurrent(id)) setWorking(null);
             }
           },
         },
       ],
     );
-  }, [notes, reload]);
+  }, [notes, reload, begin, isCurrent]);
 
   if (user?.role !== "admin") {
     return (

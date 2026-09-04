@@ -19,6 +19,7 @@ import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 type Range = "7d" | "30d" | "all";
 const RANGES: { key: Range; label: string }[] = [
@@ -49,21 +50,30 @@ export default function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
 
+  // v1.0.249 — the range in the closure is required so a fast
+  // 7d→30d→all toggle can't paint stale data. `begin()` supersedes any
+  // prior in-flight response.
   const load = useCallback(async (next: Range) => {
     setLoading(true);
     setError(null);
+    const id = begin();
     try {
       const res = await nest.adminListOrders({ range: next, per_page: 30 });
+      if (!isCurrent(id)) return;
       setItems(res.items || []);
       setTotal(res.total || 0);
     } catch (e) {
+      if (!isCurrent(id)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load orders.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(id)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   // v1.0.167 — load on mount and when the range filter changes.
   // v1.0.236 — focus refetch is back for the admin surface. Admins need
@@ -126,7 +136,7 @@ export default function AdminOrders() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(range); }}
+              onRefresh={() => { if (loading || refreshing) return; /* v1.0.249 dedupe */ setRefreshing(true); load(range); }}
               tintColor={colors.brand}
               colors={[colors.brand]}
             />

@@ -25,6 +25,7 @@ import { AdminCard } from "@/src/components/admin/AdminCard";
 import { AdminListSkeleton } from "@/src/components/admin/AdminSkeleton";
 import { MiniBarChart } from "@/src/components/admin/MiniBarChart";
 import { useAuth } from "@/src/context/AuthContext";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -46,29 +47,39 @@ export default function AnalyticsScreen() {
   const [data, setData] = useState<AdminAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
 
-  const load = useCallback(async () => {
+  // v1.0.249 — store the current data in a ref so the load closure can
+  // still decide whether to toast-on-error without making `load` a new
+  // function on every data change (which caused re-fire loops).
+  const dataRef = React.useRef<AdminAnalytics | null>(null);
+  React.useEffect(() => { dataRef.current = data; }, [data]);
+
+  // v1.0.249 — guard every post-await setter so a fast window toggle
+  // (7d → 30d → 90d) can't display data for a window the admin already
+  // moved past.
+  const load = useCallback(async (nextDays: number) => {
     if (me?.role !== "admin") return;
+    const id = begin();
     setError(null);
     try {
-      const res = await nest.adminAnalytics(days);
+      const res = await nest.adminAnalytics(nextDays);
+      if (!isCurrent(id)) return;
       setData(res);
     } catch (e) {
+      if (!isCurrent(id)) return;
       const msg = e instanceof ApiError ? e.friendly : "Could not load analytics.";
       setError(msg);
-      if (data) toast.error(msg);
+      if (dataRef.current) toast.error(msg);
     } finally {
-      setLoading(false);
+      if (isCurrent(id)) setLoading(false);
     }
-  }, [days, me?.role, data]);
+  }, [me?.role, begin, isCurrent]);
 
   useEffect(() => {
     setLoading(true);
-    void load();
-    // Intentionally re-run only when the window changes; `data` is
-    // included in load() only for the toast-vs-error decision.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days]);
+    void load(days);
+  }, [days, load]);
 
   const fmtMoney = useCallback(
     (n: number) => {
@@ -107,7 +118,16 @@ export default function AnalyticsScreen() {
         title="Analytics"
         subtitle={data ? `Last ${data.window_days} days` : undefined}
         backTo="/admin"
-        actions={[{ icon: "refresh-outline", label: "Refresh", onPress: () => { setLoading(true); void load(); }, testID: "analytics-refresh" }]}
+        actions={[{
+          icon: "refresh-outline",
+          label: "Refresh",
+          onPress: () => {
+            if (loading) return; // v1.0.249 dedupe stacked refreshes
+            setLoading(true);
+            void load(days);
+          },
+          testID: "analytics-refresh",
+        }]}
       />
       <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}>
         <View style={styles.windowRow}>
@@ -131,7 +151,7 @@ export default function AnalyticsScreen() {
         {loading && !data ? (
           <AdminListSkeleton rows={4} />
         ) : error && !data ? (
-          <EmptyState icon="cloud-offline-outline" title="Couldn't load" message={error} actionLabel="Retry" onAction={() => { setLoading(true); void load(); }} />
+          <EmptyState icon="cloud-offline-outline" title="Couldn't load" message={error} actionLabel="Retry" onAction={() => { if (loading) return; setLoading(true); void load(days); }} />
         ) : !data ? null : data.woo_active === false ? (
           <EmptyState icon="storefront-outline" title="WooCommerce off" message="Analytics needs WooCommerce active on the site." />
         ) : (
@@ -210,11 +230,17 @@ function pct(x: number): string {
 function relTime(iso: string): string {
   try {
     const t = new Date(iso).getTime();
+    if (!Number.isFinite(t)) throw new Error("unparseable date");
     const diff = Math.max(0, Date.now() - t);
     if (diff < 60_000) return "just now";
     if (diff < 3_600_000) return `${Math.round(diff / 60_000)} min ago`;
     return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  } catch { return ""; }
+  } catch (e) {
+    // v1.0.249 — don't silently return "" on a malformed timestamp; log
+    // in dev so we can catch server-side date drift.
+    if (__DEV__) console.warn("[admin/analytics] relTime parse failed:", iso, e);
+    return "";
+  }
 }
 
 function RateChip({ label, value, tone }: { label: string; value: string; tone: "good" | "warn" | "neutral" }) {

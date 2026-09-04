@@ -3,7 +3,7 @@
 // dismiss each report. Non-admins hit the same guard as index.tsx and
 // the backend gates every route with tnm_is_admin_or_manager.
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,6 +19,7 @@ import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 type Status = "pending" | "resolved" | "dismissed";
 const TABS: Status[] = ["pending", "resolved", "dismissed"];
@@ -35,20 +36,29 @@ export default function AdminReports() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<number | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
 
+  // v1.0.249 — the status arg is captured in the closure and the load
+  // uses useLatestRequest so a fast tab switch (pending → resolved →
+  // dismissed) can't paint stale rows into the newly-selected tab.
   const load = useCallback(async (next: Status) => {
     setLoading(true);
     setError(null);
+    const id = begin();
     try {
       const res = await nest.adminListReports({ status: next, per_page: 30 });
+      if (!isCurrent(id)) return;
       setItems(res.items || []);
     } catch (e) {
+      if (!isCurrent(id)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load reports.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(id)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   // v1.0.167 — load on mount and when the status filter changes.
   // v1.0.236 — admin focus refetch reinstated; pending queue must reflect
@@ -58,19 +68,42 @@ export default function AdminReports() {
   const refetch = useCallback(() => load(status), [load, status]);
   useAdminFocusRefetch(refetch);
 
-  const act = async (id: number, action: "resolve" | "dismiss") => {
-    setActing(id);
+  const act = useCallback(async (rid: number, action: "resolve" | "dismiss") => {
+    const id = begin();
+    setActing(rid);
     try {
-      if (action === "resolve") await nest.adminResolveReport(id);
-      else await nest.adminDismissReport(id);
-      setItems((prev) => prev.filter((r) => r.id !== id));
+      if (action === "resolve") await nest.adminResolveReport(rid);
+      else await nest.adminDismissReport(rid);
+      if (!isCurrent(id)) return;
+      setItems((prev) => prev.filter((r) => r.id !== rid));
       toast.success(action === "resolve" ? "Report resolved" : "Report dismissed");
     } catch (e) {
+      if (!isCurrent(id)) return;
       toast.error(e instanceof ApiError ? e.friendly : "Could not update that report.");
     } finally {
-      setActing(null);
+      if (isCurrent(id)) setActing(null);
     }
-  };
+  }, [begin, isCurrent]);
+
+  // v1.0.249 — Resolve/Dismiss are irreversible from this screen (there's
+  // no undo; the row just leaves the pending tab), so wrap each in a
+  // confirmation. Matches Alert style used elsewhere in admin/*.
+  const confirmAct = useCallback((rid: number, action: "resolve" | "dismiss") => {
+    Alert.alert(
+      action === "resolve" ? "Resolve report?" : "Dismiss report?",
+      action === "resolve"
+        ? "Marks this report resolved and removes it from the pending queue."
+        : "Marks this report dismissed and removes it from the pending queue.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: action === "resolve" ? "Resolve" : "Dismiss",
+          style: action === "dismiss" ? "destructive" : "default",
+          onPress: () => { void act(rid, action); },
+        },
+      ],
+    );
+  }, [act]);
 
   if (user?.role !== "admin") {
     return (
@@ -126,7 +159,7 @@ export default function AdminReports() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); load(status); }}
+              onRefresh={() => { if (loading || refreshing) return; /* v1.0.249 dedupe */ setRefreshing(true); load(status); }}
               tintColor={colors.brand}
               colors={[colors.brand]}
             />
@@ -136,8 +169,8 @@ export default function AdminReports() {
               report={item}
               status={status}
               acting={acting === item.id}
-              onResolve={() => { haptics.success(); act(item.id, "resolve"); }}
-              onDismiss={() => { haptics.warning(); act(item.id, "dismiss"); }}
+              onResolve={() => { haptics.success(); confirmAct(item.id, "resolve"); }}
+              onDismiss={() => { haptics.warning(); confirmAct(item.id, "dismiss"); }}
             />
           )}
           ListEmptyComponent={
@@ -173,7 +206,7 @@ function ReportRow({ report, status, acting, onResolve, onDismiss }: { report: A
         <View style={styles.kindBadge}>
           <Text style={styles.kindBadgeText}>{report.subject_label.toUpperCase()}</Text>
         </View>
-        <Text style={styles.createdAt}>{(parseServerDate(report.created_at) ?? new Date(0)).toLocaleDateString()}</Text>
+        <Text style={styles.createdAt}>{(() => { const d = parseServerDate(report.created_at); return d ? d.toLocaleDateString() : "—"; })()}</Text>
       </View>
       {report.reason ? <Text style={styles.reason}>{report.reason}</Text> : null}
       {report.subject_body ? <Text style={styles.subjectBody} numberOfLines={4}>{report.subject_body}</Text> : null}
@@ -209,7 +242,7 @@ function ReportRow({ report, status, acting, onResolve, onDismiss }: { report: A
         <Text style={styles.resolvedMeta}>
           {status === "resolved" ? "Resolved" : "Dismissed"}
           {report.resolved_by ? ` by ${report.resolved_by.name}` : ""} ·{" "}
-          {(parseServerDate(report.resolved_at) ?? new Date(0)).toLocaleString()}
+          {(() => { const d = parseServerDate(report.resolved_at); return d ? d.toLocaleString() : "—"; })()}
         </Text>
       ) : null}
     </View>

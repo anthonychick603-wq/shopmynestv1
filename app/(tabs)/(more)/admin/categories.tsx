@@ -14,6 +14,7 @@ import {
   ActionSheetIOS,
   Alert,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -33,6 +34,7 @@ import { EmptyState } from "@/src/components/EmptyState";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
 import { useBackFallback } from "@/src/context/BackFallback";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 type ItemWithMeta = AdminCategory & { depth: number; childCount: number };
 
@@ -88,7 +90,9 @@ function buildDisplayList(
 }
 
 export default function CategoriesScreen() {
-  useBackFallback("/(tabs)/(more)/admin");
+  // v1.0.249 — unified with the rest of admin/*.tsx which all use "/admin"
+  // as the back-fallback route.
+  useBackFallback("/admin");
   const [items, setItems] = useState<AdminCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,16 +109,34 @@ export default function CategoriesScreen() {
   const [composerParent, setComposerParent] = useState<number>(0);
   const [composerBusy, setComposerBusy] = useState(false);
 
+  // v1.0.249 — debounce the filter so buildDisplayList doesn't run on
+  // every keystroke for large taxonomies. 150ms is imperceptible for
+  // typing but skips work on every intermediate character.
+  const [debouncedFilter, setDebouncedFilter] = useState("");
+  useEffect(() => {
+    const h = setTimeout(() => setDebouncedFilter(filter), 150);
+    return () => clearTimeout(h);
+  }, [filter]);
+
+  const { begin, isCurrent } = useLatestRequest();
+
+  // v1.0.249 — gate every post-await setter with useLatestRequest so
+  // fast composer-save-then-reload sequences don't overwrite the newer
+  // list with the older response. Also standardize on `.friendly` for
+  // error messaging (was `.message`, which leaks raw backend text).
   const load = useCallback(async () => {
+    const id = begin();
     try {
       const res = await nest.adminCategoriesList();
+      if (!isCurrent(id)) return;
       setItems(res.items);
       setError(null);
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Could not load categories.";
+      if (!isCurrent(id)) return;
+      const msg = e instanceof ApiError ? e.friendly : "Could not load categories.";
       setError(msg);
     }
-  }, []);
+  }, [begin, isCurrent]);
 
   useEffect(() => {
     (async () => {
@@ -131,8 +153,8 @@ export default function CategoriesScreen() {
   }, [load]);
 
   const display = useMemo(
-    () => buildDisplayList(items, expanded, filter),
-    [items, expanded, filter],
+    () => buildDisplayList(items, expanded, debouncedFilter),
+    [items, expanded, debouncedFilter],
   );
 
   const toggle = useCallback((id: number) => {
@@ -243,7 +265,10 @@ export default function CategoriesScreen() {
       setComposerOpen(false);
       await load();
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Save failed.";
+      // v1.0.249 — use `.friendly` to match the rest of the app; raw
+      // .message often surfaces backend jargon like "term already exists
+      // for taxonomy product_cat".
+      const msg = e instanceof ApiError ? e.friendly : "Save failed.";
       toast.error(msg);
     } finally {
       setComposerBusy(false);
@@ -253,22 +278,32 @@ export default function CategoriesScreen() {
   const confirmDelete = useCallback(
     (cat: AdminCategory) => {
       const doDelete = async (reassignTo?: number) => {
+        // v1.0.249 — the delete API is a one-shot mutation; guard the
+        // post-await state work so unmount between await and reload
+        // doesn't warn. Uses the shared request id so a subsequent
+        // load() supersedes it correctly.
+        const id = begin();
         try {
           const res = await nest.adminCategoryDelete(cat.id, reassignTo);
+          if (!isCurrent(id)) return;
           const movedText = res.moved > 0 ? ` Moved ${res.moved} product${res.moved === 1 ? "" : "s"}.` : "";
           toast.success(`Category deleted.${movedText}`);
           await load();
         } catch (e) {
-          const msg = e instanceof ApiError ? e.message : "Delete failed.";
+          if (!isCurrent(id)) return;
+          // v1.0.249 — .friendly matches the rest of the app.
+          const msg = e instanceof ApiError ? e.friendly : "Delete failed.";
           toast.error(msg);
         }
       };
       if (cat.count > 0) {
-        // Offer to reassign products before wiping the term.
+        // v1.0.249 — show every root (was: only first 6). If more than
+        // ~10 roots exist and iOS can't render a comfortable sheet, we
+        // fall through to a picker via pickParent-style Alert on Android;
+        // iOS's action-sheet scrolls natively, so the full list works.
         const roots = items
           .filter((i) => i.id !== cat.id && i.parent === 0)
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .slice(0, 6);
+          .sort((a, b) => a.name.localeCompare(b.name));
         const labels = [
           `Delete without reassigning (${cat.count} product${cat.count === 1 ? "" : "s"} lose this tag)`,
           ...roots.map((r) => `Move products to “${r.name}”`),
@@ -312,7 +347,7 @@ export default function CategoriesScreen() {
         );
       }
     },
-    [items, load],
+    [items, load, begin, isCurrent],
   );
 
   const openRowActions = useCallback(
@@ -463,8 +498,15 @@ export default function CategoriesScreen() {
       )}
 
       {composerOpen ? (
-        <View style={styles.composerBackdrop}>
-          <View style={styles.composer}>
+        // v1.0.249 — backdrop press dismisses the composer, matching the
+        // rest of the app's modal behaviour. The inner Pressable stops
+        // propagation so taps inside the composer don't close it.
+        <Pressable
+          style={styles.composerBackdrop}
+          onPress={() => { if (!composerBusy) setComposerOpen(false); }}
+          accessible={false}
+        >
+          <Pressable style={styles.composer} onPress={() => {}}>
             <Text style={styles.composerTitle}>
               {composerMode === "create" ? "New category" : "Edit category"}
             </Text>
@@ -523,8 +565,8 @@ export default function CategoriesScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       ) : null}
     </SafeAreaView>
   );

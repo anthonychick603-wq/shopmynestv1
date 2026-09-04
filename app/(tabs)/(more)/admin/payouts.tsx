@@ -29,6 +29,7 @@ import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
 import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -60,7 +61,14 @@ export default function AdminPayoutsScreen() {
   // from page 1. Cheap way to keep the list in sync without an imperative
   // ref API on InfiniteList.
   const [reloadToken, setReloadToken] = useState(0);
-  const reload = useCallback(() => setReloadToken((t) => t + 1), []);
+  const { begin, isCurrent } = useLatestRequest();
+  const reload = useCallback(() => {
+    // v1.0.249 — clear any typed-but-un-saved reference chips on every
+    // reload so a stale ref number can't accidentally pollute a payout
+    // that came back with a new external_id from the server.
+    setRefs({});
+    setReloadToken((t) => t + 1);
+  }, []);
   useAdminFocusRefetch(reload); // v1.0.236 admin console focus refetch
 
   // Fetcher captures the current filter state; changing status/query
@@ -87,38 +95,66 @@ export default function AdminPayoutsScreen() {
     [status, query],
   );
 
-  const processPayout = useCallback(async (p: AdminPayout) => {
+  // v1.0.249 — all three mutations now short-circuit their `setWorking`
+  // reset if we've unmounted between the network round-trip and the
+  // finally block. useLatestRequest gives us both cancellation and
+  // unmount signalling from a single primitive.
+  const doProcess = useCallback(async (p: AdminPayout) => {
     if (p.method === "manual" && !String(refs[p.id] || p.external_id || "").trim()) {
       toast.error("Enter the ACH / bank confirmation reference first");
       return;
     }
+    const id = begin();
     setWorking(p.id);
     try {
       await nest.adminProcessPayout(p.id, {
         external_id: String(refs[p.id] || p.external_id || "").trim(),
         notes: "Processed from MyNest mobile operations.",
       });
+      if (!isCurrent(id)) return;
       toast.success(p.method === "manual" ? "Payout marked paid" : "Payout submitted");
       reload();
     } catch (e) {
+      if (!isCurrent(id)) return;
       toast.error(e instanceof ApiError ? e.friendly : "Could not process payout");
     } finally {
-      setWorking(null);
+      if (isCurrent(id)) setWorking(null);
     }
-  }, [refs, reload]);
+  }, [refs, reload, begin, isCurrent]);
+
+  // v1.0.249 — wrap manual mark-paid in a confirmation prompt, since a
+  // misclick would move real money in the seller's ledger. PayPal /
+  // provider-submitted payouts skip this prompt.
+  const processPayout = useCallback((p: AdminPayout) => {
+    if (p.method === "manual") {
+      Alert.alert(
+        "Mark payout paid?",
+        `Confirm ${money(p.amount, p.currency)} to ${p.destination || p.seller_email || "seller"} as paid.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Mark paid", onPress: () => { void doProcess(p); } },
+        ],
+      );
+    } else {
+      void doProcess(p);
+    }
+  }, [doProcess]);
 
   const retryPayout = useCallback(async (p: AdminPayout) => {
+    const id = begin();
     setWorking(p.id);
     try {
       await nest.adminRetryPayout(p.id);
+      if (!isCurrent(id)) return;
       toast.success("Payout returned to processing queue");
       reload();
     } catch (e) {
+      if (!isCurrent(id)) return;
       toast.error(e instanceof ApiError ? e.friendly : "Could not retry payout");
     } finally {
-      setWorking(null);
+      if (isCurrent(id)) setWorking(null);
     }
-  }, [reload]);
+  }, [reload, begin, isCurrent]);
 
   const cancelPayout = useCallback((p: AdminPayout) => {
     Alert.alert(
@@ -130,21 +166,24 @@ export default function AdminPayoutsScreen() {
           text: "Cancel payout",
           style: "destructive",
           onPress: async () => {
+            const id = begin();
             setWorking(p.id);
             try {
               await nest.adminCancelPayout(p.id, "Cancelled from MyNest mobile operations.");
+              if (!isCurrent(id)) return;
               toast.success("Payout cancelled");
               reload();
             } catch (e) {
+              if (!isCurrent(id)) return;
               toast.error(e instanceof ApiError ? e.friendly : "Could not cancel payout");
             } finally {
-              setWorking(null);
+              if (isCurrent(id)) setWorking(null);
             }
           },
         },
       ],
     );
-  }, [reload]);
+  }, [reload, begin, isCurrent]);
 
   if (user?.role !== "admin") {
     return (

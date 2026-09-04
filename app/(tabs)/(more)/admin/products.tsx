@@ -24,6 +24,7 @@ import { InfiniteList } from "@/src/components/admin/InfiniteList";
 import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { useAuth } from "@/src/context/AuthContext";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { haptics } from "@/src/utils/haptics";
@@ -56,9 +57,13 @@ export default function ProductsScreen() {
   const [totalKnown, setTotalKnown] = useState<number | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const { begin, isCurrent } = useLatestRequest();
 
+  // v1.0.249 — gate setTotalKnown so a slow response from a superseded
+  // filter change can't overwrite the total for the newer filter.
   const fetcher = useCallback(
     async (page: number) => {
+      const id = begin();
       const res = await nest.adminListProducts({
         page,
         per_page: 25,
@@ -66,10 +71,10 @@ export default function ProductsScreen() {
         status,
         featured: featuredOnly ? 1 : undefined,
       });
-      setTotalKnown(res.total);
+      if (isCurrent(id)) setTotalKnown(res.total);
       return { items: res.items, total_pages: res.total_pages, total: res.total };
     },
-    [query, status, featuredOnly]
+    [query, status, featuredOnly, begin, isCurrent]
   );
 
   const reload = useCallback(() => {
@@ -88,29 +93,57 @@ export default function ProductsScreen() {
     });
   }, []);
 
+  // v1.0.249 — guard the post-await toast + reload so unmount between
+  // the mutation and the setState calls doesn't warn. `reload()` will
+  // begin() a fresh id anyway on the next mount so this is safe.
   const runSingleAction = useCallback(async (p: AdminProduct, action: AdminProductAction) => {
+    const id = begin();
     try {
       await nest.adminProductAction(p.id, action);
+      if (!isCurrent(id)) return;
       toast.success(`${ACTION_LABELS[action].label}: ${p.title}`);
       reload();
     } catch (e) {
+      if (!isCurrent(id)) return;
       toast.error(e instanceof ApiError ? e.friendly : "Action failed.");
     }
-  }, [reload]);
+  }, [reload, begin, isCurrent]);
 
   const runBulkAction = useCallback(async (action: AdminProductAction) => {
     if (selected.size === 0) return;
+    const id = begin();
     try {
       const res = await nest.adminProductsBulk(action, Array.from(selected));
+      if (!isCurrent(id)) return;
       if (res.failed.length === 0) toast.success(`${ACTION_LABELS[action].label} applied to ${res.success}`);
       else toast.info(`${res.success} ok, ${res.failed.length} failed`);
       setSelected(new Set());
       setSelectMode(false);
       reload();
     } catch (e) {
+      if (!isCurrent(id)) return;
       toast.error(e instanceof ApiError ? e.friendly : "Bulk action failed.");
     }
-  }, [selected, reload]);
+  }, [selected, reload, begin, isCurrent]);
+
+  // v1.0.249 — wrap a destructive bulk action ("Move N to trash") in an
+  // additional confirmation. Single-row trash already funnels through the
+  // per-row action sheet which reads as a confirmation prompt, so we
+  // don't double-confirm there.
+  const confirmBulk = useCallback((action: AdminProductAction) => {
+    if (action === "trash" && selected.size > 0) {
+      Alert.alert(
+        `Move ${selected.size} product${selected.size === 1 ? "" : "s"} to trash?`,
+        "Products stay reversible from WordPress admin.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Move to trash", style: "destructive", onPress: () => void runBulkAction(action) },
+        ],
+      );
+    } else {
+      void runBulkAction(action);
+    }
+  }, [selected, runBulkAction]);
 
   const openRowActions = useCallback((p: AdminProduct) => {
     const availableActions: AdminProductAction[] = [];
@@ -178,15 +211,15 @@ export default function ProductsScreen() {
       const destructiveIndex = items.findIndex((i) => i.destructive);
       ActionSheetIOS.showActionSheetWithOptions(
         { title: "Bulk action", options: labels, cancelButtonIndex: labels.length - 1, destructiveButtonIndex: destructiveIndex >= 0 ? destructiveIndex : undefined },
-        (idx) => { const it = items[idx]; if (it) void runBulkAction(it.action); }
+        (idx) => { const it = items[idx]; if (it) confirmBulk(it.action); }
       );
     } else {
       Alert.alert("Bulk action", `${selected.size} product${selected.size === 1 ? "" : "s"} selected`, [
-        ...items.map((i) => ({ text: i.label, style: (i.destructive ? "destructive" : "default") as "default" | "destructive", onPress: () => void runBulkAction(i.action) })),
+        ...items.map((i) => ({ text: i.label, style: (i.destructive ? "destructive" : "default") as "default" | "destructive", onPress: () => confirmBulk(i.action) })),
         { text: "Cancel", style: "cancel" as const },
       ]);
     }
-  }, [selected, runBulkAction]);
+  }, [selected, confirmBulk]);
 
   const renderItem = useCallback(
     ({ item: p }: { item: AdminProduct }) => {
@@ -234,14 +267,31 @@ export default function ProductsScreen() {
       <View style={styles.headerWrap}>
         <FilterBar<AdminProductStatus>
           query={query}
-          onQueryChange={(next) => { setQuery(next); reload(); }}
+          onQueryChange={(next) => {
+            // v1.0.249 — clear pending selection synchronously with the
+            // filter change so we don't act on rows that are about to
+            // vanish from the newly-filtered list.
+            if (selected.size > 0) setSelected(new Set());
+            setQuery(next);
+            reload();
+          }}
           placeholder="Search title, SKU"
           chips={STATUS_CHIPS}
           activeChip={status}
-          onChipChange={(next) => { haptics.tap(); setStatus(next); reload(); }}
+          onChipChange={(next) => {
+            haptics.tap();
+            if (selected.size > 0) setSelected(new Set()); // v1.0.249
+            setStatus(next);
+            reload();
+          }}
           right={
             <TouchableOpacity
-              onPress={() => { haptics.tap(); setFeaturedOnly((v) => !v); reload(); }}
+              onPress={() => {
+                haptics.tap();
+                if (selected.size > 0) setSelected(new Set()); // v1.0.249
+                setFeaturedOnly((v) => !v);
+                reload();
+              }}
               style={[styles.featuredToggle, featuredOnly && styles.featuredToggleOn]}
               accessibilityRole="button"
               accessibilityState={{ selected: featuredOnly }}
@@ -267,7 +317,7 @@ export default function ProductsScreen() {
         </View>
       </View>
     ),
-    [query, status, featuredOnly, totalKnown, selectMode, reload]
+    [query, status, featuredOnly, totalKnown, selectMode, selected.size, reload]
   );
 
   if (me?.role !== "admin") {

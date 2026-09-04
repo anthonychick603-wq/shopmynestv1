@@ -13,6 +13,7 @@ import { haptics } from "@/src/utils/haptics";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 export default function AdminOperations() {
   useBackFallback("/admin");
@@ -23,19 +24,29 @@ export default function AdminOperations() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
 
+  // v1.0.249 — guard every setter with useLatestRequest so focus-refetch
+  // colliding with a manual pull-to-refresh doesn't leave the older
+  // response as the source of truth.
   const load = useCallback(async () => {
     if (user?.role !== "admin") return;
+    const id = begin();
     setError(null);
     try {
-      setSummary(await nest.adminOperations());
+      const res = await nest.adminOperations();
+      if (!isCurrent(id)) return;
+      setSummary(res);
     } catch (e) {
+      if (!isCurrent(id)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load operational queues.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(id)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [user?.role]);
+  }, [user?.role, begin, isCurrent]);
 
   React.useEffect(() => { void load(); }, [load]);
   useAdminFocusRefetch(load); // v1.0.236 admin console focus refetch
@@ -56,7 +67,7 @@ export default function AdminOperations() {
       <Top onBack={() => safeBack(router, "/admin")} />
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: insets.bottom + 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} tintColor={colors.brand} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { if (loading || refreshing) return; /* v1.0.249 dedupe */ setRefreshing(true); void load(); }} tintColor={colors.brand} />}
        keyboardShouldPersistTaps="handled">
         <Text style={styles.intro}>Server-authoritative queues for work that needs a person. Counts come directly from the marketplace backend rather than being inferred from client screens.</Text>
         {error ? <Text style={styles.warning}>{error}</Text> : null}

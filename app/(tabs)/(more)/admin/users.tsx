@@ -13,8 +13,8 @@
 // "Suspend" not "Delete", and the confirm dialog explains what actually
 // happens ("this hides them from the marketplace but keeps their order
 // history").
-import React, { useCallback, useMemo, useState } from "react";
-import { ActionSheetIOS, Alert, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActionSheetIOS, Alert, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -29,6 +29,7 @@ import { AdminStatusPill } from "@/src/components/admin/AdminStatusPill";
 import { EmptyState } from "@/src/components/EmptyState";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
 import { haptics } from "@/src/utils/haptics";
@@ -46,21 +47,50 @@ export default function UsersScreen() {
   useBackFallback("/admin");
   const { user: me } = useAuth();
   const [query, setQuery] = useState("");
+  // v1.0.249 — debounced search: type freely without a network round-trip
+  // on every keystroke; the fetcher only re-runs 250ms after the last edit.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [status, setStatus] = useState<AdminUserStatus>("all");
   const [reloadToken, setReloadToken] = useState(0);
   const [totalKnown, setTotalKnown] = useState<number | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
 
   const fetcher = useCallback(
     async (page: number) => {
-      const res = await nest.adminListUsers({ page, per_page: 25, search: query || undefined, status });
+      const res = await nest.adminListUsers({ page, per_page: 25, search: debouncedQuery || undefined, status });
       setTotalKnown(res.total);
       return { items: res.items, total_pages: res.total_pages, total: res.total };
     },
-    [query, status]
+    [debouncedQuery, status]
   );
 
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
   useAdminFocusRefetch(reload); // v1.0.236 admin console focus refetch
+
+  // v1.0.249 — Android suspend reason capture. iOS keeps Alert.prompt;
+  // Android now surfaces a real TextInput modal so the ban_reason we
+  // send matches iOS parity instead of always going through as empty.
+  const [suspendModal, setSuspendModal] = useState<{ user: AdminUser } | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
+  const suspendResolveRef = useRef<((v: string) => void) | null>(null);
+  const openAndroidSuspend = useCallback((u: AdminUser): Promise<string> => {
+    return new Promise<string>((resolve) => {
+      suspendResolveRef.current = resolve;
+      setSuspendReason("");
+      setSuspendModal({ user: u });
+    });
+  }, []);
+  const closeSuspend = useCallback((reason: string) => {
+    const r = suspendResolveRef.current;
+    suspendResolveRef.current = null;
+    setSuspendModal(null);
+    if (r) r(reason);
+  }, []);
 
   // v1.0.193 — Action sheet for a user row. Only the actions valid for the
   // current user state are shown (no "Ban" for admins, no "Unban" for
@@ -70,16 +100,30 @@ export default function UsersScreen() {
   const openRowActions = useCallback(
     (u: AdminUser) => {
       const isSelf = String(me?.id ?? "") === String(u.id);
-      type Action = { label: string; destructive?: boolean; run: () => Promise<void> };
+      type Action = { label: string; destructive?: boolean; run: () => Promise<void>; needsConfirm?: { title: string; body: string; cta: string; destructive?: boolean } };
       const actions: Action[] = [];
 
       if (!u.is_admin && !u.is_banned && !isSelf) {
         actions.push({
           label: "Promote to admin",
+          // v1.0.249 — promote is nearly as consequential as suspend; require
+          // an explicit confirmation before granting admin privileges.
+          needsConfirm: {
+            title: "Promote to admin?",
+            body: `${u.display_name} will gain full administrator access to the marketplace.`,
+            cta: "Promote",
+          },
           run: async () => {
-            await nest.adminPromoteUser(u.id);
-            toast.success(`${u.display_name} is now an administrator`);
-            reload();
+            const id = begin();
+            try {
+              await nest.adminPromoteUser(u.id);
+              if (!isCurrent(id)) return;
+              toast.success(`${u.display_name} is now an administrator`);
+              reload();
+            } catch (e) {
+              if (!isCurrent(id)) return;
+              toast.error(e instanceof ApiError ? e.friendly : "Something went wrong.");
+            }
           },
         });
       }
@@ -87,9 +131,16 @@ export default function UsersScreen() {
         actions.push({
           label: "Remove admin role",
           run: async () => {
-            await nest.adminDemoteUser(u.id);
-            toast.success(`${u.display_name} is no longer an administrator`);
-            reload();
+            const id = begin();
+            try {
+              await nest.adminDemoteUser(u.id);
+              if (!isCurrent(id)) return;
+              toast.success(`${u.display_name} is no longer an administrator`);
+              reload();
+            } catch (e) {
+              if (!isCurrent(id)) return;
+              toast.error(e instanceof ApiError ? e.friendly : "Something went wrong.");
+            }
           },
         });
       }
@@ -98,10 +149,33 @@ export default function UsersScreen() {
           label: "Suspend account",
           destructive: true,
           run: async () => {
-            const reason = await promptReason();
-            await nest.adminBanUser(u.id, reason);
-            toast.success(`${u.display_name} suspended`);
-            reload();
+            // v1.0.249 — on Android, capture a real reason via the modal
+            // below; iOS keeps Alert.prompt. This makes ban_reason parity
+            // between platforms instead of silently sending "" on Android.
+            const reason = Platform.OS === "ios" ? await promptReasonIOS() : await openAndroidSuspend(u);
+            const id = begin();
+            try {
+              await nest.adminBanUser(u.id, reason);
+              if (!isCurrent(id)) return;
+              toast.success(`${u.display_name} suspended`);
+              reload();
+            } catch (e) {
+              if (!isCurrent(id)) return;
+              toast.error(e instanceof ApiError ? e.friendly : "Something went wrong.");
+            }
+          },
+        });
+      }
+      // v1.0.249 — admin-on-admin suspend clarification. If the target is
+      // an admin (and not self), the server rejects the ban outright, so
+      // surface that up front instead of letting the user watch a spinner
+      // and get a generic error.
+      if (u.is_admin && !isSelf && !u.is_banned) {
+        actions.push({
+          label: "Suspend admin (blocked)",
+          destructive: true,
+          run: async () => {
+            toast.info("Remove the admin role first, then suspend the account.");
           },
         });
       }
@@ -109,9 +183,16 @@ export default function UsersScreen() {
         actions.push({
           label: "Restore account",
           run: async () => {
-            await nest.adminUnbanUser(u.id);
-            toast.success(`${u.display_name} restored`);
-            reload();
+            const id = begin();
+            try {
+              await nest.adminUnbanUser(u.id);
+              if (!isCurrent(id)) return;
+              toast.success(`${u.display_name} restored`);
+              reload();
+            } catch (e) {
+              if (!isCurrent(id)) return;
+              toast.error(e instanceof ApiError ? e.friendly : "Something went wrong.");
+            }
           },
         });
       }
@@ -122,6 +203,21 @@ export default function UsersScreen() {
       }
 
       const wrap = (a: Action) => async () => {
+        if (a.needsConfirm) {
+          Alert.alert(
+            a.needsConfirm.title,
+            a.needsConfirm.body,
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: a.needsConfirm.cta,
+                style: a.needsConfirm.destructive ? "destructive" : "default",
+                onPress: () => { void a.run().catch((e) => toast.error(e instanceof ApiError ? e.friendly : "Something went wrong.")); },
+              },
+            ],
+          );
+          return;
+        }
         try { await a.run(); }
         catch (e) { toast.error(e instanceof ApiError ? e.friendly : "Something went wrong."); }
       };
@@ -157,7 +253,7 @@ export default function UsersScreen() {
         );
       }
     },
-    [me?.id, reload]
+    [me?.id, reload, begin, isCurrent, openAndroidSuspend]
   );
 
   const renderItem = useCallback(
@@ -202,7 +298,9 @@ export default function UsersScreen() {
       <View style={styles.headerWrap}>
         <FilterBar<AdminUserStatus>
           query={query}
-          onQueryChange={(next) => { setQuery(next); reload(); }}
+          // v1.0.249 — no synchronous reload on every keystroke; the
+          // debouncedQuery effect drives the refetch after 250ms of quiet.
+          onQueryChange={(next) => setQuery(next)}
           placeholder="Search name, username, or email"
           chips={CHIPS}
           activeChip={status}
@@ -238,38 +336,62 @@ export default function UsersScreen() {
         emptyTitle="No users match"
         emptyMessage="Try clearing the search or switching the status filter."
       />
+
+      {/* v1.0.249 — Android suspend reason modal. Matches iOS Alert.prompt UX. */}
+      <Modal transparent visible={!!suspendModal} animationType="fade" onRequestClose={() => closeSuspend("")}>
+        <Pressable style={styles.modalBackdrop} onPress={() => closeSuspend("")}>
+          <Pressable style={styles.modalCard} onPress={() => { /* swallow */ }}>
+            <Text style={styles.modalTitle}>Suspend account?</Text>
+            <Text style={styles.modalBody}>
+              This hides {suspendModal?.user.display_name ?? "the user"} from the marketplace but keeps their order history. Optional reason:
+            </Text>
+            <TextInput
+              value={suspendReason}
+              onChangeText={setSuspendReason}
+              placeholder="Reason (optional)"
+              placeholderTextColor={colors.onSurfaceMuted}
+              multiline
+              style={styles.modalInput}
+              autoFocus
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => closeSuspend("")} style={[styles.modalBtn, styles.modalBtnGhost]}>
+                <Text style={styles.modalBtnGhostText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => closeSuspend(suspendReason.trim())} style={[styles.modalBtn, styles.modalBtnDanger]}>
+                <Text style={styles.modalBtnDangerText}>Suspend</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 // v1.0.193 — prompt for a ban reason. Keeps the flow inline (no route
 // change) so admins don't lose their spot in the list.
-function promptReason(): Promise<string> {
+// v1.0.249 — iOS-only Alert.prompt path. Android now uses openAndroidSuspend
+// modal (declared inside the component) so we can capture a real reason.
+function promptReasonIOS(): Promise<string> {
   return new Promise((resolve) => {
-    if (Platform.OS === "ios") {
-      Alert.prompt(
-        "Suspend account",
-        "This hides the user from the marketplace but keeps their order history. Optional reason:",
-        [
-          { text: "Cancel", style: "cancel", onPress: () => resolve("") },
-          { text: "Suspend", style: "destructive", onPress: (text?: string) => resolve((text || "").trim()) },
-        ],
-        "plain-text" as const,
-        ""
-      );
-    } else {
-      Alert.alert(
-        "Suspend account?",
-        "This hides the user from the marketplace but keeps their order history.",
-        [
-          { text: "Cancel", style: "cancel", onPress: () => resolve("") },
-          { text: "Suspend", style: "destructive", onPress: () => resolve("") },
-        ]
-      );
-    }
+    Alert.prompt(
+      "Suspend account",
+      "This hides the user from the marketplace but keeps their order history. Optional reason:",
+      [
+        { text: "Cancel", style: "cancel", onPress: () => resolve("") },
+        { text: "Suspend", style: "destructive", onPress: (text?: string) => resolve((text || "").trim()) },
+      ],
+      "plain-text" as const,
+      ""
+    );
   });
 }
 
+// v1.0.249 — drop the "Joined " prefix on failure. The row already prints
+// "Joined" outside this function; returning "—" is enough, and returning
+// something like "Joined —" from the parent looks fine while returning
+// "—" here keeps the fallback readable.
 function joinedLabel(iso: string): string {
   const d = parseServerDate(iso);
   if (!d) return "—";
@@ -292,4 +414,17 @@ const styles = StyleSheet.create({
   metaText: { ...typeTokens.micro },
   metaDot: { ...typeTokens.micro, marginHorizontal: 2 },
   banReason: { ...typeTokens.caption, color: colors.warning, marginTop: spacing.xs, fontStyle: "italic" },
+
+  // v1.0.249 — Android suspend modal.
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center", padding: spacing.lg },
+  modalCard: { width: "100%", maxWidth: 420, backgroundColor: colors.card, borderRadius: radius.card, padding: spacing.lg, borderWidth: 1, borderColor: colors.hairline },
+  modalTitle: { ...typeTokens.h2, fontSize: 17 },
+  modalBody: { ...typeTokens.body, color: colors.onSurfaceMuted, marginTop: spacing.sm },
+  modalInput: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairlineStrong, borderRadius: radius.field, padding: spacing.md, minHeight: 70, color: colors.onSurface, textAlignVertical: "top", marginTop: spacing.md },
+  modalActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md, justifyContent: "flex-end" },
+  modalBtn: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill },
+  modalBtnGhost: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.hairlineStrong },
+  modalBtnGhostText: { ...typeTokens.body, fontWeight: "700", color: colors.onSurface },
+  modalBtnDanger: { backgroundColor: colors.error },
+  modalBtnDangerText: { ...typeTokens.body, fontWeight: "800", color: colors.onBrand },
 });

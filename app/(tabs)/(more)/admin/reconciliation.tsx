@@ -13,7 +13,7 @@
 //     already computed
 //   - "Truncated" hint if more than 50 rows exist, pointing at the
 //     WordPress CSV export for full audits
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ import { AdminCard } from "@/src/components/admin/AdminCard";
 import { AdminListSkeleton } from "@/src/components/admin/AdminSkeleton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useLoadOnce } from "@/src/hooks/use-load-once";
+import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
@@ -50,22 +51,38 @@ export default function ReconciliationScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { begin, isCurrent } = useLatestRequest();
+
+  // v1.0.249 — track `report` in a ref so `load` doesn't need to depend
+  // on it. Previously depending on `report` meant every load caused a
+  // fresh `load` reference and re-fired useLoadOnce, which was subtle.
+  const reportRef = useRef<AdminReconciliationReport | null>(null);
+  useEffect(() => { reportRef.current = report; }, [report]);
 
   const load = useCallback(async () => {
     if (user?.role !== "admin") return;
+    const id = begin();
     setError(null);
     try {
       const res = await nest.adminReconciliation(days);
+      if (!isCurrent(id)) return;
       setReport(res);
     } catch (e) {
+      if (!isCurrent(id)) return;
       const msg = e instanceof ApiError ? e.friendly : "Could not load reconciliation.";
       setError(msg);
-      if (report) toast.error(msg);
+      if (reportRef.current) toast.error(msg);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isCurrent(id)) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, [days, report, user?.role]);
+  }, [days, user?.role, begin, isCurrent]);
+
+  // v1.0.249 — clear the stale report when the admin switches windows so
+  // the skeleton shows instead of the previous window's data lingering.
+  useEffect(() => { setReport(null); }, [days]);
 
   // v1.0.192 — treat the window switch as a hard reload; the report is
   // small enough that we don't need to cache per-window results.
@@ -73,7 +90,6 @@ export default function ReconciliationScreen() {
   // living operations report; when the admin returns after acting on a
   // payout batch or refund they expect the totals to reflect it.
   const { markLoaded } = useLoadOnce(load, { staleMs: 30_000 });
-  void markLoaded;
 
   if (user?.role !== "admin") {
     return (
@@ -85,7 +101,20 @@ export default function ReconciliationScreen() {
   }
 
   const totalIssues = report?.total ?? 0;
-  const scannedAt = useMemo(() => new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }), [report]);
+  // v1.0.249 — anchor `scannedAt` to a captured moment when the report
+  // arrives. Previously we recomputed `new Date()` on every render that
+  // depended on `report`, so "Scanned at" drifted forward each rerender
+  // even though the underlying report hadn't been refetched. Capturing a
+  // stable ref of "the time this report landed" is the accurate
+  // client-side signal for now (the API type doesn't expose a
+  // server-side generated_at yet).
+  const [scannedAtLabel, setScannedAtLabel] = useState<string>("");
+  useEffect(() => {
+    if (report) {
+      setScannedAtLabel(new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+    }
+  }, [report]);
+  const scannedAt = scannedAtLabel;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -97,7 +126,11 @@ export default function ReconciliationScreen() {
           {
             icon: "refresh-outline",
             label: "Refresh",
-            onPress: () => { setRefreshing(true); void load(); },
+            onPress: () => {
+              if (loading || refreshing) return; // v1.0.249 dedupe stacked refreshes
+              setRefreshing(true);
+              void load().then(() => markLoaded());
+            },
             testID: "reconciliation-refresh",
           },
         ]}
@@ -128,7 +161,7 @@ export default function ReconciliationScreen() {
         {loading && !report ? (
           <AdminListSkeleton rows={3} />
         ) : error && !report ? (
-          <EmptyState icon="cloud-offline-outline" title="Couldn't load" message={error} actionLabel="Retry" onAction={load} />
+          <EmptyState icon="cloud-offline-outline" title="Couldn't load" message={error} actionLabel="Retry" onAction={() => { if (loading) return; setLoading(true); void load().then(() => markLoaded()); }} />
         ) : !report ? null : totalIssues === 0 ? (
           <EmptyState
             icon="shield-checkmark-outline"
