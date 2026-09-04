@@ -13,7 +13,7 @@
 // the Save button is gated on a successful load so a transient
 // GET /seller/profile failure can't be silently overwritten with a
 // blank About the seller never intended (audit P1).
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { KeyboardAwareScroll } from "@/src/components/KeyboardAwareScroll";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -30,6 +30,7 @@ import { Input } from "@/src/components/Input";
 import { toast } from "@/src/components/Toast";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { useRedirectAdmins } from "@/src/hooks/use-redirect-admins";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 export default function ShopSettings() {
   useBackFallback("/(tabs)/seller/dashboard");
@@ -56,32 +57,37 @@ export default function ShopSettings() {
 
   const ABOUT_MAX = 2000;
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (isAdmin) return; // don't fire the seller GET as an admin
+    try {
+      const p = await nest.getSellerProfileMe();
+      setProfile(p);
+      setStoreName(p.store_name || "");
+      setTagline(p.tagline || "");
+      setAbout(p.about || "");
+      setLoadSucceeded(true);
+      setLoadError(null);
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.friendly : "Couldn't load your shop settings.";
+      setLoadError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
     let cancel = false;
-    (async () => {
-      try {
-        const p = await nest.getSellerProfileMe();
-        if (cancel) return;
-        setProfile(p);
-        setStoreName(p.store_name || "");
-        setTagline(p.tagline || "");
-        setAbout(p.about || "");
-        setLoadSucceeded(true);
-        setLoadError(null);
-      } catch (e) {
-        if (cancel) return;
-        const msg = e instanceof ApiError ? e.friendly : "Couldn't load your shop settings.";
-        setLoadError(msg);
-        toast.error(msg);
-      } finally {
-        if (!cancel) setLoading(false);
-      }
+    void (async () => {
+      if (cancel) return;
+      await load();
     })();
     return () => {
       cancel = true;
     };
-  }, [isAdmin]);
+  }, [load]);
+
+  useInvalidateOnFocus(["sellers"], load);
 
   const save = async () => {
     // v1.0.247 — refuse to save if the load didn't complete. Otherwise

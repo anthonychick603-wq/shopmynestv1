@@ -29,6 +29,7 @@ import { OrderDetailSkeleton } from "@/src/components/OrderDetailSkeleton";
 import { parseServerDate } from "@/src/utils/datetime";
 import { statusLabel } from "@/src/utils/orderStatus";
 import { RequireAuth } from "@/src/components/RequireAuth";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 export default function OrderDetail() {
   return (
@@ -128,6 +129,8 @@ function OrderDetailImpl() {
   }, [id, isSeller]);
 
   useEffect(() => { load(); }, [load]);
+  const invalidate = useCallback(async () => { await load(); }, [load]);
+  useInvalidateOnFocus(["orders"], invalidate);
 
   if (loading) return <SafeAreaView style={styles.safe}><OrderDetailSkeleton /></SafeAreaView>;
 

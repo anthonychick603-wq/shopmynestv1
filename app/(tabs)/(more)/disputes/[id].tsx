@@ -23,6 +23,7 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
 import { RequireAuth } from "@/src/components/RequireAuth";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 export default function DisputeDetail() {
   return (
@@ -69,6 +70,7 @@ function DisputeDetailImpl() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useInvalidateOnFocus(["orders"], load);
 
   const escalate = async () => {
     setWorking(true);

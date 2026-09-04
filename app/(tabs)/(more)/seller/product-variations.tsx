@@ -8,6 +8,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { nest, ApiError, type NestProductAttributeRaw, type NestProductVariationRaw } from "@/src/api/nest";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { Button } from "@/src/components/Button";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { toast } from "@/src/components/Toast";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
@@ -115,6 +116,7 @@ export default function ProductVariationsScreen() {
       setLoading(false);
     }
   }, [productId]);
+  useInvalidateOnFocus(["products"], doLoad);
 
   useEffect(() => {
     let cancelled = false;

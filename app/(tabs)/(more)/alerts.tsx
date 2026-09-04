@@ -17,6 +17,7 @@ import { NestLogo } from "@/src/components/NestLogo";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAlerts } from "@/src/context/AlertsContext";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { pushFromTab, safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
@@ -125,6 +126,7 @@ export default function Alerts() {
       }
     }
   }, [user]);
+  useInvalidateOnFocus(["alerts"], load);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || loading || page >= totalPages) return;

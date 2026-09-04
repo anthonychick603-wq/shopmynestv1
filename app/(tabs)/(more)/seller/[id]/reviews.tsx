@@ -18,6 +18,7 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { decodeEntities } from "@/src/utils/html";
 import { parseServerDate } from "@/src/utils/datetime";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 const PAGE_SIZE = 20;
 
@@ -61,6 +62,8 @@ export default function PublicSellerReviewsScreen() {
       // reviews and the empty ListFooter tell the buyer nothing new arrived.
     }
   }, [id, begin, isCurrent]);
+  const invalidate = useCallback(async () => { await loadPage(1); }, [loadPage]);
+  useInvalidateOnFocus(["reviews"], invalidate);
 
   useEffect(() => {
     (async () => {

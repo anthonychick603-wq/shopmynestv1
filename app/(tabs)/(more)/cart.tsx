@@ -39,6 +39,7 @@ import { haptics } from "@/src/utils/haptics";
 import { CartSkeleton } from "@/src/components/CartSkeleton";
 import { AppImage } from "@/src/components/AppImage";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 // Where the buyer's destination address is persisted locally (reused across sessions).
 const SHIPPING_ADDRESS_KEY = "nest.checkout.shipping_address";
@@ -242,6 +243,8 @@ export default function Cart() {
       refreshPrices();
     }, [refreshPrices]),
   );
+  const invalidate = useCallback(async () => { await refreshPrices(); }, [refreshPrices]);
+  useInvalidateOnFocus(["cart", "products", "orders"], invalidate);
 
   // v1.0.212 (P0 #6) — hydrate the Saved for later section. A saved item
   // is any favorite that isn't already sitting in the cart. We fetch only

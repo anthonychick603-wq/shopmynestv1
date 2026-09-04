@@ -13,6 +13,7 @@ import { toProduct } from "@/src/api/adapters";
 import { colors, radius, shadows, spacing } from "@/src/theme";
 import type { Product } from "@/src/types";
 import { ProductCard } from "@/src/components/ProductCard";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { ProductGridSkeleton } from "@/src/components/ProductCardSkeleton";
 import { CartHeaderButton } from "@/src/components/CartHeaderButton";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
@@ -59,6 +60,7 @@ export default function RecentlyViewedScreen() {
   }, [user]);
 
   useEffect(() => { load(); }, [load]);
+  useInvalidateOnFocus(["products"], load);
 
   const onClear = () => {
     if (clearing || items.length === 0) return;

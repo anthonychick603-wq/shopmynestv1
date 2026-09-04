@@ -24,6 +24,7 @@ import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
 import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { pushFromTab } from "@/src/utils/nav";
@@ -69,6 +70,8 @@ export default function AdminRefundsScreen() {
   // status quickly (requested → processing → completed) and other admins
   // may act on the same item, so always re-hit the server on focus.
   useAdminFocusRefetch(reload);
+  const invalidate = useCallback(async () => { reload(); }, [reload]);
+  useInvalidateOnFocus(["orders"], invalidate);
 
   const fetcher: InfiniteFetcher<AdminRefund> = useCallback(
     async (page) => {

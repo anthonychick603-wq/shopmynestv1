@@ -23,6 +23,7 @@ import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 // v1.0.55 - tabs switch between favorited products and favorited blog posts,
 // both surfaced from the same "Favorites" entry point.
@@ -96,6 +97,7 @@ export default function Favorites() {
   }, [begin, isCurrent, refresh, ids]);
 
   useEffect(() => { load(); }, [load]);
+  useInvalidateOnFocus(["products"], load);
 
   // Load the current price-drop opt-in state on mount. Best-effort: on
   // failure we leave the default of "on" so the toggle still reflects

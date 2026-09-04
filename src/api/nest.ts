@@ -13,6 +13,35 @@ function bumped<T>(p: Promise<T>, ...classes: DataClass[]): Promise<T> {
   return p.then((v) => { bump(...classes); return v; });
 }
 
+// v1.0.257 — named class bundles. Coarse groupings that pair a mutation
+// with the full set of screens it can invalidate. Using named bundles
+// avoids each call-site guessing which classes are impacted and keeps
+// the bump lists in sync with product reality.
+//
+//   ORDER_TOUCH  — anything that moves an order forward or backward.
+//                  Orders lists (buyer/seller/admin), order detail,
+//                  operations tiles, dashboard, product stock,
+//                  seller product_count/soldout badges, and the
+//                  order-notification bell.
+//   REFUND_TOUCH — refund lifecycle. Orders + alerts; may restore stock.
+//   PAYOUT_TOUCH — payouts. Orders (payout_status column) + alerts.
+//   MESSAGE_TOUCH — DM send / custom-request / shipment auto-message.
+//                   Messages + alerts.
+//   FOLLOW_TOUCH  — follow / unfollow. Following + sellers.
+//   PRODUCT_TOUCH — seller product create / edit / delete / duplicate /
+//                   variations / admin actions. Products + sellers +
+//                   alerts (for admin-mutated products so the seller
+//                   sees the state change).
+//   BLOG_TOUCH    — blog post create / edit / delete / moderation / fav.
+//                   Blog + alerts (moderation).
+//   ALERT_TOUCH   — read/dismiss notifications. Alerts only.
+const ORDER_TOUCH: DataClass[] = ["orders", "products", "sellers", "alerts", "cart"];
+const REFUND_TOUCH: DataClass[] = ["orders", "products", "sellers", "alerts"];
+const PAYOUT_TOUCH: DataClass[] = ["orders", "alerts"];
+const MESSAGE_TOUCH: DataClass[] = ["messages", "alerts"];
+const PRODUCT_TOUCH: DataClass[] = ["products", "sellers", "alerts"];
+const BLOG_TOUCH: DataClass[] = ["blog", "alerts"];
+
 const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || "https://shopmynest.com").replace(/\/+$/, "");
 const NS = {
   marketplace: "/wp-json/the-nest/v1",
@@ -442,7 +471,7 @@ export const nest = {
   getPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
     request<{ comments: NestPostCommentRaw[]; total: number; pages: number }>("marketplace", `/posts/${id}/comments`, { query, auth: false }),
   addPostComment: (id: number | string, content: string) =>
-    request<NestPostCommentRaw>("marketplace", `/posts/${id}/comments`, { method: "POST", body: { content } }),
+    bumped(request<NestPostCommentRaw>("marketplace", `/posts/${id}/comments`, { method: "POST", body: { content } }), "blog"),
   // -------------------------------------------------------------------------
   // Blog (the-nest/v1/blog) — any logged-in user may submit a caption + photo.
   // v1.0.252 (plugin ≥ v3.7.109): posts auto-approve on submit and land in the
@@ -473,7 +502,7 @@ export const nest = {
     request<NestBlogPostsRaw>("marketplace", "/blog/posts", { query, auth: false }),
   // Multipart: `caption` + optional `image` file part.
   createBlogPost: (formData: FormData) =>
-    bumped(request<NestBlogPostRaw>("marketplace", "/blog/posts", { method: "POST", formData, timeoutMs: 60000 }), "blog"),
+    bumped(request<NestBlogPostRaw>("marketplace", "/blog/posts", { method: "POST", formData, timeoutMs: 60000 }), ...BLOG_TOUCH),
   // v1.0.76 — author edit + delete + non-author report. Server checks live
   // in class-mnu-blog.php (MNU 3.7.110); the mobile UI still gates the
   // menu items client-side so the sheet never offers actions the API will
@@ -482,17 +511,17 @@ export const nest = {
   // read-only preview during edit. A later patch can add multipart PUT if
   // we hear demand.
   updateBlogPost: (id: number | string, payload: { caption?: string; remove_image?: boolean }) =>
-    bumped(request<{ success: boolean; post: NestBlogPostRaw }>("marketplace", `/blog/posts/${id}`, { method: "PUT", body: payload }), "blog"),
+    bumped(request<{ success: boolean; post: NestBlogPostRaw }>("marketplace", `/blog/posts/${id}`, { method: "PUT", body: payload }), ...BLOG_TOUCH),
   deleteBlogPost: (id: number | string) =>
-    bumped(request<{ success: boolean; id: number }>("marketplace", `/blog/posts/${id}`, { method: "DELETE" }), "blog"),
+    bumped(request<{ success: boolean; id: number }>("marketplace", `/blog/posts/${id}`, { method: "DELETE" }), ...BLOG_TOUCH),
   reportBlogPost: (id: number | string, reason: string, details: string) =>
-    request<{ success: boolean; report_id: number }>("marketplace", `/blog/posts/${id}/report`, { method: "POST", body: { reason, details } }),
+    bumped(request<{ success: boolean; report_id: number }>("marketplace", `/blog/posts/${id}/report`, { method: "POST", body: { reason, details } }), "alerts"),
   getBlogModerationPosts: (query?: { status?: "pending" | "approved" | "rejected"; page?: number; per_page?: number }) =>
     request<NestBlogPostsRaw>("marketplace", "/blog/moderation/posts", { query }),
   approveBlogPost: (id: number | string) =>
-    bumped(request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/approve`, { method: "POST" }), "blog"),
+    bumped(request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/approve`, { method: "POST" }), ...BLOG_TOUCH),
   rejectBlogPost: (id: number | string) =>
-    bumped(request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/reject`, { method: "POST" }), "blog"),
+    bumped(request<NestBlogPostRaw>("marketplace", `/blog/moderation/posts/${id}/reject`, { method: "POST" }), ...BLOG_TOUCH),
 
   // v1.0.86 — admin console (plugin v3.7.114). Owner-only surfaces powering
   // the in-app admin drawer; all four routes reject non-admins with 403.
@@ -504,9 +533,9 @@ export const nest = {
       { query },
     ),
   adminResolveReport: (id: number | string) =>
-    request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/resolve`, { method: "POST" }),
+    bumped(request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/resolve`, { method: "POST" }), "alerts"),
   adminDismissReport: (id: number | string) =>
-    request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/dismiss`, { method: "POST" }),
+    bumped(request<{ success: boolean; report: AdminReport }>("marketplace", `/admin/reports/${id}/dismiss`, { method: "POST" }), "alerts"),
   // v1.0.90 — marketplace-wide orders list for the admin drawer's Orders
   // tile (plugin v3.7.117 /admin/orders).
   adminListOrders: (query?: { range?: "7d" | "30d" | "all"; page?: number; per_page?: number }) =>
@@ -520,23 +549,23 @@ export const nest = {
   adminListSellerApplications: (query?: { status?: "pending" | "approved" | "rejected"; page?: number; per_page?: number }) =>
     request<AdminSellerApplicationList>("marketplace", "/admin/seller-applications", { query }),
   adminApproveSellerApplication: (id: number | string) =>
-    request<AdminSellerApplication>("marketplace", `/admin/seller-applications/${id}/approve`, { method: "POST" }),
+    bumped(request<AdminSellerApplication>("marketplace", `/admin/seller-applications/${id}/approve`, { method: "POST" }), "sellers", "alerts"),
   adminRejectSellerApplication: (id: number | string, payload: { reason?: string; can_resubmit?: boolean }) =>
-    request<AdminSellerApplication>("marketplace", `/admin/seller-applications/${id}/reject`, { method: "POST", body: payload }),
+    bumped(request<AdminSellerApplication>("marketplace", `/admin/seller-applications/${id}/reject`, { method: "POST", body: payload }), "sellers", "alerts"),
   adminListRefunds: (query?: { status?: "requested" | "approved" | "processing" | "completed" | "denied" | "open" | "all"; page?: number; per_page?: number }) =>
     request<AdminRefundList>("marketplace", "/admin/refunds", { query }),
   adminProcessRefund: (orderId: number | string, payload?: { amount?: number; note?: string }) =>
-    request<unknown>("marketplace", `/admin/orders/${orderId}/refund/process`, { method: "POST", body: payload || {} }),
+    bumped(request<unknown>("marketplace", `/admin/orders/${orderId}/refund/process`, { method: "POST", body: payload || {} }), ...REFUND_TOUCH),
   adminDenyRefund: (orderId: number | string, note?: string) =>
-    request<unknown>("marketplace", `/admin/orders/${orderId}/refund/deny`, { method: "POST", body: { note: note || "" } }),
+    bumped(request<unknown>("marketplace", `/admin/orders/${orderId}/refund/deny`, { method: "POST", body: { note: note || "" } }), "orders", "alerts"),
   adminListPayouts: (query?: { status?: "pending" | "processing" | "requested" | "failed" | "returned" | "paid" | "cancelled" | "all"; page?: number; per_page?: number }) =>
     request<AdminPayoutList>("marketplace", "/admin/payouts", { query }),
   adminProcessPayout: (id: number | string, payload?: { external_id?: string; notes?: string }) =>
-    request<AdminPayout>("marketplace", `/admin/payouts/${id}/process`, { method: "POST", body: payload || {} }),
+    bumped(request<AdminPayout>("marketplace", `/admin/payouts/${id}/process`, { method: "POST", body: payload || {} }), ...PAYOUT_TOUCH),
   adminRetryPayout: (id: number | string) =>
-    request<AdminPayout>("marketplace", `/admin/payouts/${id}/retry`, { method: "POST" }),
+    bumped(request<AdminPayout>("marketplace", `/admin/payouts/${id}/retry`, { method: "POST" }), ...PAYOUT_TOUCH),
   adminCancelPayout: (id: number | string, notes?: string) =>
-    request<AdminPayout>("marketplace", `/admin/payouts/${id}/cancel`, { method: "POST", body: { notes: notes || "" } }),
+    bumped(request<AdminPayout>("marketplace", `/admin/payouts/${id}/cancel`, { method: "POST", body: { notes: notes || "" } }), ...PAYOUT_TOUCH),
 
   // v1.0.192 — reconciliation. Server route was already registered by
   // MNU_Reconciliation; plugin v3.13.55 extends the payload with the
@@ -550,26 +579,26 @@ export const nest = {
   adminListUsers: (query?: { page?: number; per_page?: number; search?: string; status?: AdminUserStatus }) =>
     request<AdminUserList>("marketplace", "/admin/users", { query }),
   adminPromoteUser: (id: number | string) =>
-    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/promote`, { method: "POST" }),
+    bumped(request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/promote`, { method: "POST" }), "sellers", "alerts"),
   adminDemoteUser: (id: number | string) =>
-    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/demote`, { method: "POST" }),
+    bumped(request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/demote`, { method: "POST" }), "sellers", "alerts"),
   adminBanUser: (id: number | string, reason?: string) =>
-    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/ban`, { method: "POST", body: { reason: reason || "" } }),
+    bumped(request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/ban`, { method: "POST", body: { reason: reason || "" } }), "sellers", "products", "alerts"),
   adminUnbanUser: (id: number | string) =>
-    request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/unban`, { method: "POST" }),
+    bumped(request<{ ok: boolean; user: AdminUser }>("marketplace", `/admin/users/${id}/unban`, { method: "POST" }), "sellers", "products", "alerts"),
 
   // v1.0.194 — admin product management. Server routes registered by
   // MNU_Admin_Products (plugin v3.13.58).
   adminListProducts: (query?: { page?: number; per_page?: number; search?: string; status?: AdminProductStatus; featured?: 0 | 1; seller_id?: number }) =>
     request<AdminProductList>("marketplace", "/admin/products", { query }),
   adminProductAction: (id: number | string, action: AdminProductAction) =>
-    request<{ ok: boolean; product: AdminProduct }>("marketplace", `/admin/products/${id}/${action}`, { method: "POST" }),
+    bumped(request<{ ok: boolean; product: AdminProduct }>("marketplace", `/admin/products/${id}/${action}`, { method: "POST" }), ...PRODUCT_TOUCH),
   adminProductsBulk: (action: AdminProductAction, ids: (number | string)[]) =>
     request<{ action: AdminProductAction; total: number; success: number; failed: Array<{ id: number; code: string; message: string }>; ok_ids: number[] }>(
       "marketplace",
       "/admin/products/bulk",
       { method: "POST", body: { action, ids: ids.map(Number) } }
-    ),
+    ).then((v) => { bump(...PRODUCT_TOUCH); return v; }),
 
   // v1.0.195 — admin analytics. Server route from plugin v3.13.59.
   adminAnalytics: (days: number = 30) =>
@@ -579,15 +608,15 @@ export const nest = {
   adminCategoriesList: () =>
     request<AdminCategoryList>("marketplace", "/admin/categories"),
   adminCategoryCreate: (input: { name: string; slug?: string; parent?: number }) =>
-    request<AdminCategory>("marketplace", "/admin/categories", { method: "POST", body: input }),
+    bumped(request<AdminCategory>("marketplace", "/admin/categories", { method: "POST", body: input }), "products"),
   adminCategoryUpdate: (id: number | string, patch: { name?: string; slug?: string; parent?: number }) =>
-    request<AdminCategory>("marketplace", `/admin/categories/${id}`, { method: "PATCH", body: patch }),
+    bumped(request<AdminCategory>("marketplace", `/admin/categories/${id}`, { method: "PATCH", body: patch }), "products"),
   adminCategoryDelete: (id: number | string, reassignTo?: number) =>
     request<{ id: number; deleted: boolean; moved: number }>(
       "marketplace",
       `/admin/categories/${id}`,
       { method: "DELETE", query: reassignTo ? { reassign_to: reassignTo } : undefined }
-    ),
+    ).then((v) => { bump("products"); return v; }),
 
   // v1.0.54 - blog post comments (added server-side in MNU 3.7.96)
   getBlogPostComments: (id: number | string, query?: { page?: number; per_page?: number }) =>
@@ -617,7 +646,7 @@ export const nest = {
       "blogComments",
     ),
   deleteBlogComment: (id: number | string) =>
-    bumped(request<{ success: boolean; id: number }>("marketplace", `/blog/comments/${id}`, { method: "DELETE" }), "blogComments", "blog"),
+    bumped(request<{ success: boolean; id: number }>("marketplace", `/blog/comments/${id}`, { method: "DELETE" }), "blogComments", ...BLOG_TOUCH),
   reportBlogComment: (id: number | string, reason: string, details: string) =>
     request<{ success: boolean; report_id: number }>("marketplace", `/blog/comments/${id}/report`, { method: "POST", body: { reason, details } }),
   // v1.0.55 — blog post favorites (added server-side in MNU 3.7.98). Mirrors
@@ -626,9 +655,9 @@ export const nest = {
   listBlogFavorites: () =>
     request<NestBlogFavoritesRaw>("marketplace", "/blog/favorites"),
   toggleBlogFavorite: (post_id: number | string) =>
-    request<NestBlogFavoriteToggleRaw>("marketplace", `/blog/posts/${post_id}/favorite`, { method: "POST" }),
+    bumped(request<NestBlogFavoriteToggleRaw>("marketplace", `/blog/posts/${post_id}/favorite`, { method: "POST" }), "blog"),
   removeBlogFavorite: (post_id: number | string) =>
-    request<NestBlogFavoriteToggleRaw>("marketplace", `/blog/posts/${post_id}/favorite`, { method: "DELETE" }),
+    bumped(request<NestBlogFavoriteToggleRaw>("marketplace", `/blog/posts/${post_id}/favorite`, { method: "DELETE" }), "blog"),
   getBlogFavoritesCount: (post_id: number | string) =>
     request<{ post_id: number; count: number }>("marketplace", `/blog/posts/${post_id}/favorites-count`, { auth: false }),
 
@@ -681,11 +710,11 @@ export const nest = {
   // v3.7.121 (Build #16) — buyer-initiated cancel. 409 means the order is
   // already shipped / paid / closed; 403 means the caller isn't the buyer.
   cancelBuyerOrder: (id: number | string, reason?: string) =>
-    bumped(request<NestOrderRaw>("marketplace", `/orders/${id}/cancel`, { method: "POST", body: reason ? { reason } : {} }), "orders"),
+    bumped(request<NestOrderRaw>("marketplace", `/orders/${id}/cancel`, { method: "POST", body: reason ? { reason } : {} }), ...ORDER_TOUCH),
   getOrderRefund: (id: number | string) =>
     request<NestRefundStatus>("marketplace", `/orders/${id}/refund`),
   requestOrderRefund: (id: number | string, payload: { reason: string; details?: string }) =>
-    bumped(request<NestRefundStatus>("marketplace", `/orders/${id}/refund-request`, { method: "POST", body: payload }), "orders"),
+    bumped(request<NestRefundStatus>("marketplace", `/orders/${id}/refund-request`, { method: "POST", body: payload }), ...REFUND_TOUCH),
 
   // Seller profile (v1.0.52 - shop settings screen for the "Add name"
   // readiness step + future banner/about edits from the app).
@@ -738,16 +767,16 @@ export const nest = {
   getNotifications: (query?: Record<string, unknown>) =>
     request<{ items: NestNotificationRaw[]; total: number; unread?: number }>("marketplace", "/notifications", { query }),
   markNotificationsRead: (ids?: number[]) =>
-    request<{ ok: boolean }>("marketplace", "/notifications/read", { method: "POST", body: { ids: ids || [] } }),
+    bumped(request<{ ok: boolean }>("marketplace", "/notifications/read", { method: "POST", body: { ids: ids || [] } }), "alerts"),
   // v1.0.191 — permanent dismiss. Server route landed in plugin v3.13.55.
   // Empty `ids` is treated as a no-op server-side; to clear everything the
   // caller uses `dismissAllNotifications()` (DELETE /notifications), which
   // is an explicit endpoint so "clear all" can't collide with a bug that
   // sends an empty array.
   dismissNotifications: (ids: number[]) =>
-    request<{ deleted: number }>("marketplace", "/notifications/dismiss", { method: "POST", body: { ids } }),
+    bumped(request<{ deleted: number }>("marketplace", "/notifications/dismiss", { method: "POST", body: { ids } }), "alerts"),
   dismissAllNotifications: () =>
-    request<{ deleted: number }>("marketplace", "/notifications", { method: "DELETE" }),
+    bumped(request<{ deleted: number }>("marketplace", "/notifications", { method: "DELETE" }), "alerts"),
 
   // -------------------------------------------------------------------------
   // Saved searches — the-nest/v1/saved-searches (v3.7.101).
@@ -802,7 +831,9 @@ export const nest = {
           photo_ids: payload.photo_ids && payload.photo_ids.length ? JSON.stringify(payload.photo_ids) : undefined,
         },
       }),
-      "messages",
+      // v1.0.257 — sender's message list flips (last message / unread
+      // becomes read on echo); recipient gets a notification.
+      ...MESSAGE_TOUCH,
     ),
   // v3.7.86 — upload a single photo for a DM thread. FormData must carry
   // `file` (blob) and `recipient_id` (string). Server returns an attachment
@@ -903,7 +934,7 @@ export const nest = {
 
   // Seller order fulfillment — PUT the-nest/v1/seller/orders/{id}.
   updateSellerOrder: (id: number | string, payload: { status: string; tracking_number?: string }) =>
-    bumped(request<NestSellerOrderRaw>("marketplace", `/seller/orders/${id}`, { method: "PUT", body: payload }), "orders"),
+    bumped(request<NestSellerOrderRaw>("marketplace", `/seller/orders/${id}`, { method: "PUT", body: payload }), ...ORDER_TOUCH, "messages"),
 
   // -------------------------------------------------------------------------
   // Shippo shipping labels (nest-labels/v1) — seller buys a real label and
@@ -1070,8 +1101,10 @@ export const nest = {
   completeCheckout: (payload: { order_id: number; payment_intent_id: string }) =>
     bumped(
       request<{ ok: boolean; status?: string; order_id: number; payment_status?: string }>("checkout", "/checkout/complete", { method: "POST", body: payload }),
-      "orders",
-      "cart",
+      // v1.0.257 — order placement decrements stock (invalidate products +
+      // seller product_count/soldout badges), clears server cart (invalidate
+      // cart), and posts a buyer + seller notification (invalidate alerts).
+      ...ORDER_TOUCH,
     ),
 
   // v3.7.119 (Build #8) — save attributes + per-variation price/stock for a product.
@@ -1082,29 +1115,29 @@ export const nest = {
       variations: { variation_id?: number; attributes: Record<string, string>; price: number; stock: number; sku?: string }[];
     }
   ) =>
-    request<{ attributes: NestProductAttributeRaw[]; variations: NestProductVariationRaw[]; warnings?: string[] }>(
+    bumped(request<{ attributes: NestProductAttributeRaw[]; variations: NestProductVariationRaw[]; warnings?: string[] }>(
       "marketplace",
       `/seller/products/${productId}/variations`,
       { method: "PUT", body: payload }
-    ),
+    ), "products", "sellers"),
 
   // v3.7.119 (Build #10) — coupons.
   listSellerCoupons: () =>
     request<{ items: NestCoupon[] }>("marketplace", "/seller/coupons"),
   createSellerCoupon: (payload: NestCouponWritePayload) =>
-    request<NestCoupon>("marketplace", "/seller/coupons", { method: "POST", body: payload }),
+    bumped(request<NestCoupon>("marketplace", "/seller/coupons", { method: "POST", body: payload }), "products"),
   updateSellerCoupon: (id: number, payload: NestCouponWritePayload) =>
-    request<NestCoupon>("marketplace", `/seller/coupons/${id}`, { method: "PUT", body: payload }),
+    bumped(request<NestCoupon>("marketplace", `/seller/coupons/${id}`, { method: "PUT", body: payload }), "products"),
   deleteSellerCoupon: (id: number) =>
-    request<{ success: boolean }>("marketplace", `/seller/coupons/${id}`, { method: "DELETE" }),
+    bumped(request<{ success: boolean }>("marketplace", `/seller/coupons/${id}`, { method: "DELETE" }), "products"),
   listAdminCoupons: () =>
     request<{ items: NestCoupon[] }>("marketplace", "/admin/coupons"),
   createAdminCoupon: (payload: NestCouponWritePayload) =>
-    request<NestCoupon>("marketplace", "/admin/coupons", { method: "POST", body: payload }),
+    bumped(request<NestCoupon>("marketplace", "/admin/coupons", { method: "POST", body: payload }), "products"),
   updateAdminCoupon: (id: number, payload: NestCouponWritePayload) =>
-    request<NestCoupon>("marketplace", `/admin/coupons/${id}`, { method: "PUT", body: payload }),
+    bumped(request<NestCoupon>("marketplace", `/admin/coupons/${id}`, { method: "PUT", body: payload }), "products"),
   deleteAdminCoupon: (id: number) =>
-    request<{ success: boolean }>("marketplace", `/admin/coupons/${id}`, { method: "DELETE" }),
+    bumped(request<{ success: boolean }>("marketplace", `/admin/coupons/${id}`, { method: "DELETE" }), "products"),
   applyCoupon: (code: string, items: { product_id: number; quantity: number; variation_id?: number }[]) =>
     request<{ coupon: NestCoupon; subtotal: number; eligible: number; discount: number; free_shipping: boolean; stackable: boolean }>(
       "marketplace",
@@ -1144,6 +1177,8 @@ export const nest = {
     // profile shows aggregate rating.
     "products",
     "sellers",
+    // v1.0.257 — seller receives a notification.
+    "alerts",
   ),
   submitReviewResponse: (productId: number, reviewId: number, response: string) =>
     bumped(
@@ -1152,6 +1187,8 @@ export const nest = {
         body: { response },
       }),
       "reviews",
+      // v1.0.257 — buyer receives a notification.
+      "alerts",
     ),
   uploadReviewPhoto: (formData: FormData) =>
     request<{ id: number; url: string; thumbnail: string; mime_type: string }>("marketplace", "/media", {
@@ -1179,9 +1216,9 @@ export const nest = {
     // Favorites
     listFavorites: () => request<NestFavoritesRaw>("trust", "/favorites"),
     toggleFavorite: (product_id: number | string) =>
-      request<NestFavoriteToggleRaw>("trust", "/favorites", { method: "POST", body: { product_id: Number(product_id) } }),
+      bumped(request<NestFavoriteToggleRaw>("trust", "/favorites", { method: "POST", body: { product_id: Number(product_id) } }), "products"),
     removeFavorite: (product_id: number | string) =>
-      request<NestFavoriteToggleRaw>("trust", `/favorites/${product_id}`, { method: "DELETE" }),
+      bumped(request<NestFavoriteToggleRaw>("trust", `/favorites/${product_id}`, { method: "DELETE" }), "products"),
     getFavoritesCount: (product_id: number | string) =>
       request<{ product_id: number; count: number }>("trust", `/products/${product_id}/favorites-count`, { auth: false }),
 
@@ -1200,17 +1237,17 @@ export const nest = {
       description: string;
       contacted_seller_at?: string;
       evidence?: string[];
-    }) => request<{ dispute: NestDisputeRaw; warning: string | null }>("trust", "/disputes", { method: "POST", body: payload }),
+    }) => bumped(request<{ dispute: NestDisputeRaw; warning: string | null }>("trust", "/disputes", { method: "POST", body: payload }), "orders", "alerts"),
     listDisputes: (query?: { status?: string }) => request<NestDisputeListRaw>("trust", "/disputes", { query }),
     getDispute: (id: number | string) => request<NestDisputeRaw>("trust", `/disputes/${id}`),
     updateDispute: (id: number | string, payload: { resolution_note?: string; status?: string; refund_amount?: number }) =>
-      request<NestDisputeRaw>("trust", `/disputes/${id}`, { method: "PUT", body: payload }),
+      bumped(request<NestDisputeRaw>("trust", `/disputes/${id}`, { method: "PUT", body: payload }), "orders", "alerts"),
     escalateDispute: (id: number | string) =>
-      request<NestDisputeRaw>("trust", `/disputes/${id}/escalate`, { method: "POST" }),
+      bumped(request<NestDisputeRaw>("trust", `/disputes/${id}/escalate`, { method: "POST" }), "orders", "alerts"),
 
     // Boosts
     createBoost: (payload: { product_id: number; tier: string }) =>
-      request<NestBoostRaw>("trust", "/boosts", { method: "POST", body: payload }),
+      bumped(request<NestBoostRaw>("trust", "/boosts", { method: "POST", body: payload }), ...PRODUCT_TOUCH),
   },
 
   // -------------------------------------------------------------------------
@@ -1228,22 +1265,32 @@ export const nest = {
       budget_cents?: number;
       quantity?: number;
       reference_photo_ids?: number[];
-    }) => request<NestCustomRequestRaw>("marketplace", "/custom-requests", { method: "POST", body: payload }),
+    }) => bumped(request<NestCustomRequestRaw>("marketplace", "/custom-requests", { method: "POST", body: payload }), ...MESSAGE_TOUCH),
     listRequests: (query?: { role?: "buyer" | "seller"; status?: string; page?: number; per_page?: number }) =>
       request<NestCustomRequestListRaw>("marketplace", "/custom-requests", { query }),
     getRequest: (id: number | string) =>
       request<NestCustomRequestDetailRaw>("marketplace", `/custom-requests/${id}`),
     postMessage: (id: number | string, payload: { body: string; photo_attachments?: number[] }) =>
-      request<NestCustomRequestMessageRaw>("marketplace", `/custom-requests/${id}/messages`, { method: "POST", body: payload }),
+      bumped(request<NestCustomRequestMessageRaw>("marketplace", `/custom-requests/${id}/messages`, { method: "POST", body: payload }), ...MESSAGE_TOUCH),
     postQuote: (id: number | string, payload: { price_cents: number; lead_days: number; note?: string }) =>
-      request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/quote`, { method: "POST", body: payload }),
+      bumped(request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/quote`, { method: "POST", body: payload }), ...MESSAGE_TOUCH),
     acceptQuote: (id: number | string) =>
-      request<NestCustomRequestAcceptRaw>("marketplace", `/custom-requests/${id}/accept`, { method: "POST" }),
+      bumped(request<NestCustomRequestAcceptRaw>("marketplace", `/custom-requests/${id}/accept`, { method: "POST" }), ...MESSAGE_TOUCH, ...ORDER_TOUCH),
     declineRequest: (id: number | string, reason?: string) =>
-      request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/decline`, { method: "POST", body: { reason } }),
+      bumped(request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/decline`, { method: "POST", body: { reason } }), ...MESSAGE_TOUCH),
     withdrawRequest: (id: number | string) =>
-      request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/withdraw`, { method: "POST" }),
+      bumped(request<NestCustomRequestRaw>("marketplace", `/custom-requests/${id}/withdraw`, { method: "POST" }), ...MESSAGE_TOUCH),
   },
+
+  // v1.0.257 — escape hatch for callers that already know an order-shaped
+  // event just happened (e.g. Stripe webhook echo, deep-link return from
+  // an off-app payment) but didn't route through one of the wrapped
+  // mutations above. Bumps the full ORDER_TOUCH bundle synchronously so
+  // every subscribed screen re-fetches on next focus.
+  touchOrder: () => bump(...ORDER_TOUCH),
+  touchMessages: () => bump(...MESSAGE_TOUCH),
+  touchProducts: () => bump(...PRODUCT_TOUCH),
+  touchBlog: () => bump(...BLOG_TOUCH),
 };
 
 // v1.0.181 — Removed checkoutUrlForCart. It generated a WebView-checkout URL

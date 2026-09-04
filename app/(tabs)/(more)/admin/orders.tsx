@@ -19,6 +19,7 @@ import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { useLatestRequest } from "@/src/hooks/use-latest-request";
 
 type Range = "7d" | "30d" | "all";
@@ -84,6 +85,8 @@ export default function AdminOrders() {
   React.useEffect(() => { load(range); }, [load, range]);
   const refetch = useCallback(() => load(range), [load, range]);
   useAdminFocusRefetch(refetch);
+  const invalidate = useCallback(async () => { await load(range); }, [load, range]);
+  useInvalidateOnFocus(["orders"], invalidate);
 
   if (user?.role !== "admin") {
     return (

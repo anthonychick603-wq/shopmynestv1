@@ -16,6 +16,7 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { RequireAuth } from "@/src/components/RequireAuth";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 const MAX_PHOTOS = 5;
 
@@ -62,6 +63,7 @@ function ProductReviewComposerImpl() {
   }, [initialProductId, orderId]);
 
   useEffect(() => { load(); }, [load]);
+  useInvalidateOnFocus(["orders"], load);
 
   const pickPhotos = async () => {
     // v1.0.241 — wrap the full permission + picker call in try/catch

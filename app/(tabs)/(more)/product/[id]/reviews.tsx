@@ -14,6 +14,7 @@ import { parseServerDate } from "@/src/utils/datetime";
 import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 const PAGE_SIZE = 20;
 
@@ -58,6 +59,8 @@ export default function ProductReviewsScreen() {
     }
   }, [id, begin, isCurrent]);
   useEffect(() => { load(1); }, [load]);
+  const invalidate = useCallback(async () => { await load(1); }, [load]);
+  useInvalidateOnFocus(["reviews", "products"], invalidate);
 
   const onMore = () => {
     if (loadingMore || loading || page >= totalPages) return;

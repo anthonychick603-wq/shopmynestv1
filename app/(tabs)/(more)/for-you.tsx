@@ -31,6 +31,7 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { useAuth } from "@/src/context/AuthContext";
 import { useFavorites } from "@/src/context/FavoritesContext";
 import { useCart } from "@/src/context/CartContext";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 const PER_PAGE = 20;
 
@@ -98,6 +99,8 @@ export default function ForYouScreen() {
   }, [user, begin, isCurrent]);
 
   useEffect(() => { load(1); }, [load]);
+  const invalidate = useCallback(async () => { await load(1); }, [load]);
+  useInvalidateOnFocus(["products"], invalidate);
 
   const onFav = (p: Product) => {
     if (!user) return router.push("/(auth)/login");

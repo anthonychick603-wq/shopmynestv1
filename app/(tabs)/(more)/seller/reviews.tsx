@@ -14,6 +14,7 @@ import { safeBack } from "@/src/utils/nav";
 import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { useLatestRequest } from "@/src/hooks/use-latest-request";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 const PAGE_SIZE = 20;
 
@@ -51,6 +52,8 @@ export default function SellerReviewsInbox() {
     }
   }, [begin, isCurrent]);
   useEffect(() => { load(1); }, [load]);
+  const invalidate = useCallback(async () => { await load(1); }, [load]);
+  useInvalidateOnFocus(["reviews"], invalidate);
 
   if (loading) return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.brand} /></View></SafeAreaView>;
   return <SafeAreaView style={styles.safe} edges={["top"]}>

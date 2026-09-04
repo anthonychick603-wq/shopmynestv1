@@ -19,6 +19,7 @@ import { useBackFallback } from "@/src/context/BackFallback";
 import { haptics } from "@/src/utils/haptics";
 import { parseServerDate } from "@/src/utils/datetime";
 import { RequireAuth } from "@/src/components/RequireAuth";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 type Dialog = "quote" | "decline" | null;
 
@@ -68,6 +69,7 @@ function CustomRequestDetailImpl() {
   useFocusEffect(useCallback(() => {
     void load();
   }, [load]));
+  useInvalidateOnFocus(["messages"], load);
 
   // v1.0.220 — hide bottom Tabs bar while a custom-request thread is
   // focused so the composer input isn't drawn behind the tab bar. Same

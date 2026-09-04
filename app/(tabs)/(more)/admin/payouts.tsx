@@ -29,6 +29,7 @@ import { FilterBar, type FilterChip } from "@/src/components/admin/FilterBar";
 import { InfiniteList, type InfiniteFetcher } from "@/src/components/admin/InfiniteList";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAdminFocusRefetch } from "@/src/hooks/use-admin-focus-refetch";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 import { useLatestRequest } from "@/src/hooks/use-latest-request";
 import { colors, radius, spacing, type as typeTokens } from "@/src/theme";
 import { parseServerDate } from "@/src/utils/datetime";
@@ -70,6 +71,8 @@ export default function AdminPayoutsScreen() {
     setReloadToken((t) => t + 1);
   }, []);
   useAdminFocusRefetch(reload); // v1.0.236 admin console focus refetch
+  const invalidate = useCallback(async () => { reload(); }, [reload]);
+  useInvalidateOnFocus(["orders"], invalidate);
 
   // Fetcher captures the current filter state; changing status/query
   // triggers a reload via reloadToken so the fetcher itself doesn't need

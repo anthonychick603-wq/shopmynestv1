@@ -34,6 +34,7 @@ import { haptics } from "@/src/utils/haptics";
 import { AlertsBellButton } from "@/src/components/AlertsBellButton";
 import { parseServerDate } from "@/src/utils/datetime";
 import { useLatestRequest } from "@/src/hooks/use-latest-request";
+import { useInvalidateOnFocus } from "@/src/state/mutationBus";
 
 // Format a MySQL UTC timestamp as a friendly time-of-day / date line above a
 // message bubble ("Today 3:14 PM", "Yesterday 11:02 AM", "Mar 4 3:14 PM").
@@ -256,6 +257,7 @@ export default function MessageThread() {
   }, [user, otherId, begin, isCurrent]);
 
   useEffect(() => { load(); }, [load]);
+  useInvalidateOnFocus(["messages"], load);
 
   // v1.0.250 — the previous version scheduled a 40ms setTimeout after every
   // messages-length change to call scrollToEnd. On slow devices or when
