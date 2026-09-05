@@ -239,6 +239,28 @@ export default function Browse() {
         ...selectedCategoryIds,
         ...selectedSubcategoryIds,
       ];
+      // v1.0.265 — direct-fetch diagnostic. Bypass the nest.request()
+      // wrapper entirely so we can see the wire-level status, url, and body
+      // length on-device. Confirms whether the request is even reaching the
+      // network or is being served from some layer we haven't found.
+      const directUrl = `https://shopmynest.com/wp-json/the-nest/v1/products?per_page=50&_=${Date.now()}`;
+      const t0 = Date.now();
+      const directRes = await fetch(directUrl, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Cache-Control": "no-cache, no-store",
+          Pragma: "no-cache",
+        },
+        cache: "no-store",
+      } as RequestInit);
+      const directBody = await directRes.text();
+      const elapsed = Date.now() - t0;
+      const parsed = JSON.parse(directBody) as { items?: unknown[]; total?: number; _diag?: unknown };
+      const wireTopKeys = Object.keys(parsed).sort().join(",");
+      const wireDbg = `DIRECT status:${directRes.status} elapsed:${elapsed}ms bodyLen:${directBody.length} keys:${wireTopKeys} count:${parsed.items?.length ?? 0} total:${parsed.total ?? "?"} has_diag:${parsed._diag != null}`;
+      console.log("[browse:DIRECT]", wireDbg);
+      // Also run the normal path so we can compare below.
       const res = await nest.getProducts({
         per_page: 50,
         category: combinedCategoryIds.length > 0 ? combinedCategoryIds.join(",") : undefined,
@@ -264,14 +286,11 @@ export default function Browse() {
       // Any listing the server returns is fair to render; the buyer
       // hits the fresh `/products/{id}` fetch on add-to-cart anyway.
       const items = res.items.map(toProduct);
-      // v1.0.264 — dump the raw response keys and the actual JSON keys we
-      // received. If the app is somehow parsing a stripped body (proxy,
-      // transform, cache), the top-level key set will tell us.
       const resAny = res as unknown as Record<string, unknown>;
       const topKeys = Object.keys(resAny).sort().join(",");
       const diag = resAny._diag as undefined | { viewer: number; auth_via: string; sql_ids: number[]; found_posts: number; per_reason: Record<string, string> };
       const perLines = diag ? Object.entries(diag.per_reason).map(([id, r]) => `  ${id}: ${r}`).join("\n") : "(no _diag)";
-      const dbg = `v264 raw:${res.items.length} mapped:${items.length} total:${res.total} ids:[${items.map((p) => p.id).join(",")}] cat:[${combinedCategoryIds.join(",") || "∅"}]\nkeys:${topKeys}\nviewer:${diag?.viewer ?? "?"} auth:${diag?.auth_via ?? "?"} sql_ids:[${(diag?.sql_ids || []).join(",")}] found:${diag?.found_posts ?? "?"}\n${perLines}`;
+      const dbg = `v265\n${wireDbg}\nNEST raw:${res.items.length} mapped:${items.length} total:${res.total} ids:[${items.map((p) => p.id).join(",")}] cat:[${combinedCategoryIds.join(",") || "∅"}]\nkeys:${topKeys}\nviewer:${diag?.viewer ?? "?"} auth:${diag?.auth_via ?? "?"} sql_ids:[${(diag?.sql_ids || []).join(",")}] found:${diag?.found_posts ?? "?"}\n${perLines}`;
       console.log("[browse:load]", dbg);
       setDebugLine(dbg);
       setItems(items);
@@ -591,7 +610,7 @@ export default function Browse() {
           numColumns={2}
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-          ListHeaderComponent={<>{StickyHeader}<View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}><Text style={{ fontSize: 10, color: "#000", fontFamily: "monospace", backgroundColor: "#ffef99", padding: 6, borderRadius: 4 }} numberOfLines={12}>{debugLine || "v263 (waiting for load…)"}</Text></View></>}
+          ListHeaderComponent={<>{StickyHeader}<View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}><Text style={{ fontSize: 9, color: "#000", fontFamily: "monospace", backgroundColor: "#ffef99", padding: 6, borderRadius: 4 }} numberOfLines={20}>{debugLine || "v265 (waiting for load…)"}</Text></View></>}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refreshAuth().catch(() => {}); load(); }} tintColor={colors.brand} />}
           renderItem={({ item }) => <ProductCard product={item} layout="grid" onAddToCart={() => onAdd(item)} onToggleFavorite={() => onFav(item)} isFavorite={isFavorite(item.id)} />}
           ListEmptyComponent={<EmptyState icon="search-outline" title="No products found" message="Try a different search or category." testID="browse-empty" />}
