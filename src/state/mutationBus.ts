@@ -203,12 +203,20 @@ export function useInvalidateOnFocus(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classes.join("|")]);
 
-  // Subscribe to all classes so re-renders don't drop us.
-  // (These calls are cheap; each subscribes independently.)
-  for (const cls of classes) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useMutationRevision(cls);
-  }
+  // v1.0.266 — Subscribe to all classes with ONE effect (was a for-loop of
+  // useMutationRevision calls, which technically violates rules-of-hooks the
+  // moment a caller starts passing a length-varying classes array). Effect
+  // manages an add/remove pass keyed on the joined class list, and a single
+  // setTick forces a re-render when any subscribed class bumps.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const listener = () => setTick((t) => t + 1);
+    for (const cls of classes) listenersByClass[cls].add(listener);
+    return () => {
+      for (const cls of classes) listenersByClass[cls].delete(listener);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classes.join("|")]);
 
   useFocusEffect(
     useCallback(() => {

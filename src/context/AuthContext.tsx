@@ -4,8 +4,9 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import Constants from "expo-constants";
 
-import { nest, setAuthToken, ApiError } from "@/src/api/nest";
+import { nest, setAuthToken, ApiError, onAuthFailure } from "@/src/api/nest";
 import { toUser } from "@/src/api/adapters";
+import { clearSwrForUser } from "@/src/state/swrCache";
 import type { NestUser } from "@/src/types";
 import type { NestTwoFactorChallenge } from "@/src/api/nest";
 import { colors } from "@/src/theme";
@@ -34,7 +35,7 @@ type AuthContextValue = {
   signupResend: (pendingId: number) => Promise<void>;
   adoptSessionToken: (token: string) => Promise<void>;
   logout: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<{ ok: boolean; error?: string }>;
   updateUser: (u: NestUser) => void;
 };
 
@@ -115,6 +116,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [user]);
 
+  // v1.0.266 — Subscribe to global 401/403 broadcasts from nest.request. Any
+  // auth-required call that fails auth mid-session clears the token and
+  // routes back to (auth)/login so the buyer gets a clear "please sign in"
+  // signal instead of an unrecoverable "Could not load" on every screen.
+  useEffect(() => {
+    if (!user) return undefined;
+    return onAuthFailure(async () => {
+      await setAuthToken(null);
+      setUser(null);
+    });
+  }, [user]);
+
   const value: AuthContextValue = useMemo(
     () => ({
       user,
@@ -169,6 +182,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       },
       async logout() {
+        // v1.0.266 — Snapshot the id BEFORE we clear user; clearSwrForUser
+        // needs it to compute the prefix. Without this, logout leaks the
+        // previous user's Recently Viewed / For-You / abandoned-cart into
+        // the next account on the same device.
+        const priorUserId = user?.id ?? null;
         try {
           await nest.logout();
         } catch {
@@ -176,16 +194,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         await setAuthToken(null);
         setUser(null);
+        await clearSwrForUser(priorUserId);
       },
       async refresh() {
+        // v1.0.266 — Return {ok, error} instead of void so callers can react
+        // to network failures. Previously any non-401 error was swallowed and
+        // pull-to-refresh spinners ended without feedback, hiding staleness
+        // from buyers.
         try {
           const raw = await nest.me();
           setUser(toUser(raw));
+          return { ok: true };
         } catch (e) {
           if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
             await setAuthToken(null);
             setUser(null);
+            return { ok: false, error: "Session expired. Please sign in again." };
           }
+          const msg = e instanceof ApiError
+            ? e.friendly
+            : (e instanceof Error ? e.message : "Could not refresh your account.");
+          return { ok: false, error: msg };
         }
       },
       updateUser(u) {

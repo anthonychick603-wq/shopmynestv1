@@ -42,18 +42,13 @@ export default function Account() {
   // changes reflect immediately without a cold start.
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = async () => {
-    // v1.0.243 — surface refresh failures instead of silently
-    // swallowing them. Previously a pull-to-refresh that failed (offline,
-    // 500, expired token) looked identical to a successful refresh, and
-    // the buyer had no way to tell that their role/approval hadn't
-    // actually re-fetched.
+    // v1.0.243 — surface refresh failures instead of silently swallowing.
+    // v1.0.266 — refresh() now returns {ok, error} instead of throwing.
     setRefreshing(true);
-    try {
-      await refresh();
-    } catch {
-      toast.error("Could not refresh your account. Check your connection and try again.");
-    } finally {
-      setRefreshing(false);
+    const result = await refresh();
+    setRefreshing(false);
+    if (!result.ok) {
+      toast.error(result.error || "Could not refresh your account. Check your connection and try again.");
     }
   };
 

@@ -182,6 +182,11 @@ type ReqOpts = {
   // the `Cache-Control: no-cache` request header, both of which force the
   // edge to bypass its cache on every request. See request() body for the
   // full note.
+  //
+  // v1.0.266 — Kept as an opt-in but intentionally not enabled anywhere. The
+  // v1.0.256 revert history documents that RN Android's `cache: "default"`
+  // behavior with s-maxage responses hung fresh fetches until the 25s abort
+  // timeout. Don't turn this on again without validating on both platforms.
   allowEdgeCache?: boolean;
 };
 
@@ -279,7 +284,16 @@ async function request<T = unknown>(ns: Namespace, path: string, opts: ReqOpts =
       const rawMsg = (typeof bag.message === "string" && bag.message) || (typeof bag.error === "string" && bag.error) || `HTTP ${res.status}`;
       const safeMsg = looksLikeServerDump(String(rawMsg)) ? `HTTP ${res.status}` : rawMsg;
       const errCode = typeof bag.code === "string" ? bag.code : "request_failed";
-      throw new ApiError(safeMsg, res.status, errCode, data);
+      const apiErr = new ApiError(safeMsg, res.status, errCode, data);
+      // v1.0.266 — Global 401/403 broadcast. Auth-required calls that fail
+      // auth notify subscribers so the AuthContext can clear the token and
+      // route to /login even when the failing screen doesn't have its own
+      // 401 handling. Skips endpoints the caller marked `auth: false` (public
+      // reads) so a public 401 doesn't kick a signed-in buyer out.
+      if ((res.status === 401 || res.status === 403) && auth) {
+        authFailureListeners.forEach((fn) => fn(apiErr));
+      }
+      throw apiErr;
     }
     return data as T;
   } catch (e) {
@@ -304,6 +318,18 @@ const networkErrorListeners = new Set<NetworkErrorListener>();
 export function onNetworkError(fn: NetworkErrorListener) {
   networkErrorListeners.add(fn);
   return () => { networkErrorListeners.delete(fn); };
+}
+
+// v1.0.266 — module-level pub/sub for auth failures. Fires only on 401/403
+// responses from endpoints the caller marked `auth: true` (the default).
+// AuthContext subscribes to this so a token expiry mid-session clears the
+// user and routes to /login, instead of leaving every screen in a
+// "Could not load" state.
+type AuthFailureListener = (err: ApiError) => void;
+const authFailureListeners = new Set<AuthFailureListener>();
+export function onAuthFailure(fn: AuthFailureListener) {
+  authFailureListeners.add(fn);
+  return () => { authFailureListeners.delete(fn); };
 }
 
 // ---------------------------------------------------------------------------

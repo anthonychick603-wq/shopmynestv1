@@ -73,8 +73,35 @@ export async function writeSwr<T>(
 }
 
 export async function clearSwrForUser(userId: string | number | null | undefined): Promise<void> {
-  // We don't enumerate; deletion happens naturally as new writes replace
-  // entries and the HARD_STALE_MS ages out orphans. If you want an
-  // explicit \"log out clears everything\" path, add a per-key list here.
-  void userId;
+  // v1.0.266 — Actually purge on logout. Prior version was a no-op which
+  // meant a logout + login-as-different-user on the same device would read
+  // the previous user's cached lists (Recently Viewed, For-You, abandoned
+  // cart) until every screen re-fetched. Enumerate AsyncStorage, find every
+  // key that matches this user's prefix, and delete them in one multiRemove.
+  try {
+    const prefix = `swr:${userId ?? "anon"}:`;
+    const allKeys = await AsyncStorage.getAllKeys();
+    const toRemove = allKeys.filter((k) => k.startsWith(prefix));
+    if (toRemove.length > 0) {
+      await AsyncStorage.multiRemove(toRemove);
+    }
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * v1.0.266 — Nuke every SWR entry across every user. Useful on a hard
+ * account switch or when the schema version bumps mid-session.
+ */
+export async function clearAllSwr(): Promise<void> {
+  try {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const toRemove = allKeys.filter((k) => k.startsWith("swr:"));
+    if (toRemove.length > 0) {
+      await AsyncStorage.multiRemove(toRemove);
+    }
+  } catch {
+    /* best-effort */
+  }
 }
