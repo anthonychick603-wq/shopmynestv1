@@ -248,15 +248,21 @@ export default function Browse() {
         pa_brand: appliedAttrs.brand || undefined,
       });
       if (token !== loadTokenRef.current) return;
-      // v1.0.154 — belt-and-suspenders OOS filter. Older plugin builds could
-      // leak listings whose stock_status stayed 'instock' while stock_quantity
-      // dropped to 0 (seller left manage_stock off). Server-side v3.13.18
-      // catches this, but keep the client filter so older installs behave.
-      const filtered = res.items
-        .map(toProduct)
-        .filter((p) => p.in_stock && p.stock > 0);
-      setItems(filtered);
-      setTotal(res.total || filtered.length);
+      // v1.0.260 — remove the client-side OOS filter. Server (plugin
+      // v3.13.86 running in production) already applies is_out_of_stock()
+      // which handles simple, variable, and no-managed-stock cases via
+      // stock_quantity <= 0 checks (see class-tnm-rest.php:1013-1044).
+      // The client filter was `p.in_stock && p.stock > 0` — but any
+      // product with `stock_quantity: null` (unmanaged stock) adapts to
+      // `stock = Number(null ?? 0) = 0`, so the filter DROPPED the row
+      // even though the server said `stock_status: instock`. That's why
+      // Browse sometimes showed 1 item when the server returned 2.
+      // Any listing the server returns is fair to render; the buyer
+      // hits the fresh `/products/{id}` fetch on add-to-cart anyway.
+      const items = res.items.map(toProduct);
+      if (__DEV__) console.log("[browse:load]", { rawCount: res.items.length, mappedCount: items.length, total: res.total, ids: items.map((p) => p.id), inStock: items.map((p) => p.in_stock), stock: items.map((p) => p.stock) });
+      setItems(items);
+      setTotal(res.total || items.length);
     } catch (e) {
       if (token !== loadTokenRef.current) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load products.");
@@ -567,6 +573,7 @@ export default function Browse() {
         <FlatList
           testID="browse-list"
           data={items}
+          extraData={items.length}
           keyExtractor={(p) => p.id}
           numColumns={2}
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}

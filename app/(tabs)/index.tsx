@@ -120,15 +120,17 @@ export default function Blog() {
   const loadHomeFeed = useCallback(async () => {
     const _tok = homeGate.begin();
     try {
-      // v1.0.157 — request 25 items and enforce in-stock client-side so
-      // Fresh from the Nest is exactly "25 most recent, in stock."
-      // Server (plugin ≥ v3.13.18) already hides OOS, but the client
-      // filter is a belt-and-suspenders for older plugin builds.
+      // v1.0.260 — trust the server. Client filter `p.in_stock && p.stock > 0`
+      // was dropping products with `stock_quantity: null` (unmanaged stock)
+      // because Number(null ?? 0) = 0. Server (plugin v3.13.86) already runs
+      // is_out_of_stock() which handles unmanaged stock, variable products,
+      // and stock_quantity<=0 via a single check. Removing the client filter
+      // fixes the reported "Browse only shows 1 item when server returns 2"
+      // bug and the equivalent Fresh-from-the-Nest silent drop.
       const res = await nest.getHomeFeed({ per_page: 25 });
       if (!homeGate.isCurrent(_tok)) return;
       const items = (res.items || [])
         .map(toProduct)
-        .filter((p) => p.in_stock && p.stock > 0)
         .slice(0, 25);
       setHomeItems(items);
       setHasFollowed(res.has_followed);
@@ -153,9 +155,9 @@ export default function Blog() {
       // v1.0.159 — also filter OOS from Picked for you so the whole home
       // tab is consistent: no home carousel should ever surface a listing
       // the buyer can't add to cart.
+      // v1.0.260 — drop client OOS filter (see loadHomeFeed rationale).
       const items = (res.items || [])
-        .map(feedRowToProduct)
-        .filter((p) => p.in_stock && p.stock > 0);
+        .map(feedRowToProduct);
       const visible = items.length >= 6 ? items : [];
       setForYouItems(visible);
       void writeSwr(user.id, "for_you", { items: visible });
@@ -177,9 +179,9 @@ export default function Blog() {
       // "you viewed this but can't buy it" row is worse than not showing
       // the item at all; when it restocks it will come back into the feed
       // via the same MRU list.
+      // v1.0.260 — drop client OOS filter (see loadHomeFeed rationale).
       const items = (res.items || [])
-        .map(toProduct)
-        .filter((p) => p.in_stock && p.stock > 0);
+        .map(toProduct);
       setRecentlyViewed(items);
       void writeSwr(user.id, "recently_viewed", { items });
     } catch {
