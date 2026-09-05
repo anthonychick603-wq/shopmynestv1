@@ -123,6 +123,10 @@ export default function Browse() {
   const [shops, setShops] = useState<NestSellerListItem[]>([]);
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
+  // v1.0.267 — one-line diagnostic to isolate the "Browse shows 1, server says 3"
+  // mismatch. Records raw items[] length + first 6 IDs from the LAST /products
+  // response BEFORE any adapter or state transform. Remove once resolved.
+  const [rawDiag, setRawDiag] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -259,6 +263,8 @@ export default function Browse() {
       // Browse sometimes showed 1 item when the server returned 2.
       // Any listing the server returns is fair to render; the buyer
       // hits the fresh `/products/{id}` fetch on add-to-cart anyway.
+      const rawIds = (res.items || []).map((it) => it?.id).filter((v) => v != null).slice(0, 6);
+      setRawDiag(`raw=${(res.items || []).length} total=${res.total ?? "?"} ids=[${rawIds.join(",")}]`);
       const items = res.items.map(toProduct);
       setItems(items);
       setTotal(res.total || items.length);
@@ -533,7 +539,10 @@ export default function Browse() {
       ) : null}
 
       <View style={styles.controlsRow}>
-        <Text style={styles.count}>{total} items</Text>
+        <View>
+          <Text style={styles.count}>{total} items</Text>
+          {rawDiag ? <Text style={{ fontSize: 10, color: colors.onSurfaceMuted, marginTop: 2 }}>{rawDiag}</Text> : null}
+        </View>
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           {hasAnyCriteria ? (
             <TouchableOpacity style={[styles.controlBtn, styles.saveAlertBtn]} onPress={onSaveAlert} disabled={savingAlert} testID="btn-save-alert" accessibilityRole="button" accessibilityLabel={savingAlert ? "Saving alert" : "Save search as alert"}>
