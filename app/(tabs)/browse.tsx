@@ -264,9 +264,14 @@ export default function Browse() {
       // Any listing the server returns is fair to render; the buyer
       // hits the fresh `/products/{id}` fetch on add-to-cart anyway.
       const items = res.items.map(toProduct);
-      const diag = (res as unknown as { _diag?: { viewer: number; auth_via: string; sql_ids: number[]; found_posts: number; per_reason: Record<string, string> } })._diag;
+      // v1.0.264 — dump the raw response keys and the actual JSON keys we
+      // received. If the app is somehow parsing a stripped body (proxy,
+      // transform, cache), the top-level key set will tell us.
+      const resAny = res as unknown as Record<string, unknown>;
+      const topKeys = Object.keys(resAny).sort().join(",");
+      const diag = resAny._diag as undefined | { viewer: number; auth_via: string; sql_ids: number[]; found_posts: number; per_reason: Record<string, string> };
       const perLines = diag ? Object.entries(diag.per_reason).map(([id, r]) => `  ${id}: ${r}`).join("\n") : "(no _diag)";
-      const dbg = `v263 raw:${res.items.length} mapped:${items.length} total:${res.total} ids:[${items.map((p) => p.id).join(",")}] cat:[${combinedCategoryIds.join(",") || "∅"}]\nviewer:${diag?.viewer ?? "?"} auth:${diag?.auth_via ?? "?"} sql_ids:[${(diag?.sql_ids || []).join(",")}] found:${diag?.found_posts ?? "?"}\n${perLines}`;
+      const dbg = `v264 raw:${res.items.length} mapped:${items.length} total:${res.total} ids:[${items.map((p) => p.id).join(",")}] cat:[${combinedCategoryIds.join(",") || "∅"}]\nkeys:${topKeys}\nviewer:${diag?.viewer ?? "?"} auth:${diag?.auth_via ?? "?"} sql_ids:[${(diag?.sql_ids || []).join(",")}] found:${diag?.found_posts ?? "?"}\n${perLines}`;
       console.log("[browse:load]", dbg);
       setDebugLine(dbg);
       setItems(items);
