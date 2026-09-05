@@ -123,6 +123,10 @@ export default function Browse() {
   const [shops, setShops] = useState<NestSellerListItem[]>([]);
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
+  // v1.0.261 — on-device debug line for the products fetch. Rendered below
+  // the sticky header so we can see exactly what the app received without
+  // needing adb logcat. Cheap and removable once the mystery is solved.
+  const [debugLine, setDebugLine] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -260,7 +264,9 @@ export default function Browse() {
       // Any listing the server returns is fair to render; the buyer
       // hits the fresh `/products/{id}` fetch on add-to-cart anyway.
       const items = res.items.map(toProduct);
-      if (__DEV__) console.log("[browse:load]", { rawCount: res.items.length, mappedCount: items.length, total: res.total, ids: items.map((p) => p.id), inStock: items.map((p) => p.in_stock), stock: items.map((p) => p.stock) });
+      const dbg = `raw:${res.items.length} mapped:${items.length} total:${res.total} ids:[${items.map((p) => p.id).join(",")}] cat:[${combinedCategoryIds.join(",") || "∅"}] q:"${submitted || "∅"}"`;
+      if (__DEV__) console.log("[browse:load]", dbg);
+      setDebugLine(dbg);
       setItems(items);
       setTotal(res.total || items.length);
     } catch (e) {
@@ -578,7 +584,7 @@ export default function Browse() {
           numColumns={2}
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-          ListHeaderComponent={StickyHeader}
+          ListHeaderComponent={<>{StickyHeader}{__DEV__ && debugLine ? (<View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}><Text style={{ fontSize: 10, color: colors.onSurface, fontFamily: "monospace", backgroundColor: "#ffef99", padding: 6, borderRadius: 4 }} numberOfLines={3}>{debugLine}</Text></View>) : null}</>}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refreshAuth().catch(() => {}); load(); }} tintColor={colors.brand} />}
           renderItem={({ item }) => <ProductCard product={item} layout="grid" onAddToCart={() => onAdd(item)} onToggleFavorite={() => onFav(item)} isFavorite={isFavorite(item.id)} />}
           ListEmptyComponent={<EmptyState icon="search-outline" title="No products found" message="Try a different search or category." testID="browse-empty" />}
