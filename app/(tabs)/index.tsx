@@ -97,19 +97,35 @@ export default function Blog() {
     }
   };
 
-  // v1.0.242 — useLatestRequest gates all home-tab async work so fast
+  // v1.0.242 — useLatestRequest gates each home-tab async pipeline so fast
   // navigations and back-to-back refreshes can't commit stale state.
-  const { begin, isCurrent } = useLatestRequest();
+  //
+  // v1.0.259 — CRITICAL FIX: previously a SINGLE useLatestRequest was
+  // shared across four independent concurrent pipelines (blog, home
+  // widget, for-you, recently-viewed). Each one called `begin()`
+  // synchronously at the top, bumping the shared counter and
+  // invalidating the sibling tokens. Only the LAST caller's token
+  // survived, so three of the four post-await state setters were
+  // ALWAYS skipped on cold install (when SWR cache is empty and
+  // there's no fallback paint). That's why fresh v1.0.257 installs saw
+  // an empty blog with only skeleton — the blog `setPosts` was
+  // skipped by isCurrent guard. Now each fetch owns its own counter,
+  // and the guard only fires when the SAME fetch is superseded by a
+  // newer call to the SAME fetch (which is what we want).
+  const blogGate = useLatestRequest();
+  const homeGate = useLatestRequest();
+  const forYouGate = useLatestRequest();
+  const recentsGate = useLatestRequest();
 
   const loadHomeFeed = useCallback(async () => {
-    const _tok = begin();
+    const _tok = homeGate.begin();
     try {
       // v1.0.157 — request 25 items and enforce in-stock client-side so
       // Fresh from the Nest is exactly "25 most recent, in stock."
       // Server (plugin ≥ v3.13.18) already hides OOS, but the client
       // filter is a belt-and-suspenders for older plugin builds.
       const res = await nest.getHomeFeed({ per_page: 25 });
-      if (!isCurrent(_tok)) return;
+      if (!homeGate.isCurrent(_tok)) return;
       const items = (res.items || [])
         .map(toProduct)
         .filter((p) => p.in_stock && p.stock > 0)
@@ -121,7 +137,7 @@ export default function Blog() {
     } catch {
       // Non-fatal; home feed just stays empty.
     }
-  }, [begin, isCurrent, user]);
+  }, [homeGate, user]);
 
   // v1.0.132 — Personalized ranker: recency + favorites + follows + badge +
   // sales + boost. We only show the row when the user is signed in AND the
@@ -130,10 +146,10 @@ export default function Blog() {
   // Nest", so gating on a full row keeps the home tab from repeating itself.
   const loadForYouFeed = useCallback(async () => {
     if (!user) { setForYouItems([]); return; }
-    const _tok = begin();
+    const _tok = forYouGate.begin();
     try {
       const res = await nest.trust.getPersonalizedFeed({ per_page: 12 });
-      if (!isCurrent(_tok)) return;
+      if (!forYouGate.isCurrent(_tok)) return;
       // v1.0.159 — also filter OOS from Picked for you so the whole home
       // tab is consistent: no home carousel should ever surface a listing
       // the buyer can't add to cart.
@@ -144,19 +160,19 @@ export default function Blog() {
       setForYouItems(visible);
       void writeSwr(user.id, "for_you", { items: visible });
     } catch {
-      if (!isCurrent(_tok)) return;
+      if (!forYouGate.isCurrent(_tok)) return;
       setForYouItems([]);
     }
-  }, [user, begin, isCurrent]);
+  }, [user, forYouGate]);
 
   // v1.0.94 (Build #18a) — recently viewed for the signed-in buyer. Silent
   // failure keeps the row simply absent, so no error UI on the home tab.
   const loadRecentlyViewed = useCallback(async () => {
     if (!user) { setRecentlyViewed([]); return; }
-    const _tok = begin();
+    const _tok = recentsGate.begin();
     try {
       const res = await nest.getRecentlyViewed(12);
-      if (!isCurrent(_tok)) return;
+      if (!recentsGate.isCurrent(_tok)) return;
       // v1.0.159 — hide out-of-stock items from Keep browsing. A greyed-out
       // "you viewed this but can't buy it" row is worse than not showing
       // the item at all; when it restocks it will come back into the feed
@@ -167,13 +183,18 @@ export default function Blog() {
       setRecentlyViewed(items);
       void writeSwr(user.id, "recently_viewed", { items });
     } catch {
-      if (!isCurrent(_tok)) return;
+      if (!recentsGate.isCurrent(_tok)) return;
       setRecentlyViewed([]);
     }
-  }, [user, begin, isCurrent]);
+  }, [user, recentsGate]);
 
   const load = useCallback(async (nextPage = 1) => {
-    const _tok = begin();
+    // v1.0.259 — use the dedicated blogGate rather than the removed shared
+    // `begin`/`isCurrent`. This token now guards ONLY the blog fetch (and
+    // the ancillary outer flags like refreshing/loading which are also
+    // tied to "is this the current blog load"). Widget invalidation is
+    // handled inside each widget loader with its own gate.
+    const _tok = blogGate.begin();
     setError(null);
     try {
       // v1.0.253 — truly independent fetch fan-out on page 1. Each of the
@@ -199,7 +220,7 @@ export default function Blog() {
           try {
             const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
             mark("blog", bStart);
-            if (!isCurrent(_tok)) return;
+            if (!blogGate.isCurrent(_tok)) return;
             const items = (res.items || []).map(toBlogPost);
             setPosts(items);
             setPage(res.page ?? nextPage);
@@ -208,7 +229,7 @@ export default function Blog() {
             void writeSwr(user?.id, "blog_page1", { items, page: res.page ?? 1, total_pages: res.total_pages ?? 1 });
           } catch (e) {
             mark("blog(err)", bStart);
-            if (!isCurrent(_tok)) return;
+            if (!blogGate.isCurrent(_tok)) return;
             setError(e instanceof ApiError ? e.friendly : "Could not load the blog.");
           } finally {
             // v1.0.258 — always clear blogLoading, even for a superseded
@@ -249,7 +270,7 @@ export default function Blog() {
         // (it swallows errors above), so Promise.race here is effectively
         // "first to settle".
         void Promise.race(widgetPromises).then(() => {
-          if (!isCurrent(_tok)) return;
+          if (!blogGate.isCurrent(_tok)) return;
           setLoading(false);
           setRefreshing(false);
         });
@@ -267,7 +288,7 @@ export default function Blog() {
       } else {
         setBlogLoading(true);
         const res = await nest.getBlogPosts({ page: nextPage, per_page: PER_PAGE });
-        if (!isCurrent(_tok)) return;
+        if (!blogGate.isCurrent(_tok)) return;
         const items = (res.items || []).map(toBlogPost);
         setPosts((prev) => [...prev, ...items]);
         setPage(res.page ?? nextPage);
@@ -276,7 +297,7 @@ export default function Blog() {
     } catch (e) {
       // Only page 2+ reaches here now; page 1 handles its own errors inside
       // the fan-out above.
-      if (!isCurrent(_tok)) return;
+      if (!blogGate.isCurrent(_tok)) return;
       setError(e instanceof ApiError ? e.friendly : "Could not load the blog.");
     } finally {
       // v1.0.253 — loading + refreshing now clear on the first widget race
@@ -286,16 +307,18 @@ export default function Blog() {
       // suspenders clear setLoading / setRefreshing in case the caller
       // set them (e.g. mount effect never fires setRefreshing but a stale
       // refresh path might). Idempotent setState calls are cheap.
-      if (isCurrent(_tok)) {
-        setLoadingMore(false);
-        if (nextPage !== 1) {
-          setLoading(false);
-          setRefreshing(false);
-          setBlogLoading(false);
-        }
+      //
+      // v1.0.259 — always clear these flags on page 2+; the token guard
+      // prevented recovery when a superseded page-2 load left blogLoading
+      // stuck true (same bug pattern as v1.0.258's blog page-1 fix).
+      setLoadingMore(false);
+      if (nextPage !== 1) {
+        setLoading(false);
+        setRefreshing(false);
+        setBlogLoading(false);
       }
     }
-  }, [loadHomeFeed, loadRecentlyViewed, loadForYouFeed, begin, isCurrent]);
+  }, [loadHomeFeed, loadRecentlyViewed, loadForYouFeed, blogGate]);
 
   // v1.0.166 — Vinted-style state preservation. Load the home feed once
   // on mount; do NOT reload on every focus. Returning to Home from a
