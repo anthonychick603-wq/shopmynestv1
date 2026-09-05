@@ -264,8 +264,8 @@ export default function Browse() {
       // Any listing the server returns is fair to render; the buyer
       // hits the fresh `/products/{id}` fetch on add-to-cart anyway.
       const items = res.items.map(toProduct);
-      const dbg = `raw:${res.items.length} mapped:${items.length} total:${res.total} ids:[${items.map((p) => p.id).join(",")}] cat:[${combinedCategoryIds.join(",") || "∅"}] q:"${submitted || "∅"}"`;
-      if (__DEV__) console.log("[browse:load]", dbg);
+      const dbg = `v262 raw:${res.items.length} mapped:${items.length} total:${res.total} ids:[${items.map((p) => p.id).join(",")}] cat:[${combinedCategoryIds.join(",") || "∅"}] q:"${submitted || "∅"}"`;
+      console.log("[browse:load]", dbg);
       setDebugLine(dbg);
       setItems(items);
       setTotal(res.total || items.length);
@@ -584,7 +584,7 @@ export default function Browse() {
           numColumns={2}
           columnWrapperStyle={{ gap: spacing.md, paddingHorizontal: spacing.lg }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-          ListHeaderComponent={<>{StickyHeader}{__DEV__ && debugLine ? (<View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}><Text style={{ fontSize: 10, color: colors.onSurface, fontFamily: "monospace", backgroundColor: "#ffef99", padding: 6, borderRadius: 4 }} numberOfLines={3}>{debugLine}</Text></View>) : null}</>}
+          ListHeaderComponent={<>{StickyHeader}<View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}><Text style={{ fontSize: 10, color: "#000", fontFamily: "monospace", backgroundColor: "#ffef99", padding: 6, borderRadius: 4 }} numberOfLines={4}>{debugLine || "v262 (waiting for load…)"}</Text></View></>}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); refreshAuth().catch(() => {}); load(); }} tintColor={colors.brand} />}
           renderItem={({ item }) => <ProductCard product={item} layout="grid" onAddToCart={() => onAdd(item)} onToggleFavorite={() => onFav(item)} isFavorite={isFavorite(item.id)} />}
           ListEmptyComponent={<EmptyState icon="search-outline" title="No products found" message="Try a different search or category." testID="browse-empty" />}
